@@ -12,8 +12,8 @@
 //! There is no OS permission to ask for: access is always granted.
 
 use crate::calendar::{
-    AccessKind, AccessState, CalendarEvent, CalendarSource, CreateEventInput, CreateReminderInput,
-    ReminderItem, ReminderList,
+    CalendarEvent, CalendarSource, CreateEventInput, CreateReminderInput, ReminderItem,
+    ReminderList,
 };
 use crate::error::PlatformError;
 use crate::ics::{Roots, Store};
@@ -42,14 +42,6 @@ fn now_ms() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
-}
-
-pub fn access_status(_kind: AccessKind) -> Result<AccessState, PlatformError> {
-    Ok(AccessState::Granted)
-}
-
-pub fn request_access(_kind: AccessKind) -> Result<AccessState, PlatformError> {
-    Ok(AccessState::Granted)
 }
 
 pub fn list_calendars() -> Result<Vec<CalendarSource>, PlatformError> {

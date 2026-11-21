@@ -23,10 +23,9 @@ pub struct OnboardingState {
     pub current: OnboardingStep,
     pub total: u8,
     pub position: u8, // 1-indexed for display
-    pub is_macos: bool,
 }
 
-pub fn step_order(_is_macos: bool) -> Vec<OnboardingStep> {
+pub fn step_order() -> Vec<OnboardingStep> {
     vec![
         OnboardingStep::Welcome,
         OnboardingStep::SummonSearch,
@@ -43,37 +42,34 @@ pub fn step_order(_is_macos: bool) -> Vec<OnboardingStep> {
     ]
 }
 
-pub fn initial(is_macos: bool) -> OnboardingState {
-    let order = step_order(is_macos);
+pub fn initial() -> OnboardingState {
+    let order = step_order();
     OnboardingState {
         current: order[0],
         total: order.len() as u8,
         position: 1,
-        is_macos,
     }
 }
 
 pub fn advance(state: OnboardingState) -> OnboardingState {
-    let order = step_order(state.is_macos);
+    let order = step_order();
     let idx = order.iter().position(|s| *s == state.current).unwrap_or(0);
     let next_idx = (idx + 1).min(order.len() - 1);
     OnboardingState {
         current: order[next_idx],
         total: order.len() as u8,
         position: (next_idx + 1) as u8,
-        is_macos: state.is_macos,
     }
 }
 
 pub fn go_back(state: OnboardingState) -> OnboardingState {
-    let order = step_order(state.is_macos);
+    let order = step_order();
     let idx = order.iter().position(|s| *s == state.current).unwrap_or(0);
     let prev_idx = idx.saturating_sub(1);
     OnboardingState {
         current: order[prev_idx],
         total: order.len() as u8,
         position: (prev_idx + 1) as u8,
-        is_macos: state.is_macos,
     }
 }
 
@@ -97,19 +93,18 @@ mod tests {
     ];
 
     #[test]
-    fn order_is_platform_uniform() {
-        assert_eq!(step_order(true), EXPECTED.to_vec());
-        assert_eq!(step_order(false), EXPECTED.to_vec());
+    fn order_matches_expected() {
+        assert_eq!(step_order(), EXPECTED.to_vec());
     }
 
     #[test]
     fn order_has_twelve_steps() {
-        assert_eq!(step_order(true).len(), 12);
+        assert_eq!(step_order().len(), 12);
     }
 
     #[test]
     fn ai_setup_precedes_hidden_commands() {
-        let order = step_order(false);
+        let order = step_order();
         let ai = order
             .iter()
             .position(|s| *s == OnboardingStep::AiSetup)
@@ -123,7 +118,7 @@ mod tests {
 
     #[test]
     fn text_expansion_cluster_is_contiguous() {
-        let order = step_order(false);
+        let order = step_order();
         let emoji = order
             .iter()
             .position(|s| *s == OnboardingStep::Emoji)
@@ -137,23 +132,22 @@ mod tests {
 
     #[test]
     fn initial_starts_at_welcome_position_one() {
-        let s = initial(true);
+        let s = initial();
         assert_eq!(s.current, OnboardingStep::Welcome);
         assert_eq!(s.position, 1);
         assert_eq!(s.total, 12);
-        assert!(s.is_macos);
     }
 
     #[test]
     fn advance_moves_one_step() {
-        let s = advance(initial(true));
+        let s = advance(initial());
         assert_eq!(s.current, OnboardingStep::SummonSearch);
         assert_eq!(s.position, 2);
     }
 
     #[test]
     fn advance_at_last_stays_last() {
-        let mut s = initial(false);
+        let mut s = initial();
         for _ in 0..20 {
             s = advance(s);
         }
@@ -163,14 +157,14 @@ mod tests {
 
     #[test]
     fn go_back_at_welcome_stays_welcome() {
-        let s = go_back(initial(true));
+        let s = go_back(initial());
         assert_eq!(s.current, OnboardingStep::Welcome);
         assert_eq!(s.position, 1);
     }
 
     #[test]
     fn go_back_after_advance_returns() {
-        let s = go_back(advance(initial(true)));
+        let s = go_back(advance(initial()));
         assert_eq!(s.current, OnboardingStep::Welcome);
         assert_eq!(s.position, 1);
     }

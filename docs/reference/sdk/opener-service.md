@@ -8,7 +8,7 @@
 - `shell:open-path` for `openPath`
 - `fs:read` for `reveal`
 
-`OpenerService` allows extensions to open URLs, external application deep links, local files and directories, and reveal items inside the operating system's file manager (Finder on macOS, File Explorer on Windows, Nautilus/Dolphin on Linux).
+`OpenerService` allows extensions to open URLs, external application deep links, local files and directories, and reveal items inside the operating system's file manager (Nautilus, Dolphin, etc.).
 
 ```typescript
 export interface OpenPathOptions {
@@ -60,7 +60,7 @@ await opener.openPath('~/Projects/my-app');
 // 4. Open a local file or directory with a specific editor or tool
 await opener.openPath('~/Projects/my-app', { with: 'Zed' });
 
-// 5. Reveal a file in Finder / Explorer (requires fs:read)
+// 5. Reveal a file in the file manager (requires fs:read)
 await opener.reveal('~/Downloads/report.pdf');
 ```
 

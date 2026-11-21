@@ -100,11 +100,9 @@ Both operations are synchronous request/response — no streaming, no callbacks,
 
 #### Cross-platform behavior
 
-| Platform | `showInFileManager`                                                              | `trash`                                               |
-| -------- | -------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| macOS    | `open -R <path>` — opens Finder and selects the item                             | `trash` crate → `NSFileManager.trashItem`             |
-| Windows  | `explorer /select,<path>` — opens Explorer and selects the item                  | `trash` crate → Shell API with `FOFX_RECYCLEONDELETE` |
-| Linux    | `xdg-open <parent_dir>` — opens the parent directory in the default file manager | `trash` crate → freedesktop.org trash spec            |
+| Platform | `showInFileManager`                                                              | `trash`                                    |
+| -------- | -------------------------------------------------------------------------------- | ------------------------------------------ |
+| Linux    | `xdg-open <parent_dir>` — opens the parent directory in the default file manager | `trash` crate → freedesktop.org trash spec |
 
 **Linux note:** Most Linux file managers do not support selecting a specific file via CLI. `showInFileManager` opens the containing folder instead of highlighting the file.
 

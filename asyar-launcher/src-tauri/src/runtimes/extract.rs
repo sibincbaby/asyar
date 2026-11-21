@@ -191,23 +191,6 @@ mod tests {
         );
     }
 
-    #[cfg(windows)]
-    #[test]
-    fn extract_tar_gz_rejects_drive_prefixed_entry_on_windows() {
-        // `C:\evil.txt` has a Prefix component but `is_absolute` alone would
-        // catch it only together with the root — the components guard must
-        // reject any non-Normal component regardless.
-        let archive = make_tar_gz(&[("C:\\evil-drive.txt", b"evil")]);
-        let dest = TempDir::new().unwrap();
-
-        let result = extract_tar_gz(archive.path(), dest.path());
-
-        assert!(
-            result.is_err(),
-            "tar.gz entries with a drive-prefixed path must be rejected"
-        );
-    }
-
     #[cfg(unix)]
     #[test]
     fn extract_tar_gz_rejects_symlink_escape_write_through() {

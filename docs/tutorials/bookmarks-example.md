@@ -9,7 +9,7 @@ A complete production-ready extension demonstrating:
 - A **view command** (open the bookmarks list).
 - A **no-view command** (save today's date as a bookmark).
 - **In-view search** (filter bookmarks as the user types).
-- A **⌘K action** (clear all non-favorite bookmarks).
+- A **Ctrl+K action** (clear all non-favorite bookmarks).
 - **Background feedback** via `FeedbackService`.
 - Svelte 5 Runes throughout.
 
@@ -62,7 +62,7 @@ context.setExtensionId(extensionId);
 // 2. Signal readiness to the host.
 window.parent.postMessage({ type: 'asyar:extension:loaded', extensionId }, '*');
 
-// 3. Forward ⌘K to the host.
+// 3. Forward Ctrl+K to the host.
 window.addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
     event.preventDefault();
@@ -154,7 +154,7 @@ if (viewName === 'BookmarksView') {
       query = q;
     });
 
-    // Register ⌘K action (`extensionId` is optional when using `context.registerAction`)
+    // Register Ctrl+K action (`extensionId` is optional when using `context.registerAction`)
     actionService.registerAction({
       id: ACTION_ID,
       title: 'Clear Non-Favorites',

@@ -6,7 +6,7 @@
 
 If pressing your global hotkey does nothing:
 
-1. **Check that Asyar is running.** Look for the Asyar icon in the menu bar. If it is not there, open Asyar from your Applications folder.
+1. **Check that Asyar is running.** Look for the Asyar icon in your system tray. If it is not there, start Asyar from your application menu or run `asyar` in a terminal.
 
 2. **Verify the hotkey is set.** Open **Settings → Shortcuts** (or **Settings → General → Hotkey**). The recorder should show your current combination. If it is blank, click inside and press your keys again, then save.
 
@@ -30,32 +30,21 @@ If pressing your global hotkey does nothing:
    - **KDE Plasma:** **System Settings** → **Shortcuts** → **Custom Shortcuts** / **Command/URL** → set Command to `asyar-summon`.
      Running `asyar-summon` while the app is active toggles the launcher window instantly over D-Bus.
 
-5. **Check macOS Accessibility permission (macOS only).** Although Accessibility is mainly needed for text expansion, Asyar also needs it for reliable global hotkey registration on some macOS versions. Go to **System Settings → Privacy & Security → Accessibility**, find Asyar in the list, and make sure the toggle is on. Relaunch Asyar after granting access.
+5. **Restart Asyar.** Search for "Quit Asyar" inside the launcher (if you can open it another way), or quit via the system tray icon and reopen Asyar.
 
-6. **Restart Asyar.** Search for "Quit Asyar" inside the launcher (if you can open it another way), or quit via the menu bar / system tray icon and reopen Asyar.
+6. **Restart your computer.** Occasionally a fresh login is needed after changing desktop shortcut settings.
 
-7. **Restart your computer.** Occasionally a fresh login is needed after granting system permissions for the first time.
-
-## Asyar can't see my apps / accessibility
+## Asyar can't see my apps
 
 **Apps are missing from search:**
 
-- Asyar scans `/Applications` and `~/Applications` by default. If your apps live somewhere else, go to **Settings → Applications** and click **Add Directory** to add the folder.
+- Asyar scans the standard `.desktop` entry directories (such as `/usr/share/applications` and `~/.local/share/applications`) by default. If your apps live somewhere else, go to **Settings → Applications** and click **Add Directory** to add the folder.
 - Check that the app's toggle is on in the app list. If you previously disabled an app, its toggle is off.
 - Wait a moment after installing a new app — Asyar watches the scan directories and picks up changes automatically, but it can take a few seconds.
 
-**Accessibility permission not granted (macOS only):**
+**Text expansion isn't working:**
 
-> **Windows and Linux users:** Accessibility permission is a macOS-only requirement. If you are on Windows or Linux and text expansion is not working, skip this section and check that **Settings → Advanced → Text Expansion** is enabled.
-
-On macOS, Asyar needs Accessibility access to paste text snippets and capture selected text. Without it, text expansion and selection-aware AI commands will not work.
-
-1. Open **System Settings → Privacy & Security → Accessibility**.
-2. Find Asyar in the list. If it is not there, drag the Asyar app from your Applications folder into the list.
-3. Enable the toggle next to Asyar.
-4. If Asyar was already in the list but toggled off, toggle it off and back on, then relaunch Asyar.
-
-You can also reach this screen directly from **Settings → General → Re-run onboarding**, which guides you through the accessibility step again.
+Check that **Settings → Advanced → Text Expansion** is enabled. Global text expansion relies on keyboard hooks that Wayland does not allow, so it works on X11 sessions only. To use it, log out and pick an "Xorg" / "X11" session at your login screen.
 
 ## Search feels slow
 
@@ -65,7 +54,7 @@ Asyar's search is designed to be instant. If it feels slow:
 
 - **Too many scan directories.** If you added a very large directory (for example, your entire home folder) in **Settings → Applications**, Asyar may be scanning many files. Remove overly broad directories and add only the specific folders you need.
 
-- **Restart Asyar.** Quit using the "Quit Asyar" command and reopen from Applications.
+- **Restart Asyar.** Quit using the "Quit Asyar" command and reopen it from your application menu.
 
 - **Restart your computer.** A full restart can resolve issues where background indexing stalled.
 

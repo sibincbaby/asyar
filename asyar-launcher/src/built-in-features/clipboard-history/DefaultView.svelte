@@ -21,8 +21,6 @@
   import type { StoredClipboardItem } from '../../lib/ipc/commands';
   import { readFile } from '@tauri-apps/plugin-fs';
   import { revealItemInDir } from '@tauri-apps/plugin-opener';
-  import { openerService } from '../../services/opener/openerService';
-  import { getHostPlatform } from '../../lib/keyboard/hostPlatform';
   import { renderMarkdown, handleMarkdownCopyClick } from '../../utils/markdown';
   import { renderMermaidDiagrams } from '../../utils/mermaid';
   import {
@@ -735,35 +733,9 @@
     }
   }
 
-  async function openPreviewFile(path: string, withPreview: boolean) {
-    try {
-      const options =
-        withPreview && getHostPlatform() === 'macos' ? { with: 'Preview' } : undefined;
-      await openerService.openPath(null, path, options);
-    } catch (error) {
-      logService.error(`Failed to open file ${path}: ${String(error)}`);
-      void feedbackService.report({
-        source: 'frontend',
-        kind: 'manual',
-        severity: 'error',
-        retryable: false,
-        context: { message: t('features.clipboard.ui.open_failed', { path }) },
-      });
-    }
-  }
-
   function getOpenMenuLabel(isImage: boolean): string {
     if (!isImage) return t('actions.open');
-    return getHostPlatform() === 'macos'
-      ? t('features.clipboard.ui.open_in_preview')
-      : t('features.clipboard.ui.open_image');
-  }
-
-  function getRevealMenuLabel(): string {
-    const platform = getHostPlatform();
-    if (platform === 'macos') return t('features.clipboard.ui.reveal_title');
-    if (platform === 'windows') return t('core_actions.reveal_app_win');
-    return t('core_actions.reveal_app');
+    return t('features.clipboard.ui.open_image');
   }
 
   async function openPreviewContextMenu(
@@ -795,7 +767,7 @@
     const menu = previewContextMenu;
     if (!menu) return;
     previewContextMenu = null;
-    await clipboardViewState.openPreviewFile(menu.path, menu.isImage);
+    await clipboardViewState.openPreviewFile(menu.path);
   }
 
   async function handleContextReveal() {
@@ -1158,7 +1130,7 @@
                       <IconButton
                         onclick={() => revealFile(filePath)}
                         title={t('features.clipboard.ui.reveal_title')}
-                        ariaLabel="Reveal in Finder"
+                        ariaLabel={t('features.clipboard.ui.reveal_title')}
                       >
                         <svg
                           class="w-3.5 h-3.5"
@@ -1375,7 +1347,7 @@
             d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
           /></svg
         >
-        <span>{getRevealMenuLabel()}</span>
+        <span>{t('core_actions.reveal_app')}</span>
       </button>
       {#if previewContextMenu.isImage}
         <button

@@ -348,7 +348,7 @@ Queries the launcher's in-memory frecency-ranked search index.
 ```json
 {
   "results": [
-    { "id": "app_com.apple.Finder", "name": "Finder", "type": "application", "score": 42.0 },
+    { "id": "app_org.gnome.Nautilus", "name": "Files", "type": "application", "score": 42.0 },
     { "id": "cmd_builtin_calculator", "name": "Calculator", "type": "command", "score": 18.5 }
   ]
 }

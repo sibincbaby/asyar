@@ -26,8 +26,6 @@
   let iframeElement = $state<HTMLIFrameElement>();
   let fontCSS: Promise<string> | null = null;
 
-  const isWindows = navigator.userAgent.toLowerCase().includes('windows');
-
   function resolveColorScheme(): 'dark' | 'light' {
     const explicit = document.documentElement.dataset.theme;
     if (explicit === 'dark' || explicit === 'light') return explicit;
@@ -35,9 +33,7 @@
   }
 
   let iframeSrc = $derived.by(() => {
-    const base = isWindows
-      ? `http://asyar-extension.localhost/${extensionId}/view.html`
-      : `asyar-extension://${extensionId}/view.html`;
+    const base = `asyar-extension://${extensionId}/view.html`;
     const params = new URLSearchParams();
     if (view) {
       params.set('view', view.split('/')[1] || 'DefaultView');

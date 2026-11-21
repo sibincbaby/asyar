@@ -69,7 +69,7 @@ interface ClipboardItemMetadata {
 }
 
 // Source application info captured at copy time.
-// bundleId is set on macOS; path is set on Windows/Linux (and macOS bundle path).
+// On Linux, path is set; bundleId is not.
 // iconUrl is resolved from the icon cache at capture time — may be absent.
 interface ClipboardSourceApp {
   name: string;

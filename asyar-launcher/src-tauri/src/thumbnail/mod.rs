@@ -10,13 +10,10 @@
 //! `$APPDATA/clipboard_cache/**`, never arbitrary `$HOME` paths) still
 //! works.
 //!
-//! Cross-platform: images are downscaled with the `image` crate. On
-//! macOS, every other previewable type (PDF, video, docs, archives, code)
-//! goes through `qlmanage -t` — the same Quick Look thumbnailing service
-//! Finder itself uses — so no per-type Rust decoder is needed there.
-//! Windows/Linux get image-only thumbnails in this pass; other types fall
-//! back to the frontend's existing type/metadata display (documented
-//! follow-up: native shell thumbnail providers per OS).
+//! Images are downscaled with the `image` crate. Linux gets image-only
+//! thumbnails in this pass; other types fall back to the frontend's
+//! existing type/metadata display (documented follow-up: native thumbnail
+//! providers).
 
 pub mod cache;
 pub mod commands;
@@ -24,15 +21,11 @@ pub mod image_thumb;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
-#[cfg(target_os = "macos")]
-pub mod macos;
-#[cfg(target_os = "windows")]
-pub mod windows;
 
 use std::path::{Path, PathBuf};
 
-/// Caps concurrent thumbnail generations (image decode or `qlmanage`
-/// subprocess) so opening a folder full of never-before-seen large
+/// Caps concurrent thumbnail generations (image decode or
+/// provider subprocess) so opening a folder full of never-before-seen large
 /// files doesn't spawn dozens of decoders/processes at once.
 const MAX_CONCURRENT_GENERATIONS: usize = 3;
 
@@ -122,16 +115,11 @@ async fn write_icon_atomically(cache_dir: &Path, cached: &Path, bytes: Vec<u8>) 
         return true;
     }
 
-    // Windows does not replace an existing destination. A racing writer may
-    // have won between the cache check and rename, which is still success.
+    // A racing writer may have won between the cache check and rename,
+    // which is still success.
     let published = tokio::fs::metadata(cached).await.is_ok();
     let _ = tokio::fs::remove_file(&tmp).await;
     published
-}
-
-#[cfg(not(target_os = "linux"))]
-fn extract_native_icon(path: &Path) -> Option<Vec<u8>> {
-    crate::platform::extract_icon(path)
 }
 
 // Linux `extract_icon` only resolves `.desktop` entries; there's no generic
@@ -142,9 +130,7 @@ fn extract_native_icon(_path: &Path) -> Option<Vec<u8>> {
 }
 
 /// Maps a cached thumbnail path to the URL the webview loads it from —
-/// `http://asyar-thumb.localhost/` on Windows (where custom schemes are
-/// bridged through localhost), `asyar-thumb://localhost/` elsewhere.
-/// Shared by the host preview command and the extension-gated
+/// `asyar-thumb://localhost/`. Shared by the host preview command and the extension-gated
 /// `files_thumbnail` so both hand out identical URLs.
 pub fn thumb_url(cached_path: &Path) -> Result<String, String> {
     let filename = cached_path
@@ -152,9 +138,6 @@ pub fn thumb_url(cached_path: &Path) -> Result<String, String> {
         .map(|n| n.to_string_lossy().into_owned())
         .ok_or_else(|| "generated thumbnail path has no file name".to_string())?;
 
-    #[cfg(target_os = "windows")]
-    return Ok(format!("http://asyar-thumb.localhost/{filename}"));
-    #[cfg(not(target_os = "windows"))]
     Ok(format!("asyar-thumb://localhost/{filename}"))
 }
 
@@ -167,39 +150,11 @@ async fn generate(path: &Path, dest: &Path, max_dim: u32) -> Option<()> {
         if is_image {
             return image_thumb::generate(&path, &dest_owned, max_dim).ok();
         }
-        #[cfg(target_os = "macos")]
-        let result = macos::generate_via_quicklook(&path, &dest_owned, max_dim);
-        #[cfg(target_os = "windows")]
-        let result = windows::generate_via_quicklook(&path, &dest_owned, max_dim);
-        #[cfg(target_os = "linux")]
-        let result = linux::generate_via_quicklook(&path, &dest_owned, max_dim);
-        result.ok()
+        linux::generate_via_quicklook(&path, &dest_owned, max_dim).ok()
     })
     .await
     .ok()
     .flatten()
-}
-
-#[cfg(all(test, target_os = "macos"))]
-mod tests {
-    #[tokio::test]
-    async fn extracts_and_caches_a_png_icon_for_a_plain_file() {
-        let dir = std::env::temp_dir().join(format!("file_icon_test_{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let src = dir.join("note.txt");
-        std::fs::write(&src, "hi").unwrap();
-        let cache = dir.join("cache");
-
-        let cached = super::get_or_extract_icon(&cache, &src)
-            .await
-            .expect("icon");
-        let bytes = std::fs::read(&cached).unwrap();
-        assert_eq!(&bytes[..4], &[0x89, b'P', b'N', b'G']);
-        assert_eq!(super::get_or_extract_icon(&cache, &src).await, Some(cached));
-
-        let _ = std::fs::remove_dir_all(&dir);
-    }
 }
 
 #[cfg(test)]

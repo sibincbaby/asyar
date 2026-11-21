@@ -39,7 +39,7 @@ You can customize the output format by specifying a `format="..."` attribute:
 
 Standard formatting tokens (`YYYY`, `yyyy`, `MMMM`, `MMM`, `MM`, `dd`, `d`, `HH`, `hh`, `mm`, `ss`, `a`, `SSS`, `Z`) as well as native `strftime` patterns (e.g. `%Y-%m-%d`) are supported.
 
-> **Note (macOS only):** Background text expansion requires the macOS Accessibility permission. If you have not granted it yet, Asyar will show a warning banner inside the Snippets view with a button to open System Settings. On Windows and Linux this permission is not required — expansion works without any extra setup.
+> **Note (Linux):** Background text expansion works on X11 sessions. Wayland does not allow global keyboard hooks, so expansion is not available there; you can still browse and paste snippets from the launcher.
 
 ## How to use it
 
@@ -51,42 +51,42 @@ Standard formatting tokens (`YYYY`, `yyyy`, `MMMM`, `MMM`, `MM`, `dd`, `d`, `HH`
 
 **To add a new snippet:**
 
-1. Open the Snippets view and press `⌘N` (or open the action panel with `⌘K` and choose **Add Snippet**).
+1. Open the Snippets view and press `Ctrl+N` (or open the action panel with `Ctrl+K` and choose **Add Snippet**).
 2. Fill in the **Name** (required), an optional **Keyword**, and the **Expansion** text.
 3. To insert a dynamic placeholder, type `{` in the expansion field to open the placeholder picker, or click the `{ }` button next to the field.
-4. Press **Save** (or `⌘S`).
+4. Press **Save** (or `Ctrl+S`).
 
 **To delete a snippet:**
 
 1. Select the snippet in the list.
-2. Press `⌃X` (`Ctrl+X` on Windows/Linux) or open the action panel with `⌘K` and choose **Delete Snippet** — a confirmation dialog appears before the snippet is permanently removed.
+2. Press `Ctrl+X` or open the action panel with `Ctrl+K` and choose **Delete Snippet** — a confirmation dialog appears before the snippet is permanently removed.
 
 ## Shortcuts & actions
 
-| Action                   | How     |
-| ------------------------ | ------- |
-| Paste selected snippet   | `Enter` |
-| Add snippet              | `⌘N`    |
-| Edit snippet             | `⌘E`    |
-| Duplicate snippet        | `⌘D`    |
-| Copy expansion           | `⌘⇧C`   |
-| Pin / Unpin snippet      | `⌘.`    |
-| Delete snippet (confirm) | `⌃X`    |
-| Clear all snippets       | `⌃⇧X`   |
-| Save form                | `⌘S`    |
-| Cancel form              | `Esc`   |
-| Open action panel        | `⌘K`    |
+| Action                   | How            |
+| ------------------------ | -------------- |
+| Paste selected snippet   | `Enter`        |
+| Add snippet              | `Ctrl+N`       |
+| Edit snippet             | `Ctrl+E`       |
+| Duplicate snippet        | `Ctrl+D`       |
+| Copy expansion           | `Ctrl+Shift+C` |
+| Pin / Unpin snippet      | `Ctrl+.`       |
+| Delete snippet (confirm) | `Ctrl+X`       |
+| Clear all snippets       | `Ctrl+Shift+X` |
+| Save form                | `Ctrl+S`       |
+| Cancel form              | `Esc`          |
+| Open action panel        | `Ctrl+K`       |
 
-**Action panel (⌘K) entries while the view is open:**
+**Action panel (Ctrl+K) entries while the view is open:**
 
-- **Add Snippet** (`⌘N`) — open the new-snippet form.
-- **Paste Snippet** (`↵`) — paste the selected snippet's expansion.
-- **Edit Snippet** (`⌘E`) — open the edit form for the selected snippet.
-- **Delete Snippet** (`⌃X`) — delete with confirmation.
-- **Copy Expansion** (`⌘⇧C`) — copy the expansion text to the clipboard without pasting.
-- **Duplicate Snippet** (`⌘D`) — create a copy with an auto-suffixed keyword.
-- **Pin / Unpin Snippet** (`⌘.`) — pin a snippet to the top of the list.
-- **Clear All Snippets** (`⌃⇧X`) — remove every snippet (with confirmation).
+- **Add Snippet** (`Ctrl+N`) — open the new-snippet form.
+- **Paste Snippet** (`Enter`) — paste the selected snippet's expansion.
+- **Edit Snippet** (`Ctrl+E`) — open the edit form for the selected snippet.
+- **Delete Snippet** (`Ctrl+X`) — delete with confirmation.
+- **Copy Expansion** (`Ctrl+Shift+C`) — copy the expansion text to the clipboard without pasting.
+- **Duplicate Snippet** (`Ctrl+D`) — create a copy with an auto-suffixed keyword.
+- **Pin / Unpin Snippet** (`Ctrl+.`) — pin a snippet to the top of the list.
+- **Clear All Snippets** (`Ctrl+Shift+X`) — remove every snippet (with confirmation).
 
 ## Tips
 
@@ -94,7 +94,7 @@ Standard formatting tokens (`YYYY`, `yyyy`, `MMMM`, `MMM`, `MM`, `dd`, `d`, `HH`
 - **No keyword needed** — you can leave the keyword blank and still paste the snippet manually from the launcher view using `Enter`.
 - **Dynamic placeholders** — type `{` in the expansion field while creating or editing to browse all available placeholders. The picker inserts the correct `{token}` syntax for you.
 - **Pinned snippets** — pin frequently used snippets so they always appear at the top of the list regardless of search.
-- **Save from clipboard** — if you see something in Clipboard History that you want to reuse often, use **Save as Snippet** in the clipboard action panel (`⌘K`) to open it pre-filled in the snippet editor.
+- **Save from clipboard** — if you see something in Clipboard History that you want to reuse often, use **Save as Snippet** in the clipboard action panel (`Ctrl+K`) to open it pre-filled in the snippet editor.
 - **Disabling the Snippets UI** — You can turn off the bundled Snippets UI in **Settings → Extensions**. Disabling removes snippet commands, views, and search entries, while the background shortcode expansion engine and Tier 2 snippet contribution APIs (`ISnippetsService`) remain functional.
 
 ## Emoji shortcodes

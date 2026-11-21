@@ -83,7 +83,7 @@ jobs:
           draft: false
           prerelease: ${{ steps.pre.outputs.prerelease }}
           # SDK releases must never become the repo's "latest" release — the
-          # README's macOS download link points at launcher installers, not
+          # README's download link points at launcher installers, not
           # SDK tarballs, so a stable SDK surfacing as latest breaks that link.
           make_latest: false
           generate_release_notes: true

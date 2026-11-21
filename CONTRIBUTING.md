@@ -20,10 +20,7 @@ Thank you for your interest in contributing to Asyar! Whether you're fixing a bu
 - **Node.js**: >= 20
 - **pnpm**: >= 10.26
 - **Rust toolchain**: Latest stable (via `rustup`)
-- **Platform dependencies**:
-  - **macOS**: Xcode Command Line Tools (`xcode-select --install`)
-  - **Linux**: Standard Tauri/WebKitGTK dependencies (`libwebkit2gtk-4.1-dev`, `build-essential`, `libssl-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`)
-  - **Windows**: Visual Studio C++ Build Tools & WebView2
+- **Platform dependencies** (Linux): Standard Tauri/WebKitGTK dependencies (`libwebkit2gtk-4.1-dev`, `build-essential`, `libssl-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`)
 
 ### Initial Setup
 

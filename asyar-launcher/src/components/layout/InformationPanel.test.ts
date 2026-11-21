@@ -10,10 +10,6 @@ vi.mock('../../services/extension/viewManager.svelte', () => ({
   },
 }));
 
-vi.mock('../../lib/keyboard/hostPlatform', () => ({
-  getHostPlatform: () => 'linux',
-}));
-
 describe('InformationPanel', () => {
   it('renders nothing when activeViewManifest is null', () => {
     const { container } = render(InformationPanel, {

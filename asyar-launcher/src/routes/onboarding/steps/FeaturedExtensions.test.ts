@@ -26,7 +26,7 @@ vi.mock('../stepLogic', () => ({
 }));
 
 vi.mock('@tauri-apps/plugin-os', () => ({
-  platform: vi.fn(() => 'macos'),
+  platform: vi.fn(() => 'linux'),
 }));
 
 vi.mock('../../../built-in-features/store/index.svelte', () => ({

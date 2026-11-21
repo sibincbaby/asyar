@@ -555,27 +555,6 @@ export class SettingsHandler {
     }
   }
 
-  async handleDockIconToggle() {
-    try {
-      const success = await settingsService.updateSettings('general', {
-        showDockIcon: !this.settings.general.showDockIcon,
-      });
-
-      if (!success) {
-        throw new Error('Failed to update dock icon setting');
-      }
-    } catch (error) {
-      logService.error(`Failed to update dock icon setting: ${error}`);
-      this.saveError = true;
-      this.saveMessage = 'Failed to update dock icon setting';
-
-      setTimeout(() => {
-        this.saveMessage = '';
-        this.saveError = false;
-      }, 3000);
-    }
-  }
-
   async updatePopToRootDelay(value: PopToRootDelay) {
     try {
       const success = await settingsService.updateSettings('general', {

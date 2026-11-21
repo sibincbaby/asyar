@@ -1,23 +1,14 @@
 //! Apple Shortcuts abstraction (`shortcuts` CLI).
 //!
-//! - macOS: runs `/usr/bin/shortcuts` directly (`macos::shortcuts`) — not
-//!   through the shell service, so there are no per-binary consent dialogs,
-//!   no script `Run` entries and no notifications.
-//! - Other platforms: [`PlatformError::Unsupported`].
+//! Not available on Linux: the backend returns [`PlatformError::Unsupported`].
 //!
-//! Output parsing and input validation live here, in front of the backend,
-//! so they are testable on every platform.
+//! Output parsing and input validation live here, in front of the backend.
 
 use crate::error::PlatformError;
 use serde::{Deserialize, Serialize};
 
 /// Upper bound on the text piped to a shortcut's stdin.
 pub const MAX_SHORTCUT_INPUT_BYTES: usize = 1024 * 1024;
-
-/// Upper bound on the text a shortcut may return; a run that emits more is
-/// stopped and reported as an error (macOS backend).
-#[cfg(target_os = "macos")]
-pub const MAX_SHORTCUT_OUTPUT_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -100,30 +91,16 @@ pub fn validate_run_input(input: &RunShortcutInput) -> Result<(), PlatformError>
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
-pub fn list_shortcuts() -> Result<Vec<ShortcutInfo>, PlatformError> {
-    crate::macos::shortcuts::list_shortcuts()
-}
-
-#[cfg(target_os = "macos")]
-pub fn run_shortcut(input: RunShortcutInput) -> Result<String, PlatformError> {
-    validate_run_input(&input)?;
-    crate::macos::shortcuts::run_shortcut(input)
-}
-
-#[cfg(not(target_os = "macos"))]
 fn unsupported<T>() -> Result<T, PlatformError> {
     Err(PlatformError::Unsupported(
         "Apple Shortcuts is only available on macOS".into(),
     ))
 }
 
-#[cfg(not(target_os = "macos"))]
 pub fn list_shortcuts() -> Result<Vec<ShortcutInfo>, PlatformError> {
     unsupported()
 }
 
-#[cfg(not(target_os = "macos"))]
 pub fn run_shortcut(input: RunShortcutInput) -> Result<String, PlatformError> {
     validate_run_input(&input)?;
     unsupported()
@@ -202,9 +179,8 @@ mod tests {
         assert!(validate_run_input(&run("My Shortcut", None)).is_ok());
     }
 
-    #[cfg(not(target_os = "macos"))]
     #[test]
-    fn unsupported_off_macos() {
+    fn unsupported_on_linux() {
         assert!(matches!(
             list_shortcuts(),
             Err(PlatformError::Unsupported(_))

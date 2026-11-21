@@ -24,7 +24,7 @@ The Walkthrough guides you through high-leverage workflows such as:
 
 - **Launch your first app or search** — Start using Asyar as your primary application launcher.
 - **Arrange windows without touching the mouse** — Snap windows to halves, thirds, or fourths using keyboard commands.
-- **Multi-select paste** — Hold `⌘` or `Ctrl` to select and paste multiple items simultaneously from Clipboard History.
+- **Multi-select paste** — Hold `Ctrl` to select and paste multiple items simultaneously from Clipboard History.
 - **Create an inline calculation or conversion** — Convert currencies or compute expressions right in the search bar.
 - **Ask AI inline** — Press `Tab` in the search bar to stream responses from local or cloud AI models.
 - **Assign a custom alias or global hotkey** — Give frequent commands dedicated shortcuts.

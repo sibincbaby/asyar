@@ -52,7 +52,7 @@ Many extension loading failures are manifest validation errors (wrong `id` forma
 If your extension does not appear in the launcher or is blocked with a `403 Access Denied` error on production builds, check that the dev registry contains your project's absolute path:
 
 ```
-$APPDATA/dev_extensions.json (e.g. ~/Library/Application Support/org.asyar.app/dev_extensions.json on macOS)
+$APPDATA/dev_extensions.json (e.g. ~/.local/share/org.asyar.app/dev_extensions.json on Linux)
 ```
 
 It should contain an entry mapping your extension ID to the absolute source path. Running `asyar link` automatically registers this entry, and `asyar unlink` removes it. If it is missing, run `asyar link` or use the Create Extension tool.
@@ -65,17 +65,17 @@ If your extension declares permissions or updates its declared permission set (e
 
 ### Common issues and solutions
 
-| Symptom                                 | Cause                                                   | Fix                                                                                               |
-| --------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Extension not appearing in search       | Manifest `id` doesn't match directory name              | Rename directory to exactly match `id`                                                            |
-| Extension not appearing in search       | Not registered in dev registry                          | Run `asyar link`                                                                                  |
-| Blank white iframe panel                | `main.ts` throws before mounting                        | Open DevTools, check Console for errors                                                           |
-| `asyar:extension:loaded` never fired    | `window.parent.postMessage` call missing from `main.ts` | Add the loaded signal (see template)                                                              |
-| Permission review dialog on launch      | Freshly linked or updated permissions require review    | Accept the consent dialog to grant permissions and proceed                                        |
-| Service call hangs for 10s then rejects | Missing permission or consent declined                  | Declare permission in `manifest.json` and approve consent upon launch or in Settings > Extensions |
-| External URL fetch blocked              | Using `window.fetch()` directly                         | Use `NetworkService` instead                                                                      |
-| ⌘K shows stale actions from old view    | Actions not unregistered in `onDestroy`                 | Add `actionService.unregisterAction()` cleanup                                                    |
-| Changes not reflected after save        | `pnpm dev` not running                                  | Start `pnpm dev` (Vite watch mode)                                                                |
-| Double IPC calls                        | Two `ExtensionContext` instances created                | Keep exactly one context in `main.ts`                                                             |
+| Symptom                                  | Cause                                                   | Fix                                                                                               |
+| ---------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Extension not appearing in search        | Manifest `id` doesn't match directory name              | Rename directory to exactly match `id`                                                            |
+| Extension not appearing in search        | Not registered in dev registry                          | Run `asyar link`                                                                                  |
+| Blank white iframe panel                 | `main.ts` throws before mounting                        | Open DevTools, check Console for errors                                                           |
+| `asyar:extension:loaded` never fired     | `window.parent.postMessage` call missing from `main.ts` | Add the loaded signal (see template)                                                              |
+| Permission review dialog on launch       | Freshly linked or updated permissions require review    | Accept the consent dialog to grant permissions and proceed                                        |
+| Service call hangs for 10s then rejects  | Missing permission or consent declined                  | Declare permission in `manifest.json` and approve consent upon launch or in Settings > Extensions |
+| External URL fetch blocked               | Using `window.fetch()` directly                         | Use `NetworkService` instead                                                                      |
+| Ctrl+K shows stale actions from old view | Actions not unregistered in `onDestroy`                 | Add `actionService.unregisterAction()` cleanup                                                    |
+| Changes not reflected after save         | `pnpm dev` not running                                  | Start `pnpm dev` (Vite watch mode)                                                                |
+| Double IPC calls                         | Two `ExtensionContext` instances created                | Keep exactly one context in `main.ts`                                                             |
 
 ---

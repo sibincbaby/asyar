@@ -68,7 +68,7 @@ base64 = "0.22"
 encoding_rs = "0.8"
 dirs = "5.0"
 url = "2"
-tauri = { version = "2.12.4", features = ["macos-private-api", "tray-icon", "image-png", "image-ico", "test"] }
+tauri = { version = "2.12.4", features = ["tray-icon", "image-png", "image-ico", "test"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 semver = "1"
@@ -86,14 +86,12 @@ r2d2 = "0.8"
 # 0.24 is the r2d2_sqlite line built against rusqlite 0.31 — later releases
 # track newer rusqlite majors and will not link against the pin above.
 r2d2_sqlite = "0.24"
-plist = "1.7"
 # The user's language preference, which is what bundle display names must be
 # resolved against — Cocoa's own lookups answer in the host process's language.
 sys-locale = "0.3"
 tauri-plugin-notification = "2"
 tokio = { version = "1.0", features = ["full"] }
 tauri-plugin-clipboard-x = "2"
-window-vibrancy = "0.6"
 fuzzy-matcher = "0.3.7" # Added for better fuzzy search
 asyar-search = { path = "crates/asyar-search" }
 asyar-calculator = { path = "crates/asyar-calculator" }
@@ -115,7 +113,7 @@ argon2 = "0.5"
 bip39 = { version = "2.0", default-features = false, features = ["std"] }
 rand = "0.10"
 zeroize = "1"
-keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+keyring = { version = "3", features = ["sync-secret-service"] }
 # Two HTTP stacks coexist on purpose — do NOT unify them:
 # reqwest is host-side Rust HTTP (downloads, the auth/API client, sidecar
 # fetches) that runs in the Rust process with no webview origin.
@@ -183,54 +181,8 @@ cargo-clippy = []
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-[target.'cfg(target_os = "macos")'.dependencies]
-security-framework = "3"
-icns = "0.3"
-block2 = "0.5"
-objc2 = "0.5"
-objc2-foundation = { version = "0.2", features = ["all"] }
-objc2-app-kit = { version = "0.2", features = ["all"] }
-tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2" }
-monitor = { git = "https://github.com/ahkohd/tauri-toolkit", branch = "v2" }
-core-foundation = "0.10"
-core-foundation-sys = "0.8"
-# Used directly for notification actions — tauri-plugin-notification's desktop
-# path (via notify-rust) strips action buttons on macOS, so we drive the
-# NSUserNotification backend ourselves when an extension registers buttons.
-mac-notification-sys = "0.6"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-png = "0.17"
-windows = { version = "0.62", features = [
-    "Win32_Foundation",
-    "Win32_Graphics_Dwm",
-    "Win32_Graphics_Gdi",
-    "Win32_UI_Shell",
-    "Win32_UI_WindowsAndMessaging",
-    "Win32_UI_Input_KeyboardAndMouse",
-    "Win32_Storage_FileSystem",
-    "Win32_System_Com",
-    "Win32_System_Ole",
-    "Win32_System_Variant",
-    "Win32_UI_Shell_Common",
-    "Win32_UI_Accessibility",
-    "Win32_System_Threading",
-    "Win32_System_Power",
-    "Win32_System_Shutdown",
-    "Win32_Security",
-    "Win32_System_LibraryLoader",
-    "Win32_System_Diagnostics_ToolHelp",
-    "Media_Ocr",
-    "Graphics_Imaging",
-    "Storage_Streams",
-] }
-wmi = "0.14"
-# Registry access for the uninstall-application flow (scanning
-# Software\Microsoft\Windows\CurrentVersion\Uninstall for the app's
-# UninstallString). Ergonomic wrapper over the Win32 Registry API.
-winreg = "0.56"
-
 [target.'cfg(target_os = "linux")'.dependencies]
+rdev = "0.5"
 xkbcommon = "0.7"
 gtk = "0.18"
 gdk = "0.18"
@@ -243,18 +195,9 @@ x11rb = "0.13"
 # wraps this but doesn't expose per-notification `.action()` on desktop.
 notify-rust = "4"
 
-[target.'cfg(not(target_os = "macos"))'.dependencies]
-rdev = "0.5"
-
 [dev-dependencies]
 asyar-platform = { path = "crates/asyar-platform", features = ["test-support"] }
 mockito = "1.4"
 proptest = "1"
 serial_test = "3"
 tokio-tungstenite = "0.21"
-
-# Upstream 0.6.12 plus one fix: the wait-for-click loop busy-spins on
-# background threads, pinning a core per unclicked notification-with-actions.
-# See vendor/mac-notification-sys/VENDORED.md.
-[patch.crates-io]
-mac-notification-sys = { path = "vendor/mac-notification-sys" }

@@ -19,25 +19,11 @@ export function setSelectedItemProvider(provider: SelectedItemProvider): void {
 }
 import { commandService } from '../extension/commandService.svelte';
 import { applicationService } from '../application/applicationService';
-import type { UninstallScanResult } from '../application/applicationService';
 import { writeText } from 'tauri-plugin-clipboard-x-api';
-import { canRunAsAdmin, hasAppFilePath } from './appLocation';
-import { getHostPlatform } from '../../lib/keyboard/hostPlatform';
 import { assertActionShortcut, resolveActionChord } from '../../lib/keyboard/actionShortcut';
 import { isBuiltInFeature } from '../extension/extensionDiscovery';
 import { developerSettingsService } from '../settings/developerSettingsService.svelte';
 import { compareActionTier, type ActionPlacement } from './actionTier';
-
-// Module-level platform detection for the Uninstall action. macOS moves the
-// .app bundle to Trash via `trash::delete`; Windows resolves the .lnk
-// shortcut's display name against the registry's Uninstall keys and launches
-// the vendor UninstallString. Linux is unsupported — packaging is too
-// fragmented (apt/dnf/pacman/flatpak/snap/AppImage) for a single first-party
-// path — and the action stays hidden there.
-const HOST_PLATFORM = getHostPlatform();
-const IS_MACOS = HOST_PLATFORM === 'macos';
-const IS_WINDOWS = HOST_PLATFORM === 'windows';
-const UNINSTALL_SUPPORTED = IS_MACOS || IS_WINDOWS;
 
 /** Human-readable byte size. Matches Finder-style rounding (1 KB = 1000 B). */
 export function formatBytes(bytes: number): string {
@@ -50,26 +36,6 @@ export function formatBytes(bytes: number): string {
     unitIdx++;
   }
   return `${value >= 100 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIdx]}`;
-}
-
-/** Message body for the macOS uninstall confirm sheet. */
-function buildMacosConfirmMessage(appName: string, scan: UninstallScanResult): string {
-  const lines: string[] = [];
-  const total = formatBytes(scan.totalBytes);
-  if (scan.dataPaths.length === 0) {
-    lines.push(t('core_actions.uninstall_msg_mac_none', { name: appName, total }));
-  } else {
-    lines.push(
-      scan.dataPaths.length === 1
-        ? t('core_actions.uninstall_msg_mac_files_one', { name: appName, total })
-        : t('core_actions.uninstall_msg_mac_files_other', {
-            name: appName,
-            count: scan.dataPaths.length,
-            total,
-          }),
-    );
-  }
-  return lines.join(' ');
 }
 
 export interface ActionPromptConfig {
@@ -382,13 +348,10 @@ export class ActionService implements IActionService {
       context: action.context,
       extensionId: 'extensionId' in action ? action.extensionId : undefined,
     });
-    const resolvedMine = resolveActionChord(shortcut, HOST_PLATFORM);
+    const resolvedMine = resolveActionChord(shortcut);
     for (const other of this.allActions.values()) {
       if (other.id === action.id || other.visible || !other.shortcut) continue;
-      if (
-        resolveActionChord(other.shortcut, HOST_PLATFORM) === resolvedMine &&
-        scope(other) === mine
-      ) {
+      if (resolveActionChord(other.shortcut) === resolvedMine && scope(other) === mine) {
         throw new Error(
           `Action '${action.id}' cannot bind shortcut '${shortcut}': '${other.id}' already binds it in the same scope`,
         );
@@ -696,11 +659,7 @@ export class ActionService implements IActionService {
 
     this.registerAction({
       id: 'reveal_application',
-      label: IS_MACOS
-        ? t('core_actions.reveal_app_mac')
-        : IS_WINDOWS
-          ? t('core_actions.reveal_app_win')
-          : t('core_actions.reveal_app'),
+      label: t('core_actions.reveal_app'),
       icon: 'icon:folder',
       shortcut: 'Mod+R',
       description: t('core_actions.reveal_app_desc'),
@@ -708,11 +667,11 @@ export class ActionService implements IActionService {
       context: ActionContext.CORE,
       visible: () => {
         const item = this.getSelectedSearchItem();
-        return item?.type === 'application' && hasAppFilePath(item.path);
+        return item?.type === 'application' && !!item.path;
       },
       execute: async () => {
         const item = this.getSelectedSearchItem();
-        if (!item || item.type !== 'application' || !hasAppFilePath(item.path)) return;
+        if (!item || item.type !== 'application' || !item.path) return;
         // Failures (e.g. the app was moved) surface through invokeSafe's feedback.
         await applicationService.revealApplication(item.path);
       },
@@ -728,119 +687,13 @@ export class ActionService implements IActionService {
       context: ActionContext.CORE,
       visible: () => {
         const item = this.getSelectedSearchItem();
-        return item?.type === 'application' && hasAppFilePath(item.path);
-      },
-      execute: async () => {
-        const item = this.getSelectedSearchItem();
-        if (!item || item.type !== 'application' || !hasAppFilePath(item.path)) return;
-        await writeText(item.path);
-        await feedbackService.showHUD(t('core_actions.copy_app_path_hud'));
-      },
-    });
-
-    this.registerAction({
-      id: 'run_application_as_admin',
-      label: t('core_actions.run_as_admin'),
-      icon: 'icon:lock',
-      description: t('core_actions.run_as_admin_desc'),
-      category: t('categories.item'),
-      context: ActionContext.CORE,
-      visible: () => {
-        const item = this.getSelectedSearchItem();
-        return item?.type === 'application' && canRunAsAdmin(item.path, HOST_PLATFORM);
-      },
-      execute: async () => {
-        const item = this.getSelectedSearchItem();
-        if (!item || item.type !== 'application' || !canRunAsAdmin(item.path, HOST_PLATFORM)) {
-          return;
-        }
-        // A dismissed UAC prompt is not an error; real failures surface through
-        // invokeSafe's feedback.
-        await applicationService.runApplicationAsAdmin(item.path!);
-      },
-    });
-
-    this.registerAction({
-      id: 'uninstall_application',
-      label: t('core_actions.uninstall_app'),
-      icon: 'icon:trash',
-      shortcut: 'Control+X',
-      description: IS_MACOS
-        ? t('core_actions.uninstall_desc_mac')
-        : t('core_actions.uninstall_desc_win'),
-      category: t('categories.danger'),
-      context: ActionContext.CORE,
-      confirmInExecute: true,
-      destructive: true,
-      visible: () => {
-        if (!UNINSTALL_SUPPORTED) return false;
-        const item = this.getSelectedSearchItem();
-        if (!item || item.type !== 'application') return false;
-        if (!item.path) return false;
-        // macOS-only: hard block system-protected apps from even showing the
-        // action. Rust repeats the check as defense-in-depth, but this keeps
-        // the UI honest. Windows has no equivalent single-prefix system
-        // boundary — the registry SystemComponent flag is the backstop
-        // instead, enforced by ensure_windows_entry_allowed in Rust.
-        if (IS_MACOS && item.path.startsWith('/System/')) return false;
-        return true;
+        return item?.type === 'application' && !!item.path;
       },
       execute: async () => {
         const item = this.getSelectedSearchItem();
         if (!item || item.type !== 'application' || !item.path) return;
-
-        const appName = item.name;
-        const appPath = item.path;
-
-        // macOS: pre-scan user-data paths so the confirm sheet can show the
-        // user exactly what will be trashed + total reclaimed space. If the
-        // scan fails, fall back to the app-only confirm — worst case the
-        // user re-runs it manually. Windows skips the scan entirely; the
-        // vendor uninstaller handles data cleanup.
-        let dataPaths: string[] = [];
-        let confirmMessage: string;
-
-        if (IS_MACOS) {
-          try {
-            const scan = await applicationService.scanUninstallTargets(appPath);
-            dataPaths = scan.dataPaths.map((p) => p.path);
-            confirmMessage = buildMacosConfirmMessage(appName, scan);
-          } catch (error) {
-            logService.warn(
-              `Uninstall scan failed for '${appPath}'. Falling back to app-only confirm: ${String(error)}`,
-            );
-            confirmMessage = t('core_actions.uninstall_msg_mac_fallback', { name: appName });
-          }
-        } else {
-          // Windows
-          confirmMessage = t('core_actions.uninstall_msg_win', { name: appName });
-        }
-
-        const confirmButton = IS_MACOS
-          ? t('core_actions.uninstall_confirm_mac')
-          : t('core_actions.uninstall_confirm_win');
-        const successHud = IS_MACOS
-          ? t('core_actions.uninstall_hud_mac')
-          : t('core_actions.uninstall_hud_win');
-
-        const confirmed = await feedbackService.confirmAlert({
-          title: t('core_actions.uninstall_title', { name: appName }),
-          message: confirmMessage,
-          confirmText: confirmButton,
-          variant: 'danger',
-        });
-        if (!confirmed) return;
-
-        try {
-          await applicationService.uninstallApplication(appPath, dataPaths);
-          await feedbackService.showHUD(successHud);
-        } catch (err) {
-          logService.error(`Uninstall failed for '${appPath}': ${err}`);
-          const reason = err instanceof Error ? err.message : String(err);
-          await feedbackService.showHUD(t('core_actions.uninstall_failed', { reason }), {
-            severity: 'error',
-          });
-        }
+        await writeText(item.path);
+        await feedbackService.showHUD(t('core_actions.copy_app_path_hud'));
       },
     });
 

@@ -4,7 +4,6 @@ import { fireEvent, render } from '@testing-library/svelte';
 
 const { resolveRemoteIcon } = vi.hoisted(() => ({ resolveRemoteIcon: vi.fn() }));
 vi.mock('../../services/icon/remoteIconService', () => ({ resolveRemoteIcon }));
-vi.mock('../../lib/keyboard/hostPlatform', () => ({ getHostPlatform: () => 'linux' }));
 
 import ExtensionAvatar from './ExtensionAvatar.svelte';
 

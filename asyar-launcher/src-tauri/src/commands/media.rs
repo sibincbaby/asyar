@@ -14,11 +14,8 @@ fn platform_err(e: asyar_platform::PlatformError) -> AppError {
     AppError::Platform(e.to_string())
 }
 
-// macOS keeps these on the main thread: NSAppleScript is main-thread-only (the
-// script timeout bounds the stall). Elsewhere the platform calls block on SMTC
-// or D-Bus, so they run on the async runtime's pool instead.
-#[cfg_attr(target_os = "macos", tauri::command)]
-#[cfg_attr(not(target_os = "macos"), tauri::command(async))]
+// The platform calls block on D-Bus, so they run on the async runtime's pool.
+#[tauri::command(async)]
 pub fn media_get_now_playing(
     permissions: State<'_, ExtensionPermissionRegistry>,
     extension_id: Option<String>,
@@ -27,11 +24,8 @@ pub fn media_get_now_playing(
     media_get_now_playing_inner(&permissions, extension_id, player_id)
 }
 
-// macOS keeps these on the main thread: NSAppleScript is main-thread-only (the
-// script timeout bounds the stall). Elsewhere the platform calls block on SMTC
-// or D-Bus, so they run on the async runtime's pool instead.
-#[cfg_attr(target_os = "macos", tauri::command)]
-#[cfg_attr(not(target_os = "macos"), tauri::command(async))]
+// The platform calls block on D-Bus, so they run on the async runtime's pool.
+#[tauri::command(async)]
 pub fn media_list_sessions(
     permissions: State<'_, ExtensionPermissionRegistry>,
     extension_id: Option<String>,
@@ -39,11 +33,8 @@ pub fn media_list_sessions(
     media_list_sessions_inner(&permissions, extension_id)
 }
 
-// macOS keeps these on the main thread: NSAppleScript is main-thread-only (the
-// script timeout bounds the stall). Elsewhere the platform calls block on SMTC
-// or D-Bus, so they run on the async runtime's pool instead.
-#[cfg_attr(target_os = "macos", tauri::command)]
-#[cfg_attr(not(target_os = "macos"), tauri::command(async))]
+// The platform calls block on D-Bus, so they run on the async runtime's pool.
+#[tauri::command(async)]
 pub fn media_control(
     permissions: State<'_, ExtensionPermissionRegistry>,
     extension_id: Option<String>,

@@ -94,7 +94,7 @@ Each `SearchBarAccessoryDropdownOption` entry supports:
 1. The user activates the view-mode command.
 2. The dropdown appears in the top-right of the search bar with the
    current selection (or custom summary `buttonTitle`) visible.
-3. **⌘P** (Cmd+P / Ctrl+P) opens the popover.
+3. **Ctrl+P** opens the popover.
 4. A filter input at the top of the popover lets the user narrow options
    by typing — substring match on the option's `title`.
 5. **Arrow keys** (`↑` / `↓`) navigate the (filtered) options. **Enter** selects.

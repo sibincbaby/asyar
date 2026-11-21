@@ -20,12 +20,10 @@ import { aliasStore } from '../../built-in-features/aliases/aliasStore.svelte';
 import { runService } from '../../services/run/runService.svelte';
 import { settingsService } from '../../services/settings/settingsService.svelte';
 import { untrack } from 'svelte';
-import { createRootFileIconCache } from './rootFileIcons.svelte';
 import { buildFileActions } from '../../built-in-features/file-search/fileActions';
 import { preferencesPromptStore } from '../../services/extension/preferencesPromptStore.svelte';
 
 export function setupSelectionEffects(state: LauncherState) {
-  const rootFileIcons = createRootFileIconCache();
   // Effect 6: Reset selected index when search items change.
   //
   // Compact idle has no visible list, so it has no selection either: a
@@ -143,15 +141,6 @@ export function setupSelectionEffects(state: LauncherState) {
     });
     state.searchResultItemsMapped = mappedItems;
     state.currentSelectedItemOriginal = selectedOriginal;
-  });
-
-  $effect(() => {
-    const fileRows = state.searchResultItemsMapped.filter((item) => item.type === 'file');
-    for (const row of fileRows) {
-      const icon = rootFileIcons.iconFor(row.object_id);
-      if (icon) row.icon = icon;
-    }
-    rootFileIcons.request(fileRows);
   });
 
   // Effect 8b: Predictive warm — when a Tier 2 command row becomes selected,

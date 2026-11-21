@@ -3,8 +3,7 @@
 //! Three accepted shapes for `iconPath`:
 //!   * `asyar-extension://{extensionId}/relative/path/to/image.png` — resolved
 //!     against the extension's bundle/install dir via the `ExtensionDirLookup`.
-//!   * An absolute filesystem path (`starts_with('/')` on unix, `X:\` on
-//!     windows) — returned verbatim.
+//!   * An absolute filesystem path (`starts_with('/')`) — returned verbatim.
 //!   * `data:image/png;base64,...` — decoded in memory (PNG only, capped at
 //!     [`MAX_DATA_ICON_BYTES`]) so extensions can render dynamic tray icons.
 //!
@@ -193,18 +192,6 @@ mod tests {
         {
             let spec = parse_spec("/Users/a/icon.png").unwrap();
             assert_eq!(spec, IconSpec::Absolute(PathBuf::from("/Users/a/icon.png")));
-        }
-    }
-
-    #[test]
-    fn parse_absolute_windows_path() {
-        #[cfg(windows)]
-        {
-            let spec = parse_spec("C:\\icons\\icon.png").unwrap();
-            assert_eq!(
-                spec,
-                IconSpec::Absolute(PathBuf::from("C:\\icons\\icon.png"))
-            );
         }
     }
 

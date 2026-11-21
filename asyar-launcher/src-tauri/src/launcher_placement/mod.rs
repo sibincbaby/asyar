@@ -8,8 +8,7 @@
 //! reveal ─▶ service::apply()
 //!            ├─ store::load()        the persisted LauncherPlacement
 //!            ├─ pick_monitor()       cursor or primary
-//!            ├─ resolve::resolve_origin()   PURE — the only copy of the maths
-//!            └─ platform conversion  AppKit bottom-left ⇆ Tauri top-left
+//!            └─ resolve::resolve_origin()   PURE — the only copy of the maths
 //! ```
 //!
 //! Dragging goes the other way: [`crate::window_drag`] moves the window, and
@@ -28,21 +27,4 @@ pub use types::{LauncherAnchor, LauncherMonitorChoice, LauncherPlacement, DEFAUL
 /// The tallest the launcher ever gets. Positions reserve this much room below
 /// the top edge so an expanded launcher is never clipped — see
 /// [`resolve::resolve_origin`].
-///
-/// macOS keeps its own copy in `platform::macos::window` because the NSPanel
-/// geometry code is written against it; `matches_macos_constant` below holds
-/// the two together.
 pub const LAUNCHER_MAX_HEIGHT: f64 = 480.0;
-
-#[cfg(test)]
-mod tests {
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn matches_macos_constant() {
-        assert_eq!(
-            super::LAUNCHER_MAX_HEIGHT,
-            crate::platform::macos::LAUNCHER_MAX_HEIGHT,
-            "the placement resolver reserves the same height the NSPanel resize code uses"
-        );
-    }
-}

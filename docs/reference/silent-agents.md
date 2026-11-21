@@ -31,8 +31,8 @@ Enter or a bound item shortcut) routes to the **silent dispatcher**
 instead of opening the chat view:
 
 1. **Input capture** — read the user text from the chosen `inputSource`:
-   - `selection` — macOS Accessibility selection of the previously
-     frontmost app. Empty selection HUDs "No selection" and aborts.
+   - `selection` — selection of the previously
+     frontmost app, read via a Ctrl+C clipboard capture (X11 only). Empty selection HUDs "No selection" and aborts.
    - `clipboard` — current clipboard contents. Empty clipboard HUDs
      "Clipboard is empty" and aborts.
    - `argument` — text typed in the launcher bar (or passed through
@@ -44,7 +44,7 @@ instead of opening the chat view:
    final non-tool-call response, same as the chat-view flow.
 3. **Output action** — apply one of:
    - `replaceSelection` — save clipboard → write result → hide
-     launcher → simulate Cmd+V → restore clipboard after ~200 ms.
+     launcher → simulate Ctrl+V → restore clipboard after ~200 ms.
    - `paste` — identical flow to `replaceSelection`. Distinct intent
      for apps without selection semantics.
    - `copy` — write result to clipboard only. No paste, no clipboard
@@ -78,7 +78,7 @@ is fully silent.
 ## Hotkeys
 
 Silent agents use the same item-shortcut UI as any other launcher
-row. Open the launcher, type the agent name, hit `Cmd+K` while the
+row. Open the launcher, type the agent name, hit `Ctrl+K` while the
 row is selected, pick **Set Shortcut**, press your chosen key combo.
 There are no manifest-declared per-command global hotkeys — this is
 the user's choice, not the agent author's.

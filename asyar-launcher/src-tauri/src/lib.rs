@@ -62,9 +62,6 @@ pub struct AppState {
     pub shortcode_triggers: Mutex<Vec<String>>,
     /// Guards against registering the global event listener more than once.
     pub listener_started: AtomicBool,
-    /// Handle to the previously focused window, restored when the launcher hides (Windows only).
-    #[cfg(target_os = "windows")]
-    pub previous_hwnd: Mutex<isize>,
     /// The X11 window ID of the window active before Asyar was shown (Linux only).
     #[cfg(target_os = "linux")]
     pub linux_prev_window_id: Mutex<u64>,
@@ -175,8 +172,8 @@ pub mod browser;
 
 pub use bootstrap::services::sync_shortcode_triggers;
 pub use bootstrap::windows::{
-    parse_appearance_theme, parse_show_dock_icon, parse_show_tray_icon, parse_theme_preference_str,
-    read_show_dock_icon, read_show_tray_icon, ThemePreference,
+    parse_appearance_theme, parse_show_tray_icon, parse_theme_preference_str, read_show_tray_icon,
+    ThemePreference,
 };
 pub mod calculator;
 pub mod clipboard_cache;
@@ -487,8 +484,7 @@ pub fn run() {
         // Single-instance must be the FIRST plugin: it intercepts a second
         // launch before other plugins initialize, and (with the "deep-link"
         // feature) forwards that instance's asyar:// URL argv into on_open_url
-        // — the only way a deep link reaches an already-running app on
-        // Windows/Linux.
+        // — the only way a deep link reaches an already-running app.
         .plugin(tauri_plugin_single_instance::init(
             move |app, args, _cwd| {
                 // A bare re-exec (`asyar` with no URL argv) is a summon request:
@@ -503,19 +499,6 @@ pub fn run() {
                 // do not). Toggling here would fight that, and would *hide* the
                 // launcher whenever a deep link arrived while it was open.
                 let scheme = deeplink::deep_link_scheme(app);
-
-                // On macOS, tauri-plugin-deep-link's handle_cli_arguments is a no-op
-                // because it assumes all macOS deep links arrive via Apple Events.
-                // For CLI invocations (`asyar asyar://...` or `asyar-dev://...`),
-                // dispatch directly to deeplink::dispatch_url so CLI-based triggers work.
-                #[cfg(target_os = "macos")]
-                {
-                    for arg in &args {
-                        if arg.starts_with(&format!("{scheme}://")) {
-                            deeplink::dispatch_url(app, scheme, arg);
-                        }
-                    }
-                }
 
                 if let Some(action) = launcher::classify_secondary_launch(&args, scheme) {
                     if let Err(error) = single_instance_coordinator.request(action) {
@@ -567,9 +550,6 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_deep_link::init());
-
-    #[cfg(target_os = "macos")]
-    let builder = builder.plugin(tauri_nspanel::init());
 
     uri_schemes::register(builder)
         .plugin(
@@ -648,8 +628,6 @@ pub fn run() {
             contributed_snippets: Mutex::new(HashMap::new()),
             shortcode_triggers: Mutex::new(vec![":".to_string()]),
             listener_started: AtomicBool::new(false),
-            #[cfg(target_os = "windows")]
-            previous_hwnd: Mutex::new(0),
             #[cfg(target_os = "linux")]
             linux_prev_window_id: Mutex::new(0),
             is_expanding: AtomicBool::new(false),
@@ -657,9 +635,7 @@ pub fn run() {
             launcher_shown_at: Mutex::new(None),
             last_interaction: Mutex::new(std::time::Instant::now()),
         })
-        .manage(crate::onboarding::commands::OnboardingCursor::new(cfg!(
-            target_os = "macos"
-        )))
+        .manage(crate::onboarding::commands::OnboardingCursor::default())
         .setup(setup_app)
         .invoke_handler(crate::compose_handlers!(
             app_commands,

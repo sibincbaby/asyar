@@ -1,24 +1,20 @@
 //! One-shot system actions (sleep, lock screen, restart, …).
 //!
 //! Platform-neutral state + backend trait, mirroring the `power` module's
-//! shape. Per-platform backends live in sibling modules (`macos`, `linux`,
-//! `windows`) and implement [`SystemActionsBackend`].
+//! shape. The Linux backend lives in the sibling `linux` module and
+//! implements [`SystemActionsBackend`].
 //!
 //! Unlike `power` inhibitors these are fire-and-forget: no tokens, no
-//! handles. The interesting per-platform question is *which* actions exist
-//! at all (e.g. hibernate is disabled on many Windows machines and absent
-//! on macOS), so the backend reports a `supported()` set that the frontend
-//! uses to register only the commands this machine can actually perform.
+//! handles. The interesting question is *which* actions exist at all (e.g.
+//! hibernate may be unavailable on a given machine), so the backend reports
+//! a `supported()` set that the frontend uses to register only the commands
+//! this machine can actually perform.
 
 use crate::error::AppError;
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_os = "linux")]
 pub mod linux;
-#[cfg(target_os = "macos")]
-pub mod macos;
-#[cfg(target_os = "windows")]
-pub mod windows;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -143,21 +139,9 @@ pub mod fake {
 }
 
 /// Returns the default per-platform backend.
-#[cfg(target_os = "macos")]
-pub fn default_backend() -> Box<dyn SystemActionsBackend> {
-    Box::new(macos::MacSystemActionsBackend::new())
-}
 #[cfg(target_os = "linux")]
 pub fn default_backend() -> Box<dyn SystemActionsBackend> {
     Box::new(linux::LinuxSystemActionsBackend::new())
-}
-#[cfg(target_os = "windows")]
-pub fn default_backend() -> Box<dyn SystemActionsBackend> {
-    Box::new(windows::WindowsSystemActionsBackend::new())
-}
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-pub fn default_backend() -> Box<dyn SystemActionsBackend> {
-    Box::new(fake::FakeBackend::new(Vec::new()))
 }
 
 #[cfg(test)]

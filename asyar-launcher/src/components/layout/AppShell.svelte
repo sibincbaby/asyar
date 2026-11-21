@@ -1,6 +1,5 @@
 <script lang="ts">
   import { listen } from '@tauri-apps/api/event';
-  import { platform } from '@tauri-apps/plugin-os';
   import { onMount, type Snippet } from 'svelte';
   import RuntimeBatchConsentDialog from '../../built-in-features/create-extension/ai-builder/RuntimeBatchConsentDialog.svelte';
   import { extBuilderRuntimeConsentStore } from '../../built-in-features/create-extension/ai-builder/runtimeConsentStore.svelte';
@@ -11,7 +10,6 @@
   import { installIdleCallbackPolyfill } from '../../lib/idle';
   import { feedbackService } from '../../services/feedback/feedbackService.svelte';
   import type { HostFeedbackReport } from '../../services/feedback/feedbackService.svelte';
-  import { logService } from '../../services/log/logService';
   import { settingsService } from '../../services/settings/settingsService.svelte';
   import { applyThemePreference } from '../../services/theme/themeMode';
   import DialogHost from '../feedback/DialogHost.svelte';
@@ -23,13 +21,9 @@
   // Rust side flips best-effort; this makes the API's presence a guarantee.
   installIdleCallbackPolyfill();
 
-  onMount(async () => {
-    try {
-      const p = await platform();
-      document.documentElement.dataset.platform = p;
-    } catch (e) {
-      logService.error(`Failed to get platform: ${e instanceof Error ? e.message : String(e)}`);
-    }
+  // Linux-only CSS (opaque panels, theme palettes) keys off this attribute.
+  onMount(() => {
+    document.documentElement.dataset.platform = 'linux';
   });
 
   $effect(() => {

@@ -25,7 +25,7 @@ If Developer Mode is enabled, you can also sideload an extension directly from a
 
 ### Enable or disable an extension
 
-1. Open Settings (`⌘,`) and go to the **Extensions** tab.
+1. Open Settings (`Ctrl+,`) and go to the **Extensions** tab.
 2. Find the extension in the list and use the toggle in the **Enabled** column to turn it on or off.
 
 ### Manage commands, aliases, and hotkeys
@@ -70,8 +70,8 @@ Use the filter chips at the top of the Extensions tab to show **All**, **Command
 - Aliases let you trigger any command with a short word you choose. For example, you could assign the alias `g` to a specific search command so typing `g` in the launcher goes straight to it.
 - Hotkeys are global keyboard shortcuts that run a command without opening the launcher first. They work even when Asyar's window is hidden.
 - **Build Extensions with AI** — You can build complete, working extensions simply by describing what you want in plain English. Search for **Build Extension with AI** in the launcher and enter your prompt. The agent scaffolds the code, tests feasibility, installs dependencies, and registers the extension into `~/AsyarExtensions/`. See [Use Create Extension Tool](../../how-to/use-create-extension-tool.md#build-an-extension-with-ai).
-- **My Extensions** — Type `my extensions` in the search bar to browse, search, and manage your local extensions. Press `Enter` to open an extension in your code editor, or open `⌘K` to publish it to the Asyar Store.
-- **Extension Preferences in ⌘K** — For commands or extensions that declare configurable preferences, Asyar auto-registers an **Extension Preferences** action in the `⌘K` drawer so you can jump straight to its settings.
+- **My Extensions** — Type `my extensions` in the search bar to browse, search, and manage your local extensions. Press `Enter` to open an extension in your code editor, or open `Ctrl+K` to publish it to the Asyar Store.
+- **Extension Preferences in Ctrl+K** — For commands or extensions that declare configurable preferences, Asyar auto-registers an **Extension Preferences** action in the `Ctrl+K` drawer so you can jump straight to its settings.
 - **Developer Documentation** — If you want to develop or publish your own extensions, see [Quick Start Tutorial](../../tutorials/quick-start.md), [The Manifest Reference](../../reference/manifest.md), and the [Publishing Guide](../../how-to/publishing.md).
 
 ## Related

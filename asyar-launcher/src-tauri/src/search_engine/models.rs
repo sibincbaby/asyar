@@ -41,11 +41,7 @@ impl Application {
     /// The identity [`crate::app_events::AppPresenceQuery::running_keys`]
     /// reports for this app while it runs.
     pub fn presence_key(&self) -> Option<&str> {
-        if cfg!(target_os = "macos") {
-            self.bundle_id.as_deref()
-        } else {
-            self.exe_name.as_deref()
-        }
+        self.exe_name.as_deref()
     }
 }
 
@@ -218,20 +214,12 @@ impl SearchableItem {
         match self {
             SearchableItem::Application(a) => {
                 let mut names = vec![a.name.as_str()];
-                // Windows UWP apps are indexed under a synthetic
-                // "shell:AppsFolder\<AUMID>" identifier, not a real bundle
-                // path — file_stem() on that would chop the dotted AUMID
-                // (PackageFamilyName!AppId) and produce a bogus alternate
-                // name, e.g. "Microsoft" from every Microsoft-published app.
-                let is_real_bundle_path = !a.path.starts_with(r"shell:AppsFolder\");
-                if is_real_bundle_path {
-                    if let Some(stem) = std::path::Path::new(a.path.as_str())
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                    {
-                        if !stem.eq_ignore_ascii_case(&a.name) {
-                            names.push(stem);
-                        }
+                if let Some(stem) = std::path::Path::new(a.path.as_str())
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                {
+                    if !stem.eq_ignore_ascii_case(&a.name) {
+                        names.push(stem);
                     }
                 }
                 names
@@ -275,9 +263,9 @@ const MAX_APP_ID_LEN: usize = 64;
 
 /// Builds a stable `app_` id for an application, guaranteed to fit within
 /// `MAX_APP_ID_LEN`. `unique_key` is whatever makes the app unique on this
-/// machine (its absolute path on macOS/Linux, its AUMID on Windows).
+/// machine (its absolute path).
 ///
-/// Deeply nested paths (e.g. macOS system utilities) would otherwise produce
+/// Deeply nested paths would otherwise produce
 /// an id over the server's length limit and get the whole sync batch
 /// rejected, so those fall back to a short deterministic hash of `unique_key`.
 pub fn build_app_id(name: &str, unique_key: &str) -> String {
@@ -419,32 +407,6 @@ mod tests {
     fn test_command_get_type_str() {
         let item = make_cmd("cmd_find", "Find");
         assert_eq!(item.get_type_str(), "command");
-    }
-
-    #[test]
-    fn test_search_names_ignores_uwp_synthetic_path() {
-        // UWP apps are indexed under a synthetic "shell:AppsFolder\<AUMID>"
-        // identifier, not a real bundle path. AUMIDs are dotted
-        // (PackageFamilyName!AppId, e.g.
-        // "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"), so file_stem()
-        // on the raw string would chop it at that dot and produce
-        // "Microsoft" — a bogus alternate name that would make every
-        // Microsoft-published app match a search for "Microsoft".
-        let item = SearchableItem::Application(Application {
-            id: "app_calculator".to_string(),
-            name: "Calculator".to_string(),
-            path: r"shell:AppsFolder\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App".to_string(),
-            usage_count: 0,
-            icon: None,
-            last_used_at: None,
-            bundle_id: None,
-            exe_name: None,
-        });
-        assert_eq!(
-            item.search_names(),
-            vec!["Calculator"],
-            "a UWP path must not contribute a bogus file-stem alternate name"
-        );
     }
 
     #[test]

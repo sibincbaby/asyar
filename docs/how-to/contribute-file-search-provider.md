@@ -11,7 +11,7 @@ When an extension contributes a file search provider:
 - It appears in **Settings → Built-in Features → File Search** under **Cloud & Remote File Search** with an enable/disable toggle.
 - When the user searches in the launcher, local SSD files match instantly on frame 1 (0ms–5ms), and remote results stream in asynchronously without blocking the UI or dropping frames.
 - Pressing `Enter` opens the remote document in the default web browser (or opens/reveals the local cached file if present).
-- Pressing `⌘K` gives instant actions: **Open in Browser** (`Mod+O`), **Copy Web Link** (`Mod+Shift+L`), **Copy Markdown Link** (`Mod+Alt+L`), and **Send to Asyar AI** (`Mod+I`).
+- Pressing `Ctrl+K` gives instant actions: **Open in Browser** (`Mod+O`), **Copy Web Link** (`Mod+Shift+L`), **Copy Markdown Link** (`Mod+Alt+L`), and **Send to Asyar AI** (`Mod+I`).
 
 ---
 

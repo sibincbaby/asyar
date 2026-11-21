@@ -32,8 +32,7 @@ can't be known in advance, like content-addressed cache files
 `asyar-thumb://` URL for an in-scope image, generated and cached by the
 same pipeline the launcher's own file previews use — set it directly as a
 dynamic command's `icon` and it renders like the launcher's native
-application icons. Extension thumbnails are images-only by design, so the
-result is identical on Windows, macOS, and Linux: any non-image resolves
+application icons. Extension thumbnails are images-only by design, so any non-image resolves
 `null` rather than falling back to per-OS preview generators.
 
 ```typescript
@@ -211,16 +210,15 @@ if (hits.length > 0) {
   // → 'asyar-thumb://localhost/<key>.png', ready for dynamic command registration
 }
 
-// Native OS file, folder, or .app icon (macOS / Windows; returns null on Linux):
-const folderIcon = await files.icon('/Applications/Safari.app');
-// → 'asyar-thumb://localhost/<key>.png' (or 'http://asyar-thumb.localhost/<key>.png' on Windows),
+// Native OS file or folder icon (returns null on Linux, which has no icon source):
+const folderIcon = await files.icon('/usr/share/applications');
+// → 'asyar-thumb://localhost/<key>.png' when the platform has an icon source,
 //   usable in extension view <img> tags or dynamic command icons
 ```
 
 `files.icon(path)` enforces the same `files:read` permission, declared-glob
 scope, deny-list, and symlink checks as `files.read()`, while permitting
-directories and `.app` bundles. It resolves to `null` when the platform has no
-icon source (e.g. Linux), and rejects on scope denials or missing paths.
+directories. On Linux it always resolves to `null` (no icon source), and rejects on scope denials or missing paths.
 
 ### Read-only SQLite queries (`query`)
 

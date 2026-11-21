@@ -17,7 +17,7 @@ console.log(environment.language); // "de", "en", "zh"
 console.log(environment.region); // "DE", "US", "CN"
 console.log(environment.script); // "Hans", "Latn", or null
 console.log(environment.numberFormat); // "comma" | "point"
-console.log(environment.platform); // "macos" | "windows" | "linux"
+console.log(environment.platform); // "linux" (type also admits "macos" | "windows")
 console.log(environment.theme); // "dark" | "light"
 console.log(environment.isDevelopment); // boolean
 console.log(environment.extensionId); // "org.asyar.sample"
@@ -106,9 +106,9 @@ export interface EnvironmentPaths {
 
 These are the OS user directories (not Asyar's own internal app data directory):
 
-| Field          | macOS                           | Windows                  | Linux                                |
-| -------------- | ------------------------------- | ------------------------ | ------------------------------------ |
-| `home`         | `/Users/<user>`                 | `C:\Users\<user>`        | `/home/<user>`                       |
-| `appData`      | `~/Library/Application Support` | `%APPDATA%` (Roaming)    | `$XDG_DATA_HOME` or `~/.local/share` |
-| `localAppData` | `~/Library/Application Support` | `%LOCALAPPDATA%` (Local) | `$XDG_DATA_HOME` or `~/.local/share` |
-| `config`       | `~/Library/Application Support` | `%APPDATA%` (Roaming)    | `$XDG_CONFIG_HOME` or `~/.config`    |
+| Field          | Linux                                |
+| -------------- | ------------------------------------ |
+| `home`         | `/home/<user>`                       |
+| `appData`      | `$XDG_DATA_HOME` or `~/.local/share` |
+| `localAppData` | `$XDG_DATA_HOME` or `~/.local/share` |
+| `config`       | `$XDG_CONFIG_HOME` or `~/.config`    |

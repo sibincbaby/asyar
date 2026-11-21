@@ -9,9 +9,9 @@ use std::sync::Mutex;
 /// the onboarding window is opened (Task 6 owns that reset).
 pub struct OnboardingCursor(pub Mutex<OnboardingState>);
 
-impl OnboardingCursor {
-    pub fn new(is_macos: bool) -> Self {
-        Self(Mutex::new(initial(is_macos)))
+impl Default for OnboardingCursor {
+    fn default() -> Self {
+        Self(Mutex::new(initial()))
     }
 }
 
@@ -106,7 +106,7 @@ pub fn reset_onboarding(
     crate::onboarding::persistence::write_onboarding_completed(&app, false)?;
     {
         let mut guard = cursor.0.lock().map_err(|_| AppError::Lock)?;
-        *guard = initial(cfg!(target_os = "macos"));
+        *guard = initial();
     }
     crate::onboarding::window::open(&app)?;
     Ok(())
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn get_state_returns_initial() {
-        let c = OnboardingCursor::new(true);
+        let c = OnboardingCursor::default();
         let s = get_state_inner(&c).unwrap();
         assert_eq!(s.current, OnboardingStep::Welcome);
         assert_eq!(s.position, 1);
@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn advance_then_get_returns_advanced() {
-        let c = OnboardingCursor::new(true);
+        let c = OnboardingCursor::default();
         let advanced = advance_inner(&c).unwrap();
         let fetched = get_state_inner(&c).unwrap();
         assert_eq!(fetched, advanced);
@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn go_back_at_first_step_is_idempotent() {
-        let c = OnboardingCursor::new(false);
+        let c = OnboardingCursor::default();
         let s1 = go_back_inner(&c).unwrap();
         let s2 = go_back_inner(&c).unwrap();
         assert_eq!(s1, s2);

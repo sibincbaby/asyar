@@ -5,9 +5,6 @@
 //! decides *what* to do with the answers (bus-name filtering, player matching,
 //! metadata conversion) is plain Rust so it is tested on every host.
 
-// Off Linux only the tests exercise the pure helpers.
-#![cfg_attr(not(target_os = "linux"), allow(dead_code))]
-
 use crate::media::{MediaSessionInfo, PlaybackStatus};
 
 const MPRIS_PREFIX: &str = "org.mpris.MediaPlayer2.";

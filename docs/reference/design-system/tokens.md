@@ -344,7 +344,7 @@ title, 36px display type, and nothing else belongs there.
 
 The host injects the actual Satoshi and JetBrains Mono font files into every extension iframe as base64 data URIs on load. `var(--font-ui)` and `var(--font-mono)` render the real typefaces — not system fallbacks — with no extra setup.
 
-Satoshi renders on **every** platform, macOS included. Asyar deliberately does
+Satoshi renders everywhere. Asyar deliberately does
 not fall back to the system face anywhere.
 
 ```css

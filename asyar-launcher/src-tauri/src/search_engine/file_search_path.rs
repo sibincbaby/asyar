@@ -20,14 +20,7 @@ pub fn parse_typed_path(query: &str, home: Option<&Path>) -> Option<PathBuf> {
     if q.is_empty() || q.chars().any(char::is_control) || q.contains("://") {
         return None;
     }
-    let trim_seps = |s: &str| -> String {
-        let t = if cfg!(windows) {
-            s.trim_end_matches(['/', '\\'])
-        } else {
-            s.trim_end_matches('/')
-        };
-        t.to_string()
-    };
+    let trim_seps = |s: &str| -> String { s.trim_end_matches('/').to_string() };
 
     if let Some(rest) = q.strip_prefix("~/").or_else(|| q.strip_prefix("~\\")) {
         let rest = rest.trim_start_matches(['/', '\\']);
@@ -43,19 +36,7 @@ pub fn parse_typed_path(query: &str, home: Option<&Path>) -> Option<PathBuf> {
         }
         return Some(PathBuf::from(trim_seps(q)));
     }
-    if cfg!(windows) && is_drive_path(q) {
-        return Some(PathBuf::from(trim_seps(q)));
-    }
     None
-}
-
-/// `C:\x` or `C:/x`: a drive letter, a separator, and at least one more character.
-fn is_drive_path(q: &str) -> bool {
-    let mut chars = q.chars();
-    matches!(
-        (chars.next(), chars.next(), chars.next(), chars.next()),
-        (Some(d), Some(':'), Some('/' | '\\'), Some(_)) if d.is_ascii_alphabetic()
-    )
 }
 
 /// One root-search row for an existing path, or `None` when it does not exist
@@ -397,14 +378,5 @@ mod tests {
         assert!(!exact_row_allowed(true, true, true, false));
         assert!(!exact_row_allowed(false, true, true, true));
         assert!(!exact_row_allowed(true, false, true, true));
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn accepts_drive_paths_on_windows() {
-        assert_eq!(
-            parse_typed_path(r"C:\Users\me", None),
-            Some(PathBuf::from(r"C:\Users\me"))
-        );
     }
 }

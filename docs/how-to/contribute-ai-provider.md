@@ -202,7 +202,7 @@ When the user clicks the Stop button, summons another window, or closes the laun
 ### Step 5 — Testing in Asyar
 
 1. Build your extension: `pnpm build`.
-2. In Asyar, open **Settings → Extensions** (`⌘,`) and click **Install from disk** to load your unpacked extension directory.
+2. In Asyar, open **Settings → Extensions** (`Ctrl+,`) and click **Install from disk** to load your unpacked extension directory.
 3. Switch to **Settings → AI**, click **+ Add provider**, and select your extension provider.
 4. Enter an API key and click **Test & Fetch Models** to verify dynamic connectivity.
 5. Create or edit an Agent in **Settings → AI → Agents**, assign your new provider and model, and start chatting!

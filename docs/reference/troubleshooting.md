@@ -63,7 +63,7 @@ The Rust backend:
 4. Removes the extension from the in-memory registry.
 5. Emits an `extensions_updated` event to the frontend.
 
-Any registered status bar items from the extension are cleared automatically. Any still-registered actions in the ⌘K drawer are also cleared.
+Any registered status bar items from the extension are cleared automatically. Any still-registered actions in the Ctrl+K drawer are also cleared.
 
 **Q: How do I open VS Code for my extension after generating it?**
 
@@ -83,18 +83,18 @@ Yes. When you run `asyar link`, the CLI both creates a symlink in `$APPDATA/exte
 
 Run `asyar pack` in the extension folder. It builds the same package `asyar publish` uploads and saves it as `<id>-<version>.asyar`, with no sign-in or GitHub needed. First run `asyar unlink` (or `asyar unlink --dev` for the dev flavor): a linked extension is loaded from your project folder even when the same ID is installed. Then install the file via **Settings → Extensions → Install from file**. Unlike `asyar link`, this runs install-time steps such as copying the extension's icons.
 
-**Q: How do I make my extension macOS-only (or any specific OS)?**
+**Q: How do I restrict my extension to specific operating systems?**
 
 Add a `platforms` field to your `manifest.json` listing only the operating systems you support:
 
 ```json
-"platforms": ["macos"]
+"platforms": ["linux"]
 ```
 
-Valid values are `"macos"`, `"windows"`, and `"linux"`. You can list any combination:
+Valid values are `"macos"`, `"windows"`, and `"linux"` (the extension contract is shared with other Asyar builds). You can list any combination:
 
 ```json
-"platforms": ["macos", "linux"]
+"platforms": ["linux", "windows"]
 ```
 
 **Omit the field entirely for a universal extension** — that is the default and the most common case. Extensions with an incompatible `platforms` list are hidden in the store on unsupported OSes and blocked from loading by the host. The `asyar validate` CLI command will reject unknown platform values.

@@ -7,6 +7,8 @@ _Figure: the layout presets list._
 
 ## What it does
 
+> **Linux:** Window Management works on X11 sessions (it uses X11 window IDs). On Wayland it is not supported, because compositors do not let applications move or resize other windows.
+
 Window Management lets you instantly resize, reposition, move between displays, and switch between any open windows — without touching the mouse:
 
 - **Layout Presets**: Instantly snap the frontmost window to halves, thirds, fourths, corners, or full screen.
@@ -42,10 +44,10 @@ If you use multiple displays, use display navigation commands:
 ### Manage custom layouts
 
 1. Position and resize an app window to your desired dimensions.
-2. Open Asyar, search for **Save Current Window as Layout**, and press `Enter` (or open **Manage Window Layouts**, press `⌘K`, and choose **Save Current Window as Layout**).
+2. Open Asyar, search for **Save Current Window as Layout**, and press `Enter` (or open **Manage Window Layouts**, press `Ctrl+K`, and choose **Save Current Window as Layout**).
 3. Give your layout a descriptive name (e.g. "Coding Left Split").
 4. Your saved layout now appears in search results alongside built-in presets.
-5. To rename or delete custom layouts, open **Manage Window Layouts**, select the layout, and choose **Rename** or **Delete** from the action panel (`⌘K`).
+5. To rename or delete custom layouts, open **Manage Window Layouts**, select the layout, and choose **Rename** or **Delete** from the action panel (`Ctrl+K`).
 
 ### Undo the last layout change
 
@@ -53,27 +55,27 @@ If you use multiple displays, use display navigation commands:
 
 ## Shortcuts & actions
 
-| Action                   | How                                                    |
-| ------------------------ | ------------------------------------------------------ |
-| Apply any preset         | Search its name, then `Enter`                          |
-| Switch active windows    | Search `switch windows`, filter, then `Enter` (`↵`)    |
-| Close selected window    | `⌘W` (in Switch Windows view)                          |
-| Copy window title        | `⌘⇧C` (in Switch Windows view)                         |
-| Save current layout      | `⌘N` (in Manage Window Layouts view)                   |
-| Rename selected layout   | `⌘R` (in Manage Window Layouts view)                   |
-| Apply saved layout       | `Enter` (`↵`, in Manage Window Layouts view)           |
-| Delete selected layout   | `⌃X` (in Manage Window Layouts view, with confirm)     |
-| Move to next display     | Search `next display`, then `Enter`                    |
-| Move to previous display | Search `previous display`, then `Enter`                |
-| Undo last layout         | Search `restore`, then `Enter`                         |
-| Open action panel        | `⌘K` (in Manage Window Layouts or Switch Windows view) |
+| Action                   | How                                                        |
+| ------------------------ | ---------------------------------------------------------- |
+| Apply any preset         | Search its name, then `Enter`                              |
+| Switch active windows    | Search `switch windows`, filter, then `Enter`              |
+| Close selected window    | `Ctrl+W` (in Switch Windows view)                          |
+| Copy window title        | `Ctrl+Shift+C` (in Switch Windows view)                    |
+| Save current layout      | `Ctrl+N` (in Manage Window Layouts view)                   |
+| Rename selected layout   | `Ctrl+R` (in Manage Window Layouts view)                   |
+| Apply saved layout       | `Enter` (in Manage Window Layouts view)                    |
+| Delete selected layout   | `Ctrl+X` (in Manage Window Layouts view, with confirm)     |
+| Move to next display     | Search `next display`, then `Enter`                        |
+| Move to previous display | Search `previous display`, then `Enter`                    |
+| Undo last layout         | Search `restore`, then `Enter`                             |
+| Open action panel        | `Ctrl+K` (in Manage Window Layouts or Switch Windows view) |
 
-**Action panel (⌘K) entries in Manage Layouts:**
+**Action panel (Ctrl+K) entries in Manage Layouts:**
 
-- **Apply Layout** (`↵`) — applies the selected saved layout.
-- **Save Current Window as Layout** (`⌘N`) — captures the active window's current bounds.
-- **Rename** (`⌘R`) — renames the selected custom layout.
-- **Delete** (`⌃X`) — removes the selected custom layout (with confirmation).
+- **Apply Layout** (`Enter`) — applies the selected saved layout.
+- **Save Current Window as Layout** (`Ctrl+N`) — captures the active window's current bounds.
+- **Rename** (`Ctrl+R`) — renames the selected custom layout.
+- **Delete** (`Ctrl+X`) — removes the selected custom layout (with confirmation).
 
 ## Built-in presets
 
@@ -105,7 +107,7 @@ If you use multiple displays, use display navigation commands:
 
 ## Tips
 
-- **Assign hotkeys for common splits**: Open **Settings → Extensions**, expand **Window Management**, and bind hotkeys like `⌃⌥←` for Left Half, `⌃⌥→` for Right Half, and `⌃⌥Enter` for Maximize.
+- **Assign hotkeys for common splits**: Open **Settings → Extensions**, expand **Window Management**, and bind hotkeys like `Ctrl+Alt+←` for Left Half, `Ctrl+Alt+→` for Right Half, and `Ctrl+Alt+Enter` for Maximize.
 - **Switch app first, then open Asyar**: Layout presets apply to whichever window was active immediately before summoning Asyar.
 - **Vertical Fourths on ultrawide monitors**: The `First Fourth` through `Last Fourth` presets are ideal for 34"+ ultrawide and 4K displays where half-screen windows are too wide.
 - **Restore only remembers one step**: Restore undoes the single most recent layout change.

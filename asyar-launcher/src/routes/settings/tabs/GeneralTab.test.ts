@@ -106,7 +106,6 @@ function createHandler(): SettingsHandler {
     saveError: false,
     handleAutostartToggle: vi.fn(),
     handleTrayIconToggle: vi.fn(),
-    handleDockIconToggle: vi.fn(),
     updateThemeSetting: vi.fn(),
     updateLaunchView: vi.fn(),
     updateEscapeBehavior: vi.fn(),
@@ -154,17 +153,15 @@ describe('GeneralTab startup toggles', () => {
 
     const startup = container.querySelector('#general-startup') as HTMLElement;
     const boxes = Array.from(startup.querySelectorAll('input[type="checkbox"]'));
-    expect(boxes).toHaveLength(3);
+    expect(boxes).toHaveLength(2);
     // Toggle renders a track; the old Checkbox did not.
-    expect(startup.querySelectorAll('.toggle-track')).toHaveLength(3);
-    expect(boxes.map((b) => (b as HTMLInputElement).checked)).toEqual([false, true, false]);
+    expect(startup.querySelectorAll('.toggle-track')).toHaveLength(2);
+    expect(boxes.map((b) => (b as HTMLInputElement).checked)).toEqual([false, true]);
 
     await fireEvent.click(boxes[0]);
     expect(handler.handleAutostartToggle).toHaveBeenCalledTimes(1);
     await fireEvent.click(boxes[1]);
     expect(handler.handleTrayIconToggle).toHaveBeenCalledTimes(1);
-    await fireEvent.click(boxes[2]);
-    expect(handler.handleDockIconToggle).toHaveBeenCalledTimes(1);
   });
 });
 

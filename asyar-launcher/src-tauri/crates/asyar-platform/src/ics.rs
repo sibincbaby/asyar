@@ -1,4 +1,3 @@
-#![cfg_attr(not(target_os = "linux"), allow(dead_code))]
 //! Plain-Rust iCalendar (`.ics`, RFC 5545) reader/writer and file-backed store.
 //!
 //! The Linux calendar backend (`linux::calendar`) is a thin path-discovery layer

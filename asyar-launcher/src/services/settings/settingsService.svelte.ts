@@ -197,8 +197,7 @@ class SettingsService implements ISettingsService {
       // Initialize the system shortcut based on settings
       await this.syncShortcut();
 
-      // Sync Dock and Tray visibility based on settings
-      await this.syncDockVisibility();
+      // Sync Tray visibility based on settings
       await this.syncTrayVisibility();
 
       return true;
@@ -306,9 +305,6 @@ class SettingsService implements ISettingsService {
             logService.error(`Failed to sync autostart: ${error}`);
           }
         }
-        if ('showDockIcon' in values) {
-          await this.syncDockVisibility();
-        }
         if ('showTrayIcon' in values) {
           await this.syncTrayVisibility();
         }
@@ -370,17 +366,6 @@ class SettingsService implements ISettingsService {
       await commands.initializeShortcutFromSettings(modifier, key);
     } catch (error) {
       logService.error(`Failed to sync shortcut: ${error}`);
-    }
-  }
-
-  /**
-   * Sync Dock visibility with system
-   */
-  private async syncDockVisibility() {
-    try {
-      await commands.setDockIconVisible(this.currentSettings.general.showDockIcon);
-    } catch (error) {
-      logService.error(`Failed to sync dock visibility: ${error}`);
     }
   }
 

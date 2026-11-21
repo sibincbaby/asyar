@@ -1,8 +1,6 @@
 //! Cross-platform calendar and reminders abstraction.
 //!
-//! - macOS: `EventKit` (`macos::calendar`).
 //! - Linux: local `.ics` files (`linux::calendar`, via `ics`).
-//! - Windows: WinRT appointments; no Reminders store (`windows::calendar`).
 //!
 //! Platforms without a backend return [`PlatformError::Unsupported`] rather
 //! than an empty result, so callers never mistake "no backend" for "nothing
@@ -90,94 +88,8 @@ pub struct CreateReminderInput {
     pub notes: Option<String>,
 }
 
-/// Which privacy category an access query or request is about.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AccessKind {
-    Calendar,
-    Reminders,
-}
-
-/// The user's decision for an [`AccessKind`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AccessState {
-    /// Never asked; a request will show the system prompt.
-    NotDetermined,
-    Granted,
-    /// Denied by the user or restricted by policy; only System Settings can
-    /// change it.
-    Denied,
-    /// Add-only access, which cannot read.
-    WriteOnly,
-    /// This platform has no calendar backend.
-    Unsupported,
-}
-
-// Backend selection. Windows has no Reminders store; Linux and macOS cover
-// everything. A platform with none of the three gets the stub below.
 #[cfg(target_os = "linux")]
 use crate::linux::calendar as backend;
-#[cfg(target_os = "macos")]
-use crate::macos::calendar as backend;
-#[cfg(target_os = "windows")]
-use crate::windows::calendar as backend;
-
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-mod backend {
-    use super::*;
-
-    fn none<T>() -> Result<T, PlatformError> {
-        Err(PlatformError::Unsupported(
-            "calendar and reminders are not available on this platform".into(),
-        ))
-    }
-    pub fn access_status(_: AccessKind) -> Result<AccessState, PlatformError> {
-        Ok(AccessState::Unsupported)
-    }
-    pub fn request_access(_: AccessKind) -> Result<AccessState, PlatformError> {
-        Ok(AccessState::Unsupported)
-    }
-    pub fn list_calendars() -> Result<Vec<CalendarSource>, PlatformError> {
-        none()
-    }
-    pub fn list_events(
-        _: i64,
-        _: i64,
-        _: Option<&[String]>,
-    ) -> Result<Vec<CalendarEvent>, PlatformError> {
-        none()
-    }
-    pub fn create_event(_: CreateEventInput) -> Result<CalendarEvent, PlatformError> {
-        none()
-    }
-    pub fn list_reminder_lists() -> Result<Vec<ReminderList>, PlatformError> {
-        none()
-    }
-    pub fn list_reminders(
-        _: Option<&[String]>,
-        _: bool,
-    ) -> Result<Vec<ReminderItem>, PlatformError> {
-        none()
-    }
-    pub fn create_reminder(_: CreateReminderInput) -> Result<ReminderItem, PlatformError> {
-        none()
-    }
-    pub fn set_reminder_completed(_: &str, _: bool) -> Result<ReminderItem, PlatformError> {
-        none()
-    }
-}
-
-/// The current access decision, without prompting.
-pub fn access_status(kind: AccessKind) -> Result<AccessState, PlatformError> {
-    backend::access_status(kind)
-}
-
-/// Shows the system access prompt when the decision is still open, then
-/// returns the resulting state. Never re-prompts once the user has decided.
-pub fn request_access(kind: AccessKind) -> Result<AccessState, PlatformError> {
-    backend::request_access(kind)
-}
 
 fn invalid(msg: &str) -> PlatformError {
     PlatformError::InvalidInput(msg.to_string())

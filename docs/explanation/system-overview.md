@@ -8,7 +8,7 @@ Asyar is an extensible desktop launcher and productivity tool built on the Rust-
 
 ```ascii
 +-----------------------------------------------------------------------------------+
-|                                 Operating System (macOS / Windows / Linux)        |
+|                                 Operating System (Linux)                          |
 +-----------------------------------------------------------------------------------+
       | Global Hotkeys        | Tray Menu       | File System       | Clipboard
 +-----------------------------------------------------------------------------------+

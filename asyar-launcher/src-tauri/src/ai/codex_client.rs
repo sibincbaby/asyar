@@ -9,7 +9,7 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 
 /// Prepares an isolated `CODEX_HOME` directory inside `<app_data_dir>/codex-home`.
 /// If a Codex auth token exists in `$CODEX_HOME` or `~/.codex/auth.json`, links it into `codex-home/auth.json`.
-/// Uses a symlink on Unix and a hard link on Windows. Never copies `auth.json`.
+/// Uses a symlink. Never copies `auth.json`.
 /// Fails with a clear error if no login exists or if linking fails.
 pub fn prepare_codex_home_in(
     codex_home_dir: &Path,
@@ -60,30 +60,11 @@ pub fn prepare_codex_home_in(
         let _ = std::fs::remove_file(&auth_dst);
     }
 
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink(&auth_src, &auth_dst).map_err(|e| {
-            let err_msg = format!("Couldn't link your Codex login for Asyar: {e}");
-            log::error!("[codex] {err_msg} (symlink from {auth_src:?} to {auth_dst:?})");
-            AppError::Other(err_msg)
-        })?;
-    }
-
-    #[cfg(windows)]
-    {
-        std::fs::hard_link(&auth_src, &auth_dst).map_err(|e| {
-            let err_msg = format!("Couldn't link your Codex login for Asyar: {e}");
-            log::error!("[codex] {err_msg} (hard link from {auth_src:?} to {auth_dst:?})");
-            AppError::Other(err_msg)
-        })?;
-    }
-
-    #[cfg(not(any(unix, windows)))]
-    {
-        return Err(AppError::Other(
-            "Unsupported platform for Codex link".to_string(),
-        ));
-    }
+    std::os::unix::fs::symlink(&auth_src, &auth_dst).map_err(|e| {
+        let err_msg = format!("Couldn't link your Codex login for Asyar: {e}");
+        log::error!("[codex] {err_msg} (symlink from {auth_src:?} to {auth_dst:?})");
+        AppError::Other(err_msg)
+    })?;
 
     Ok(codex_home_dir.to_path_buf())
 }
@@ -259,8 +240,6 @@ async fn spawn_codex_app_server(
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .kill_on_drop(true);
-
-    crate::ai::cli::hide_console_window(&mut cmd);
 
     let mut child = cmd.spawn().map_err(|e| {
         AppError::Other(format!(
@@ -553,8 +532,6 @@ impl CodexClient {
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .kill_on_drop(true);
-
-        crate::ai::cli::hide_console_window(&mut cmd);
 
         let mut child = cmd.spawn().map_err(|e| {
             AppError::Other(format!(

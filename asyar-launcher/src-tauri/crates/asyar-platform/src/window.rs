@@ -26,24 +26,6 @@ impl<W: HasWindowHandle> WindowStyling for W {
             .window_handle()
             .map_err(|e| PlatformError::WindowHandle(e.to_string()))?;
         match handle.as_raw() {
-            #[cfg(target_os = "macos")]
-            RawWindowHandle::AppKit(h) => {
-                unsafe {
-                    let ns_view = h.ns_view.as_ptr() as *mut objc2::runtime::AnyObject;
-                    let ns_window: *mut objc2::runtime::AnyObject =
-                        objc2::msg_send![ns_view, window];
-                    crate::macos::apply_spotlight_window_styling(ns_window);
-                }
-                Ok(())
-            }
-            #[cfg(target_os = "windows")]
-            RawWindowHandle::Win32(h) => {
-                use windows::Win32::Foundation::HWND;
-                let hwnd = HWND(h.hwnd.get() as *mut _);
-                crate::windows::apply_dwm_polish(hwnd);
-                crate::windows::apply_taskbar_exclusion(hwnd);
-                Ok(())
-            }
             #[cfg(target_os = "linux")]
             RawWindowHandle::Xlib(_) | RawWindowHandle::Wayland(_) | RawWindowHandle::Xcb(_) => {
                 // GTK/X11 window styling on Linux is handled via gtk_window or EWMH client messages
@@ -56,18 +38,8 @@ impl<W: HasWindowHandle> WindowStyling for W {
     }
 
     fn apply_taskbar_exclusion(&self) -> Result<(), PlatformError> {
-        let handle = self
-            .window_handle()
+        self.window_handle()
             .map_err(|e| PlatformError::WindowHandle(e.to_string()))?;
-        match handle.as_raw() {
-            #[cfg(target_os = "windows")]
-            RawWindowHandle::Win32(h) => {
-                use windows::Win32::Foundation::HWND;
-                let hwnd = HWND(h.hwnd.get() as *mut _);
-                crate::windows::apply_taskbar_exclusion(hwnd);
-                Ok(())
-            }
-            _ => Ok(()),
-        }
+        Ok(())
     }
 }

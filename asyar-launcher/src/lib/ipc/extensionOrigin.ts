@@ -2,15 +2,11 @@
  * Returns the postMessage targetOrigin to use when the launcher posts a
  * message TO an extension iframe.
  *
- * ## Why this is `'*'` on macOS/Linux
+ * ## Why this is `'*'`
  *
- * On Windows, Tauri serves every extension iframe from a shared
- * `http://asyar-extension.localhost` origin, and `targetOrigin` matching
- * works normally because that's a standard `http://` origin.
- *
- * On macOS/Linux, each extension is loaded from its own custom scheme
- * (`asyar-extension://{extensionId}/...`). WKWebView and WebKit in general
- * treat custom schemes as **opaque origins**, which serialize as the
+ * Each extension is loaded from its own custom scheme
+ * (`asyar-extension://{extensionId}/...`). WebKit treats custom schemes as
+ * **opaque origins**, which serialize as the
  * literal string `"null"`. So a call like
  *
  *     iframe.contentWindow.postMessage(msg, 'asyar-extension://org.asyar.pomodoro');
@@ -18,8 +14,7 @@
  * fails with *"Unable to post message to asyar-extension://org.asyar.pomodoro.
  * Recipient has origin null."* because the recipient's actual origin is
  * `"null"`, not the scheme URL. Returning `'null'` as a literal string
- * also doesn't match cleanly across WebKit/WebView2, so the pragmatic
- * answer is `'*'`.
+ * also doesn't match cleanly, so the pragmatic answer is `'*'`.
  *
  * ## Why `'*'` is safe here
  *
@@ -43,9 +38,5 @@
  * `MessageBroker.send`, so host→iframe using `'*'` is symmetric.
  */
 export function getExtensionFrameOrigin(_extensionId: string): string {
-  const isWindows =
-    typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('windows');
-  // On Windows the real origin matches this URL, so we keep the strict
-  // check as defense-in-depth. Everywhere else, use the wildcard.
-  return isWindows ? 'http://asyar-extension.localhost' : '*';
+  return '*';
 }

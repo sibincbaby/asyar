@@ -41,7 +41,7 @@ vi.mock('../../lib/ipc/clipboardCacheCommands', () => ({
 }));
 
 vi.mock('@tauri-apps/plugin-os', () => ({
-  platform: vi.fn().mockResolvedValue('macos'),
+  platform: vi.fn().mockResolvedValue('linux'),
 }));
 
 vi.mock('./stores/clipboardHistoryStore.svelte', () => ({
@@ -1049,7 +1049,7 @@ describe('Android fallback', () => {
 
   afterEach(async () => {
     const { platform } = await import('@tauri-apps/plugin-os');
-    vi.mocked(platform).mockResolvedValue('macos' as any);
+    vi.mocked(platform).mockResolvedValue('linux' as any);
   });
 
   it('uses polling on Android instead of event-driven monitoring', async () => {

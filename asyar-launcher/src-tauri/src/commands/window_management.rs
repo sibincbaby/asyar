@@ -21,28 +21,11 @@ pub async fn window_management_get_bounds(
 ) -> Result<WindowBounds, AppError> {
     permissions.check(&extension_id, "window:manage")?;
 
-    #[cfg(target_os = "macos")]
-    return crate::window_management::macos::get_window_bounds();
-
-    #[cfg(target_os = "windows")]
-    {
-        let hwnd = *state.previous_hwnd.lock().map_err(|_| AppError::Lock)?;
-        return crate::window_management::windows::get_window_bounds(hwnd);
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let wid = *state
-            .linux_prev_window_id
-            .lock()
-            .map_err(|_| AppError::Lock)?;
-        return crate::window_management::linux::get_window_bounds(wid);
-    }
-
-    #[allow(unreachable_code)]
-    Err(AppError::Platform(
-        "Window management is not supported on this platform.".to_string(),
-    ))
+    let wid = *state
+        .linux_prev_window_id
+        .lock()
+        .map_err(|_| AppError::Lock)?;
+    crate::window_management::linux::get_window_bounds(wid)
 }
 
 /// Updates the bounds of the frontmost OS application window.
@@ -67,28 +50,11 @@ pub async fn window_management_set_bounds(
     };
     validate_bounds_update(&update)?;
 
-    #[cfg(target_os = "macos")]
-    return crate::window_management::macos::set_window_bounds(&update);
-
-    #[cfg(target_os = "windows")]
-    {
-        let hwnd = *state.previous_hwnd.lock().map_err(|_| AppError::Lock)?;
-        return crate::window_management::windows::set_window_bounds(hwnd, &update);
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let wid = *state
-            .linux_prev_window_id
-            .lock()
-            .map_err(|_| AppError::Lock)?;
-        return crate::window_management::linux::set_window_bounds(wid, &update);
-    }
-
-    #[allow(unreachable_code)]
-    Err(AppError::Platform(
-        "Window management is not supported on this platform.".to_string(),
-    ))
+    let wid = *state
+        .linux_prev_window_id
+        .lock()
+        .map_err(|_| AppError::Lock)?;
+    crate::window_management::linux::set_window_bounds(wid, &update)
 }
 
 /// Toggles the fullscreen state of the frontmost OS application window.
@@ -103,28 +69,11 @@ pub async fn window_management_set_fullscreen(
 ) -> Result<(), AppError> {
     permissions.check(&extension_id, "window:manage")?;
 
-    #[cfg(target_os = "macos")]
-    return crate::window_management::macos::set_window_fullscreen(enable);
-
-    #[cfg(target_os = "windows")]
-    {
-        let hwnd = *state.previous_hwnd.lock().map_err(|_| AppError::Lock)?;
-        return crate::window_management::windows::set_window_fullscreen(hwnd, enable);
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let wid = *state
-            .linux_prev_window_id
-            .lock()
-            .map_err(|_| AppError::Lock)?;
-        return crate::window_management::linux::set_window_fullscreen(wid, enable);
-    }
-
-    #[allow(unreachable_code)]
-    Err(AppError::Platform(
-        "Window management is not supported on this platform.".to_string(),
-    ))
+    let wid = *state
+        .linux_prev_window_id
+        .lock()
+        .map_err(|_| AppError::Lock)?;
+    crate::window_management::linux::set_window_fullscreen(wid, enable)
 }
 
 /// Returns all available monitors with their logical bounds.
@@ -172,15 +121,6 @@ pub fn window_management_apply_preset(
     permissions.check(&extension_id, "window:manage")?;
 
     let current_bounds = {
-        #[cfg(target_os = "macos")]
-        {
-            crate::window_management::macos::get_window_bounds()?
-        }
-        #[cfg(target_os = "windows")]
-        {
-            let hwnd = *state.previous_hwnd.lock().map_err(|_| AppError::Lock)?;
-            crate::window_management::windows::get_window_bounds(hwnd)?
-        }
         #[cfg(target_os = "linux")]
         {
             let wid = *state
@@ -188,12 +128,6 @@ pub fn window_management_apply_preset(
                 .lock()
                 .map_err(|_| AppError::Lock)?;
             crate::window_management::linux::get_window_bounds(wid)?
-        }
-        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-        {
-            return Err(AppError::Platform(
-                "Window management is not supported on this platform.".to_string(),
-            ));
         }
     };
 
@@ -222,15 +156,6 @@ pub fn window_management_apply_preset(
 
     match action {
         crate::window_management::layout::PresetAction::Fullscreen(enable) => {
-            #[cfg(target_os = "macos")]
-            {
-                crate::window_management::macos::set_window_fullscreen(enable)?;
-            }
-            #[cfg(target_os = "windows")]
-            {
-                let hwnd = *state.previous_hwnd.lock().map_err(|_| AppError::Lock)?;
-                crate::window_management::windows::set_window_fullscreen(hwnd, enable)?;
-            }
             #[cfg(target_os = "linux")]
             {
                 let wid = *state
@@ -239,23 +164,8 @@ pub fn window_management_apply_preset(
                     .map_err(|_| AppError::Lock)?;
                 crate::window_management::linux::set_window_fullscreen(wid, enable)?;
             }
-            #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-            {
-                return Err(AppError::Platform(
-                    "Window management is not supported on this platform.".to_string(),
-                ));
-            }
         }
         crate::window_management::layout::PresetAction::Bounds(update) => {
-            #[cfg(target_os = "macos")]
-            {
-                crate::window_management::macos::set_window_bounds(&update)?;
-            }
-            #[cfg(target_os = "windows")]
-            {
-                let hwnd = *state.previous_hwnd.lock().map_err(|_| AppError::Lock)?;
-                crate::window_management::windows::set_window_bounds(hwnd, &update)?;
-            }
             #[cfg(target_os = "linux")]
             {
                 let wid = *state
@@ -263,12 +173,6 @@ pub fn window_management_apply_preset(
                     .lock()
                     .map_err(|_| AppError::Lock)?;
                 crate::window_management::linux::set_window_bounds(wid, &update)?;
-            }
-            #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-            {
-                return Err(AppError::Platform(
-                    "Window management is not supported on this platform.".to_string(),
-                ));
             }
         }
         crate::window_management::layout::PresetAction::Noop => {}
@@ -289,17 +193,8 @@ pub async fn window_management_list_windows(
 ) -> Result<Vec<AppWindowInfo>, AppError> {
     permissions.check(&extension_id, "window:manage")?;
 
-    #[cfg(target_os = "macos")]
-    return crate::window_management::macos::list_windows(&app);
-
-    #[cfg(target_os = "windows")]
-    return crate::window_management::windows::list_windows(&app);
-
     #[cfg(target_os = "linux")]
     return crate::window_management::linux::list_windows(&app);
-
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    Ok(vec![])
 }
 
 /// Brings the target application window to the foreground and hides the launcher.
@@ -315,31 +210,12 @@ pub async fn window_management_focus_window(
 ) -> Result<(), AppError> {
     permissions.check(&extension_id, "window:manage")?;
 
-    #[cfg(target_os = "macos")]
-    {
-        crate::window_management::macos::focus_window(&id)?;
-        let _ = crate::commands::app::hide(app, state);
-        Ok(())
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        crate::window_management::windows::focus_window(&id)?;
-        let _ = crate::commands::app::hide(app, state);
-        Ok(())
-    }
-
     #[cfg(target_os = "linux")]
     {
         crate::window_management::linux::focus_window(&id)?;
         let _ = crate::commands::app::hide(app, state);
         Ok(())
     }
-
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    Err(AppError::Platform(
-        "Window management is not supported on this platform.".to_string(),
-    ))
 }
 
 /// Closes the target application window.
@@ -353,25 +229,10 @@ pub async fn window_management_close_window(
 ) -> Result<(), AppError> {
     permissions.check(&extension_id, "window:manage")?;
 
-    #[cfg(target_os = "macos")]
-    {
-        crate::window_management::macos::close_window(&id)
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        crate::window_management::windows::close_window(&id)
-    }
-
     #[cfg(target_os = "linux")]
     {
         crate::window_management::linux::close_window(&id)
     }
-
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    Err(AppError::Platform(
-        "Window management is not supported on this platform.".to_string(),
-    ))
 }
 
 #[cfg(test)]

@@ -1,5 +1,3 @@
-import { getHostPlatform, type HostPlatform } from '../../lib/keyboard/hostPlatform';
-
 export const MODIFIER_KEYS = ['Meta', 'Shift', 'Alt', 'Control'];
 
 export const DOM_TO_MODIFIER: Record<string, string> = {
@@ -179,7 +177,7 @@ export function toDisplayString(s: string): string {
     .replace(/\+/g, '');
 }
 
-/** Modifier keycaps on platforms where ⌘/⌥/⇧ glyphs are not the convention. */
+/** Modifier keycaps for action shortcuts. */
 const PLAIN_MODIFIER_LABEL: Record<string, string> = {
   Mod: 'Ctrl',
   Control: 'Ctrl',
@@ -193,11 +191,10 @@ const PLATFORM_ADAPTIVE_ACTION_CHORDS = new Set(['Alt+Enter', 'Control+X', 'Cont
  * Splits a `Super+Shift+K` shortcut into per-chip glyphs: `['⌘', '⇧', 'K']`.
  *
  * An action shortcut (using `Mod` or one of the canonical cross-platform action
- * chords) renders for `platform`: ⌘⌥⇧⌃ glyphs on macOS, `Ctrl`/`Alt`/`Shift`
- * keycaps elsewhere. Physical-modifier shortcuts (user-assigned global hotkeys)
- * are unaffected.
+ * chords) renders as `Ctrl`/`Alt`/`Shift` keycaps. Physical-modifier shortcuts
+ * (user-assigned global hotkeys) are unaffected.
  */
-export function toDisplayKeys(s: string, platform: HostPlatform = getHostPlatform()): string[] {
+export function toDisplayKeys(s: string): string[] {
   if (!s) return [];
   const parts = s.split('+');
   if (parts.length === 1) {
@@ -210,10 +207,7 @@ export function toDisplayKeys(s: string, platform: HostPlatform = getHostPlatfor
     return [HYPER_SYMBOL, KEY_SYMBOL[key] ?? key];
   }
   if (modifiers.includes('Mod') || PLATFORM_ADAPTIVE_ACTION_CHORDS.has(s)) {
-    const glyphs = platform === 'macos';
-    const caps = modifiers.map((m) =>
-      glyphs ? (m === 'Mod' ? '⌘' : (MODIFIER_SYMBOL[m] ?? m)) : (PLAIN_MODIFIER_LABEL[m] ?? m),
-    );
+    const caps = modifiers.map((m) => PLAIN_MODIFIER_LABEL[m] ?? m);
     return [...caps, KEY_SYMBOL[key] ?? key];
   }
   return s.split('+').map((part) => MODIFIER_SYMBOL[part] ?? KEY_SYMBOL[part] ?? part);

@@ -19,9 +19,6 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 pub mod linux;
-#[cfg(target_os = "macos")]
-pub mod macos;
-pub mod windows;
 
 /// Discriminant used on the wire (kebab-case) and as registry keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -98,21 +95,9 @@ pub trait AppEventsWatcher: Send + Sync {
     fn start(&self, hub: Arc<AppEventsHub>) -> Result<(), AppError>;
 }
 
-#[cfg(target_os = "macos")]
-pub fn default_watcher() -> Box<dyn AppEventsWatcher> {
-    Box::new(macos::MacAppWatcher::new())
-}
 #[cfg(target_os = "linux")]
 pub fn default_watcher() -> Box<dyn AppEventsWatcher> {
     Box::new(linux::LinuxAppWatcher::new())
-}
-#[cfg(target_os = "windows")]
-pub fn default_watcher() -> Box<dyn AppEventsWatcher> {
-    Box::new(windows::WindowsAppWatcher::new())
-}
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-pub fn default_watcher() -> Box<dyn AppEventsWatcher> {
-    Box::new(fake::NoopWatcher)
 }
 
 /// Synchronous "is this bundle-id running right now?" query. Implemented
@@ -121,26 +106,14 @@ pub trait AppPresenceQuery: Send + Sync {
     fn is_running(&self, bundle_id: &str) -> bool;
 
     /// One snapshot of every running app, keyed the way
-    /// `Application::presence_key` keys an indexed app: bundle ids on macOS,
-    /// lowercased executable basenames on Windows and Linux.
+    /// `Application::presence_key` keys an indexed app: lowercased
+    /// executable basenames.
     fn running_keys(&self) -> std::collections::HashSet<String>;
 }
 
-#[cfg(target_os = "macos")]
-pub fn default_presence_query() -> Box<dyn AppPresenceQuery> {
-    Box::new(macos::MacPresenceQuery)
-}
 #[cfg(target_os = "linux")]
 pub fn default_presence_query() -> Box<dyn AppPresenceQuery> {
     Box::new(linux::LinuxPresenceQuery)
-}
-#[cfg(target_os = "windows")]
-pub fn default_presence_query() -> Box<dyn AppPresenceQuery> {
-    Box::new(windows::WindowsPresenceQuery)
-}
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-pub fn default_presence_query() -> Box<dyn AppPresenceQuery> {
-    Box::new(fake::FakePresenceQuery::default())
 }
 
 pub mod fake {
@@ -151,13 +124,6 @@ pub mod fake {
     /// Re-export of the generic recording emitter, specialized to
     /// [`AppEvent`].
     pub type RecordingEmitter = crate::event_hub::fake::RecordingEmitter<AppEvent>;
-
-    pub struct NoopWatcher;
-    impl AppEventsWatcher for NoopWatcher {
-        fn start(&self, _hub: Arc<AppEventsHub>) -> Result<(), AppError> {
-            Ok(())
-        }
-    }
 
     /// Configurable fake for `AppPresenceQuery`. Use to drive
     /// command-layer tests without hitting the OS.

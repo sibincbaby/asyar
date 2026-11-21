@@ -12,55 +12,22 @@ use tauri::Manager;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
-#[cfg(target_os = "macos")]
-pub mod macos;
-#[cfg(target_os = "windows")]
-pub mod windows;
 
 /// Captures a screen snippet interactively, saving it to a temporary image file.
 ///
 /// Returns `Ok(None)` if the user cancelled the capture (e.g. pressed Escape).
 pub fn capture_screen_snippet() -> Result<Option<PathBuf>, AppError> {
-    #[cfg(target_os = "macos")]
-    {
-        macos::capture_screen_snippet()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        windows::capture_screen_snippet()
-    }
     #[cfg(target_os = "linux")]
     {
         linux::capture_screen_snippet()
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    {
-        Err(AppError::Platform(
-            "Screen capture is not supported on this platform".into(),
-        ))
     }
 }
 
 /// Runs local on-device OCR on the provided image bytes.
 pub fn recognize_text(image_bytes: &[u8]) -> Result<String, AppError> {
-    #[cfg(target_os = "macos")]
-    {
-        macos::recognize_text(image_bytes)
-    }
-    #[cfg(target_os = "windows")]
-    {
-        windows::recognize_text(image_bytes)
-    }
     #[cfg(target_os = "linux")]
     {
         linux::recognize_text(image_bytes)
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    {
-        let _ = image_bytes;
-        Err(AppError::Platform(
-            "OCR is not supported on this platform".into(),
-        ))
     }
 }
 

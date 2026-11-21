@@ -1,7 +1,7 @@
 //! Power-inhibitor service.
 //!
-//! Platform-neutral registry + backend trait. Per-platform backends live in
-//! sibling modules (`macos`, `linux`, `windows`) and implement [`PowerBackend`].
+//! Platform-neutral registry + backend trait. The Linux backend lives in
+//! the sibling `linux` module and implements [`PowerBackend`].
 //!
 //! Tokens are opaque UUIDs owned by the [`PowerRegistry`] (Tauri managed
 //! state), so OS resources survive iframe teardown.
@@ -14,10 +14,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(target_os = "linux")]
 pub mod linux;
-#[cfg(target_os = "macos")]
-pub mod macos;
-#[cfg(target_os = "windows")]
-pub mod windows;
 
 #[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -247,21 +243,9 @@ pub fn now_secs() -> u64 {
 }
 
 /// Returns the default per-platform backend.
-#[cfg(target_os = "macos")]
-pub fn default_backend() -> Box<dyn PowerBackend> {
-    Box::new(macos::MacPowerBackend::new())
-}
 #[cfg(target_os = "linux")]
 pub fn default_backend() -> Box<dyn PowerBackend> {
     Box::new(linux::LinuxPowerBackend::new())
-}
-#[cfg(target_os = "windows")]
-pub fn default_backend() -> Box<dyn PowerBackend> {
-    Box::new(windows::WindowsPowerBackend::new())
-}
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-pub fn default_backend() -> Box<dyn PowerBackend> {
-    Box::new(fake::FakeBackend::new())
 }
 
 #[cfg(test)]

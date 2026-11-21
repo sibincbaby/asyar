@@ -8,35 +8,10 @@ static SELECTION_MUTEX: Mutex<()> = Mutex::const_new(());
 pub async fn get_selected_text() -> Result<Option<String>, SelectionError> {
     let _lock = SELECTION_MUTEX.lock().await;
 
-    // Step 0 — check prerequisites (macOS AX)
-    check_selection_prerequisites()?;
-
-    // Resolve which app to read from. The launcher being focused makes the
-    // live frontmost app Asyar itself, so on macOS we target the app the user
-    // was in before summoning it.
-    #[cfg(target_os = "macos")]
-    let target = platform::resolve_selection_target().ok_or(SelectionError::LauncherFocused)?;
-
     // Step 1 — fast path (no clipboard touch)
     #[cfg(target_os = "linux")]
     {
         if let Some(text) = platform::get_selected_text_via_a11y().await {
-            if !text.is_empty() {
-                return Ok(Some(text));
-            }
-        }
-    }
-    #[cfg(target_os = "macos")]
-    {
-        if let Some(text) = platform::get_selected_text_via_a11y(target.pid) {
-            if !text.is_empty() {
-                return Ok(Some(text));
-            }
-        }
-    }
-    #[cfg(target_os = "windows")]
-    {
-        if let Some(text) = platform::get_selected_text_via_a11y() {
             if !text.is_empty() {
                 return Ok(Some(text));
             }
@@ -50,9 +25,6 @@ pub async fn get_selected_text() -> Result<Option<String>, SelectionError> {
     let before = platform::clipboard_change_marker();
 
     // Post the copy chord
-    #[cfg(target_os = "macos")]
-    crate::platform::input::post_copy_chord_to_pid(target.pid);
-    #[cfg(not(target_os = "macos"))]
     crate::platform::input::post_copy_chord_to_frontmost();
 
     // Poll up to 250ms in 10ms increments
@@ -89,24 +61,5 @@ pub async fn get_selected_finder_items(
     let _lock = SELECTION_MUTEX.lock().await;
 
     // Primarily platform-specific logic
-    #[cfg(target_os = "windows")]
-    {
-        use crate::AppState;
-        use tauri::Manager;
-        let target_hwnd = *_app.state::<AppState>().previous_hwnd.lock().unwrap();
-        platform::get_selected_finder_items(target_hwnd)
-    }
-    #[cfg(not(target_os = "windows"))]
     platform::get_selected_finder_items()
-}
-
-fn check_selection_prerequisites() -> Result<(), SelectionError> {
-    #[cfg(target_os = "macos")]
-    {
-        if !platform::is_accessibility_trusted() {
-            platform::open_accessibility_prefs();
-            return Err(SelectionError::AccessibilityPermissionRequired);
-        }
-    }
-    Ok(())
 }

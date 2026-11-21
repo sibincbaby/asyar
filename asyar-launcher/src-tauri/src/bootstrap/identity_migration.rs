@@ -3,11 +3,9 @@
 //! Handles migrating application data from legacy bundle identifiers (e.g. `org.asyar.app`)
 //! to the canonical identifier (`org.asyar`) on startup before any storage or windows initialize.
 //!
-//! On macOS, directory names ending in `.app` are treated by LaunchServices and Finder as
-//! application bundles (`com.apple.application-bundle`), causing `~/Library/Application Support/org.asyar.app`
-//! to appear as a broken application rather than a browsable folder. Renaming the identifier to
-//! `org.asyar` resolves this issue. This module ensures that existing user databases, extensions,
-//! and settings are seamlessly migrated without data loss.
+//! The legacy identifier ended in `.app`; renaming it to `org.asyar` avoids that. This module
+//! ensures that existing user databases, extensions, and settings are seamlessly migrated
+//! without data loss.
 
 use std::path::{Path, PathBuf};
 use tauri::Manager;
@@ -317,30 +315,6 @@ pub fn adopt_legacy_data(app: &tauri::AppHandle) {
                         );
                     }
                 }
-            }
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    clean_legacy_launch_agent();
-}
-
-#[cfg(target_os = "macos")]
-fn clean_legacy_launch_agent() {
-    if let Ok(home) = std::env::var("HOME") {
-        let legacy_plist = PathBuf::from(home).join("Library/LaunchAgents/org.asyar.app.plist");
-        if legacy_plist.exists() {
-            if let Err(e) = std::fs::remove_file(&legacy_plist) {
-                log::warn!(
-                    "[identity_migration] could not remove legacy launch agent {:?}: {}",
-                    legacy_plist,
-                    e
-                );
-            } else {
-                log::info!(
-                    "[identity_migration] removed legacy launch agent {:?}",
-                    legacy_plist
-                );
             }
         }
     }

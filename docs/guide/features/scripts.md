@@ -15,7 +15,7 @@ Scripts can optionally declare a title, icon, and up to three input arguments in
 
 **Step 1 — add a watched folder**
 
-1. Open Settings (`⌘,`).
+1. Open Settings (`Ctrl+,`).
 2. Go to the **Scripts** tab.
 3. Click **Add Directory** and choose the folder that contains your scripts.
 
@@ -55,19 +55,19 @@ load. The detail panel shows the selected script's path, execution mode, argumen
 refresh interval. The **Issues** section explains problems such as invalid headers, unreadable
 files, or missing executable permission.
 
-Open Actions (`⌘K`) from the library to run a script, reveal it in the file manager, copy its
+Open Actions (`Ctrl+K`) from the library to run a script, reveal it in the file manager, copy its
 path, rescan watched directories, add a directory, or make a selected script executable.
 
 ## Shortcuts & actions
 
-| Action                      | How                                                |
-| --------------------------- | -------------------------------------------------- |
-| Run a script (or make exec) | Select it and press `Enter` (`↵`)                  |
-| Reveal script in Finder     | `⌘R` (in Script Library)                           |
-| Copy script path            | `⌘⇧C` (in Script Library)                          |
-| Open the Script Library     | Search for **Script Library** and press `Enter`    |
-| Open library actions        | Press `⌘K` inside the Script Library               |
-| Remove a watched folder     | Settings → Scripts → trash icon next to the folder |
+| Action                        | How                                                |
+| ----------------------------- | -------------------------------------------------- |
+| Run a script (or make exec)   | Select it and press `Enter`                        |
+| Reveal script in File Manager | `Ctrl+R` (in Script Library)                       |
+| Copy script path              | `Ctrl+Shift+C` (in Script Library)                 |
+| Open the Script Library       | Search for **Script Library** and press `Enter`    |
+| Open library actions          | Press `Ctrl+K` inside the Script Library           |
+| Remove a watched folder       | Settings → Scripts → trash icon next to the folder |
 
 ## Tips
 

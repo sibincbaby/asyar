@@ -2,9 +2,9 @@
 order: 4
 ---
 
-## 9. Actions — The ⌘K Panel
+## 9. Actions — The Ctrl+K Panel
 
-Actions are keyboard-accessible commands that appear in Asyar's Action Drawer when the user presses **⌘K**. They are **contextual** — what appears depends on where the user is and what your extension has registered.
+Actions are keyboard-accessible commands that appear in Asyar's Action Drawer when the user presses **Ctrl+K**. They are **contextual** — what appears depends on where the user is and what your extension has registered.
 
 There are two ways to contribute actions:
 
@@ -22,7 +22,7 @@ Use actions for secondary operations relevant while the user is looking at your 
 The `execute` function is a live JavaScript closure. It **cannot be serialized over postMessage**. The SDK uses a two-registry approach:
 
 1. When you call `registerAction({ id, ..., execute })`, the SDK stores the closure locally in the iframe's `ExtensionBridge.actionRegistry`. Only the metadata (`id`, `title`, `icon`, etc.) is sent to the host.
-2. When the user activates an action from the ⌘K Drawer, the host sends `asyar:action:execute` to the correct iframe.
+2. When the user activates an action from the Ctrl+K Drawer, the host sends `asyar:action:execute` to the correct iframe.
 3. The SDK receives the message, looks up the `execute` closure in `actionRegistry`, and calls it.
 
 ### Registering actions
@@ -80,7 +80,7 @@ actionService.registerAction(refreshAction);
   });
 
   // Critical: always unregister on unmount.
-  // If you leave actions registered, they pollute the ⌘K panel for other views.
+  // If you leave actions registered, they pollute the Ctrl+K panel for other views.
   onDestroy(() => {
     actionService.unregisterAction(ACTION_ID);
   });
@@ -108,20 +108,20 @@ actionService.registerAction(refreshAction);
 | `category`    | `string`                      | ❌        | Group label. Use `ActionCategory` constants for standard groups.                                                                                 |
 | `context`     | `ActionContext`               | ❌        | When this action is visible. Default: always visible.                                                                                            |
 | `shortcut`    | `string`                      | ❌        | Keyboard shortcut, shown in the drawer and bound. See [Action shortcuts](#action-shortcuts).                                                     |
-| `primary`     | `boolean`                     | ❌        | Promotes this action to the view's bottom bar (`↵` / `⌘↵`). Prefer this over inline form buttons.                                                |
+| `primary`     | `boolean`                     | ❌        | Promotes this action to the view's bottom bar (`↵` / `Ctrl+↵`). Prefer this over inline form buttons.                                            |
 | `disabled`    | `boolean`                     | ❌        | Shows the action in the drawer/bar as disabled and prevents execution.                                                                           |
 
 ### Primary actions in views (keyboard-first convention)
 
 Following Raycast conventions, forms and primary view actions belong in the bottom action bar (`primary: true`) rather than standalone inline `<button>` elements:
 
-- **Forms**: Register the submit action with `shortcut: 'Mod+Enter'` and `primary: true` so the bottom bar renders **`Save ⌘ ↵`** (or **`Continue ⌘ ↵`**) even while inputs are focused. `Esc` navigates back or cancels.
+- **Forms**: Register the submit action with `shortcut: 'Mod+Enter'` and `primary: true` so the bottom bar renders **`Save Ctrl ↵`** (or **`Continue Ctrl ↵`**) even while inputs are focused. `Esc` navigates back or cancels.
 - **Lists & empty states**: Register the default row/CTA action with `shortcut: 'Enter'` and `primary: true`:
   - When a primary action uses `shortcut: 'Enter'`, the launcher intercepts `Enter` and runs the action's `execute` handler only when the extension view does not have input focus. When the view has input focus, `Enter` is forwarded through `asyar:view:keydown` / `onKey` and the action does not run.
-  - Because `context.registerAction(...)` is called inside `src/view.ts` or your view component where the selected item state lives, the `execute` handler can act directly on the currently selected item — unifying `Enter`, mouse clicks on the bottom-right primary button, and the `⌘K` Action Panel in one handler.
+  - Because `context.registerAction(...)` is called inside `src/view.ts` or your view component where the selected item state lives, the `execute` handler can act directly on the currently selected item — unifying `Enter`, mouse clicks on the bottom-right primary button, and the `Ctrl+K` Action Panel in one handler.
 - **Structured pickers & view inputs**: Use host-rendered declarative surfaces (`preferences` in `manifest.json`, command `arguments`, or `searchBarAccessory` in `asyar-sdk/view`) when you want the launcher's built-in searchable dropdowns. Inside custom `role: 'view'` panels, use standard HTML/framework elements styled with `asyar-sdk/tokens.css` rather than expecting UI widget components from `asyar-sdk`.
 
-> ⚠️ **Migration (`0.2.0`):** `IExtensionManager.setActiveViewActionLabel(label)` is deprecated and will be removed in `0.2.0`. It only updated the bottom-right label without binding `Enter` or integrating with the `⌘K` Action Panel. Register an `ExtensionAction` with `primary: true` (and `shortcut: 'Enter'` or `'Mod+Enter'`) instead.
+> ⚠️ **Migration (`0.2.0`):** `IExtensionManager.setActiveViewActionLabel(label)` is deprecated and will be removed in `0.2.0`. It only updated the bottom-right label without binding `Enter` or integrating with the `Ctrl+K` Action Panel. Register an `ExtensionAction` with `primary: true` (and `shortcut: 'Enter'` or `'Mod+Enter'`) instead.
 
 ### Action context reference
 
@@ -138,11 +138,11 @@ Following Raycast conventions, forms and primary view actions belong in the bott
 
 ### Action shortcuts
 
-A `shortcut` is a declaration, not just a hint: the launcher shows it next to the action in the ⌘K drawer **and** runs the action when the user presses it. This works for actions you register at runtime with `registerAction`, including while your view iframe has focus — the launcher tells your iframe which chords are live and the SDK forwards exactly those key presses to it. You do not add a `keydown` listener for them.
+A `shortcut` is a declaration, not just a hint: the launcher shows it next to the action in the Ctrl+K drawer **and** runs the action when the user presses it. This works for actions you register at runtime with `registerAction`, including while your view iframe has focus — the launcher tells your iframe which chords are live and the SDK forwards exactly those key presses to it. You do not add a `keydown` listener for them.
 
 **Format:** `Mod[+Alt][+Shift]+Key`, bare `F1`–`F24`, `Enter`, `Alt+Enter`, `Control+Mod+Enter`, `Control+X`, or `Control+Shift+X`.
 
-- `Mod` is the platform's primary modifier: ⌘ on macOS, Ctrl on Windows and Linux. The hint is rendered per platform (`Mod+N` shows `⌘N` on macOS and `Ctrl N` elsewhere), so write it once.
+- `Mod` is the primary modifier, which is Ctrl on Linux (`Mod+N` shows as `Ctrl N`).
 - Modifiers go in the order `Control`, `Mod`, `Alt`, `Shift`. The key is an uppercase letter or digit, one of `,`, `.`, `/`, `;`, `'`, `[`, `]`, `\`, `-`, `=`, `` ` ``, or `Enter`.
 - Examples: `Mod+N`, `Mod+Shift+C`, `Mod+Alt+Shift+F`, `Mod+Shift+,`, `F5`.
 
@@ -150,10 +150,10 @@ A `shortcut` is a declaration, not just a hint: the launcher shows it next to th
 
 - **Arrows, Space, Tab, Esc, Backspace, and Shift-only chords are not bindable.** They belong to typing and list navigation. Portable non-function shortcuts should include `Mod` (`Alt+Enter` is supported for secondary Enter actions).
 - **Reserved:** `Mod+K`, `Mod+,`, `Mod+P`, `Mod+Q` (launcher) and `Mod+A`, `Mod+C`, `Mod+V`, `Mod+X`, `Mod+Z`, `Mod+Shift+Z` (text editing).
-- **Destructive actions require confirmation.** An unconfirmed `destructive: true` action (without `confirm: true`) or any destructive action using a shortcut other than `Control+X` / `Control+Shift+X` keeps registering with its shortcut dropped; delete chords always live alongside confirmation dialogs in the ⌘K drawer.
-- **Only visible actions fire.** A runtime action fires while the extension's view is the active one. Shortcuts do nothing while the ⌘K drawer or a dialog is open.
+- **Destructive actions require confirmation.** An unconfirmed `destructive: true` action (without `confirm: true`) or any destructive action using a shortcut other than `Control+X` / `Control+Shift+X` keeps registering with its shortcut dropped; delete chords always live alongside confirmation dialogs in the Ctrl+K drawer.
+- **Only visible actions fire.** A runtime action fires while the extension's view is the active one. Shortcuts do nothing while the Ctrl+K drawer or a dialog is open.
 - **No collisions.** Two actions that are visible together must not share a chord; the second always-visible action registered with the same chord keeps working without its shortcut. If a tie still happens the view's own action wins, then registration order, and the launcher logs a warning.
-- Old formats (`"⌘N"`, `"Ctrl+N"`, `"Super+N"`) are not accepted: the action still registers, but its shortcut is ignored and the launcher logs why. Rewrite it as `Mod+N`.
+- Old formats (`"Ctrl+N"`, `"Super+N"`) are not accepted: the action still registers, but its shortcut is ignored and the launcher logs why. Rewrite it as `Mod+N`.
 
 ---
 

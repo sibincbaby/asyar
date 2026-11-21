@@ -14,9 +14,6 @@
     ),
   );
 
-  const isWindows =
-    typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('windows');
-
   function handleWorkerError(extensionId: string) {
     feedbackService.report({
       source: 'extension',
@@ -30,9 +27,7 @@
 </script>
 
 {#each toMount as entry (entry.extensionId)}
-  {@const src = isWindows
-    ? `http://asyar-extension.localhost/${entry.extensionId}/worker.html`
-    : `asyar-extension://${entry.extensionId}/worker.html`}
+  {@const src = `asyar-extension://${entry.extensionId}/worker.html`}
   <iframe
     data-extension-id={entry.extensionId}
     data-mount-token={String(entry.mountToken)}

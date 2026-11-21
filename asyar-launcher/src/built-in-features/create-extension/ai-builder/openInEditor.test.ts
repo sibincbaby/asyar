@@ -3,12 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockExecute = vi.hoisted(() => vi.fn());
 const mockCreate = vi.hoisted(() => vi.fn(() => ({ execute: mockExecute })));
 const mockOpenPath = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
-const mockPlatform = vi.hoisted(() => vi.fn(() => 'macos'));
 const mockReport = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock('@tauri-apps/plugin-shell', () => ({ Command: { create: mockCreate } }));
 vi.mock('@tauri-apps/plugin-opener', () => ({ openPath: mockOpenPath }));
-vi.mock('@tauri-apps/plugin-os', () => ({ platform: mockPlatform }));
 vi.mock('../../../services/feedback/feedbackService.svelte', () => ({
   feedbackService: { report: mockReport },
 }));
@@ -19,13 +17,11 @@ beforeEach(() => {
   mockExecute.mockReset().mockResolvedValue(undefined);
   mockCreate.mockClear();
   mockOpenPath.mockReset().mockResolvedValue(undefined);
-  mockPlatform.mockReset().mockReturnValue('macos');
   mockReport.mockClear();
 });
 
 describe('openInEditor', () => {
-  it('runs `code` with cwd = path on non-Windows platforms', async () => {
-    mockPlatform.mockReturnValue('macos');
+  it('runs `code` with cwd = path', async () => {
     await openInEditor('/home/u/AsyarExtensions/com.x.notion');
     expect(mockCreate).toHaveBeenCalledTimes(1);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,13 +31,6 @@ describe('openInEditor', () => {
     expect(opts).toMatchObject({ cwd: '/home/u/AsyarExtensions/com.x.notion' });
     expect(mockExecute).toHaveBeenCalled();
     expect(mockOpenPath).not.toHaveBeenCalled();
-  });
-
-  it('runs `code-cmd` on Windows', async () => {
-    mockPlatform.mockReturnValue('windows');
-    await openInEditor('C:/Users/u/AsyarExtensions/com.x.notion');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((mockCreate.mock.calls[0] as any[])[0]).toBe('code-cmd');
   });
 
   it('falls back to openPath when the editor command throws', async () => {

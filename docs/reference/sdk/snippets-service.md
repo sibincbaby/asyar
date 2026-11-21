@@ -69,11 +69,9 @@ When the user types `:xxx:` and no entry in the merged catalog (user snippets + 
 
 **Platform considerations:**
 
-System-wide expansion works on macOS, Windows, and X11/XWayland Linux. **Pure Wayland sessions cannot deliver global keystrokes to unprivileged processes** (Wayland security model); on those sessions the listener becomes a one-time-warned no-op. The picker UI inside Asyar itself still works. Matches Espanso / AutoKey posture.
+System-wide expansion works on X11/XWayland Linux. **Pure Wayland sessions cannot deliver global keystrokes to unprivileged processes** (Wayland security model); on those sessions the listener becomes a one-time-warned no-op. The picker UI inside Asyar itself still works. Matches Espanso / AutoKey posture.
 
-On macOS, system-wide expansion additionally requires **Accessibility permission** (System Settings → Privacy & Security → Accessibility). The user grants this once when first enabling snippets; your extension does not request it.
-
-The launcher resolves typed characters through OS-native APIs (`NSEvent` on macOS, `ToUnicodeEx` on Windows, `libxkbcommon` on Linux) so shortcodes work correctly on every keyboard layout the OS knows about — AZERTY, QWERTZ, Dvorak, IME composition, dead keys, etc. — without per-extension configuration.
+The launcher resolves typed characters through `libxkbcommon` so shortcodes work correctly on every keyboard layout the OS knows about — AZERTY, QWERTZ, Dvorak, IME composition, dead keys, etc. — without per-extension configuration.
 
 **Placement guidance:**
 

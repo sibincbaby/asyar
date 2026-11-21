@@ -83,28 +83,21 @@ pub fn validate_files_read_pattern(pattern: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Compile a single already-tilde-expanded pattern with the platform's
-/// case semantics (`original` only feeds the error message). Shared by the
+/// Compile a single already-tilde-expanded pattern (`original` only feeds
+/// the error message). Shared by the
 /// coverage check below and `files:glob`'s requested-pattern matcher so
 /// both surfaces match identically.
 pub fn compile_expanded_glob(expanded: &str, original: &str) -> Result<globset::Glob, AppError> {
-    globset::GlobBuilder::new(expanded)
-        .case_insensitive(CASE_INSENSITIVE_FS)
-        .build()
-        .map_err(|e| {
-            AppError::Validation(format!(
-                "files:read pattern '{}' is not a valid glob: {}",
-                original, e
-            ))
-        })
+    globset::GlobBuilder::new(expanded).build().map_err(|e| {
+        AppError::Validation(format!(
+            "files:read pattern '{}' is not a valid glob: {}",
+            original, e
+        ))
+    })
 }
 
 /// Check that `requested` is matched by at least one declared pattern.
-/// Patterns are tilde-expanded and compiled into a `GlobSet`; on Windows
-/// and macOS they match case-insensitively (NTFS and default-APFS path
-/// semantics — a pattern of `D:/SteamLibrary/**` must cover
-/// `d:/steamlibrary/...`), keeping coverage consistent with the deny-list
-/// comparison below.
+/// Patterns are tilde-expanded and compiled into a `GlobSet`.
 pub fn path_covered_by_patterns(
     patterns: &[String],
     requested: &Path,
@@ -211,10 +204,6 @@ pub fn secret_source_deny_roots(home: &Path) -> Vec<PathBuf> {
         .map(|rel| home.join(rel))
         .collect();
     roots.extend(ABSOLUTE_DENY.iter().map(PathBuf::from));
-    #[cfg(windows)]
-    roots.push(PathBuf::from(
-        std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into()),
-    ));
     roots
 }
 
@@ -234,25 +223,9 @@ pub fn check_path_denied(path: &Path, home: &Path, extra_deny: &[PathBuf]) -> Re
     Ok(())
 }
 
-/// Platforms whose default filesystems compare paths case-insensitively
-/// (NTFS; APFS/HFS+ as shipped). The deny-list fails OPEN on a case
-/// mismatch, so both the glob coverage and the prefix check below must
-/// follow the filesystem's semantics.
-const CASE_INSENSITIVE_FS: bool = cfg!(any(windows, target_os = "macos"));
-
-/// Component-wise prefix check, case-insensitive on Windows and macOS so
-/// `c:\windows\...` or `~/library/keychains/...` can't sidestep a
-/// protected root.
+/// Component-wise prefix check against a protected root.
 pub(crate) fn starts_with_case_aware(path: &Path, root: &Path) -> bool {
-    if path.starts_with(root) {
-        return true;
-    }
-    if CASE_INSENSITIVE_FS {
-        let p = path.to_string_lossy().to_lowercase();
-        let r = root.to_string_lossy().to_lowercase();
-        return Path::new(&p).starts_with(Path::new(&r));
-    }
-    false
+    path.starts_with(root)
 }
 
 #[cfg(test)]

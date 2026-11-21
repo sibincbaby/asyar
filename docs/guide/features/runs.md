@@ -19,18 +19,18 @@ Instead of wondering if a background script is still running or failing silently
 
 ## Shortcuts & actions
 
-| Action            | Shortcut                         |
-| :---------------- | :------------------------------- |
-| Open Runs         | `Enter` on Runs                  |
-| View Conversation | `↵` (on agent runs in Runs view) |
-| Clear Recent Runs | `⌃⇧X` (with confirmation)        |
-| Open Action Panel | `⌘K`                             |
+| Action            | Shortcut                             |
+| :---------------- | :----------------------------------- |
+| Open Runs         | `Enter` on Runs                      |
+| View Conversation | `Enter` (on agent runs in Runs view) |
+| Clear Recent Runs | `Ctrl+Shift+X` (with confirmation)   |
+| Open Action Panel | `Ctrl+K`                             |
 
-**Action panel (⌘K) entries while Runs is open:**
+**Action panel (Ctrl+K) entries while Runs is open:**
 
 - **Cancel Run** — aborts an in-flight background process safely.
-- **Clear Recent** (`⌃⇧X`) — asks for confirmation and clears completed and terminated execution logs from recent history.
-- **View Conversation** (`↵`) — jumps directly to the agent chat thread that initiated the run (for runs spawned by AI agents).
+- **Clear Recent** (`Ctrl+Shift+X`) — asks for confirmation and clears completed and terminated execution logs from recent history.
+- **View Conversation** (`Enter`) — jumps directly to the agent chat thread that initiated the run (for runs spawned by AI agents).
 
 ## Tips
 

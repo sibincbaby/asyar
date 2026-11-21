@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
-import { getHostPlatform } from '../../lib/keyboard/hostPlatform';
 
 const mockSet = vi.fn().mockResolvedValue(undefined);
 const mockExecute = vi.fn().mockResolvedValue(undefined);
@@ -230,12 +229,10 @@ describe('RequiredPreferencesView', () => {
 
     expect(continueBtn.disabled).toBe(false);
 
-    const isMac = getHostPlatform() === 'macos';
     const modEnter = new KeyboardEvent('keydown', {
       key: 'Enter',
       code: 'Enter',
-      metaKey: isMac,
-      ctrlKey: !isMac,
+      ctrlKey: true,
       bubbles: true,
       cancelable: true,
     });

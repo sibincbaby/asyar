@@ -15,10 +15,6 @@ pub mod scheduler;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
-#[cfg(target_os = "macos")]
-pub mod macos;
-#[cfg(target_os = "windows")]
-pub mod windows;
 
 pub use backend::{BackendAction, NotificationBackend, NotificationRequest};
 pub use dispatch::{resolve_click, NotificationActionEvent};
@@ -53,31 +49,18 @@ pub fn build_default_backend<R: tauri::Runtime>(
                 }
                 None => {
                     log::warn!(
-                    "[notifications] received click for unknown ({},{}) — extension likely disabled",
-                    notification_id,
-                    action_id
-                );
+                        "[notifications] received click for unknown ({},{}) — extension likely disabled",
+                        notification_id,
+                        action_id
+                    );
                 }
             }
         },
     );
 
-    #[cfg(target_os = "macos")]
-    {
-        let _ = app;
-        Arc::new(macos::MacOsBackend::new(click_sink))
-    }
     #[cfg(target_os = "linux")]
     {
         let _ = app;
         Arc::new(linux::LinuxBackend::new(click_sink))
-    }
-    #[cfg(target_os = "windows")]
-    {
-        Arc::new(windows::WindowsBackend::new(app, click_sink))
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        compile_error!("unsupported platform for notifications backend");
     }
 }

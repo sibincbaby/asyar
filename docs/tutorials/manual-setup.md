@@ -64,7 +64,7 @@ context.setExtensionId(extensionId);
 //    route actions or service calls to this iframe.
 window.parent.postMessage({ type: 'asyar:extension:loaded', extensionId }, '*');
 
-// 3. Forward ⌘K to the host so the Action Drawer opens from inside the iframe.
+// 3. Forward Ctrl+K to the host so the Action Drawer opens from inside the iframe.
 window.addEventListener('keydown', (event) => {
   const isCommandK = (event.metaKey || event.ctrlKey) && event.key === 'k';
   if (isCommandK) {

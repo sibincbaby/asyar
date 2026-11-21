@@ -10,7 +10,7 @@ _Figure: the Applications tab assigning a shortcut or alias._
 Asyar gives you two ways to reach any app or command faster:
 
 - **Aliases** — a short word (1–10 lowercase letters or digits) that, when typed in the search bar, immediately runs the matching app or command. For example, set `c` as an alias for Chrome and typing `c` launches Chrome directly.
-- **Shortcuts** — a global keyboard combination (for example `⌥⌘C`) assigned to any app or command. Press the hotkey from anywhere on your computer and Asyar runs the target immediately, without you needing to open the launcher first.
+- **Shortcuts** — a global keyboard combination (for example `Ctrl+Alt+C`) assigned to any app or command. Press the hotkey from anywhere on your computer and Asyar runs the target immediately, without you needing to open the launcher first.
 
 Both types are assigned per item — one alias and one shortcut per app or command. You can assign, change, or remove them at any time.
 
@@ -21,13 +21,13 @@ Both types are assigned per item — one alias and one shortcut per app or comma
 **From search results (quickest way):**
 
 1. Open Asyar and search for the app or command you want.
-2. With the result highlighted, open the action panel with `⌘K`.
+2. With the result highlighted, open the action panel with `Ctrl+K`.
 3. Choose **Assign Alias** (or **Change Alias** if one is already set).
 4. Type 1–10 lowercase letters or digits and press `Enter` to save.
 
 **From Settings:**
 
-1. Open Settings (`⌘,` or search for "Settings") and go to the **Applications** or **Extensions** tab.
+1. Open Settings (`Ctrl+,` or search for "Settings") and go to the **Applications** or **Extensions** tab.
 2. Find the app or command in the list. Click its **Alias** cell.
 3. Type the alias and press `Enter`.
 
@@ -35,7 +35,7 @@ Both types are assigned per item — one alias and one shortcut per app or comma
 
 **From search results:**
 
-1. Search for the app or command, highlight it, then press `⌘K`.
+1. Search for the app or command, highlight it, then press `Ctrl+K`.
 2. Choose **Assign Shortcut** (or **Change Shortcut**).
 3. Press the key combination you want to assign. Asyar checks for conflicts and confirms.
 
@@ -45,7 +45,7 @@ Both types are assigned per item — one alias and one shortcut per app or comma
 2. Click the **Shortcut** cell next to the item.
 3. Press the combination and save.
 
-**To view all assigned shortcuts in one place**, search for `shortcuts` to open the Shortcuts view. Select any entry and choose **Change** or **Remove** from the action panel (`⌘K`).
+**To view all assigned shortcuts in one place**, search for `shortcuts` to open the Shortcuts view. Select any entry and choose **Change** or **Remove** from the action panel (`Ctrl+K`).
 
 ### Removing an alias or shortcut
 
@@ -56,20 +56,20 @@ Both types are assigned per item — one alias and one shortcut per app or comma
 
 The shortcuts and aliases themselves are configured via the action panel on search results and the Settings tabs — there are no dedicated keyboard shortcuts for the management views beyond the standard ones below.
 
-**Action panel (⌘K) on any search result:**
+**Action panel (Ctrl+K) on any search result:**
 
 - **Assign Alias** / **Change Alias** — opens the alias input for the highlighted item.
 
-**Action panel (⌘K) on any search result or in the Shortcuts view:**
+**Action panel (Ctrl+K) on any search result or in the Shortcuts view:**
 
 - **Assign Shortcut** / **Change Shortcut** — opens the shortcut recorder.
 
 **Inside the Shortcuts view (search for `shortcuts`):**
 
-| Action                    | How                    |
-| ------------------------- | ---------------------- |
-| Change shortcut           | `⌘E`                   |
-| Remove shortcut (confirm) | `⌃X` (`Ctrl+X` Win/Ln) |
+| Action                    | How      |
+| ------------------------- | -------- |
+| Change shortcut           | `Ctrl+E` |
+| Remove shortcut (confirm) | `Ctrl+X` |
 
 ## Tips
 
@@ -78,9 +78,9 @@ The shortcuts and aliases themselves are configured via the action panel on sear
 - **Shortcuts vs aliases** — shortcuts work even when Asyar is hidden; aliases require you to open the launcher and type. Use shortcuts for the apps you reach dozens of times a day, aliases for everything else.
 - **One alias per item** — each app or command can have only one alias, but the same alias cannot be shared.
 - **Shortcuts view** — type `shortcuts` in the search bar to open a dedicated view that lists every shortcut you have assigned, grouped by Applications and Commands. It is handy for a quick audit.
-- **Hyper Key (`✦`) Support** — If you use a physical or remapped Hyper key (such as `Caps Lock` mapped to `Ctrl+Alt+Shift+Cmd`), Asyar detects when all four modifiers are pressed together and renders them concisely in the UI using the special `✦` glyph (e.g. `✦Space` or `✦K`).
-- **Single-key function shortcuts (`F1`–`F24`) & Copilot Key** — While alphanumeric characters (`A–Z`, `0–9`, symbols) strictly require at least one modifier key (`⌘`, `⌥`, `⌃`, `⇧`) to protect normal text input, standalone function keys (`F1` through `F24`, including extended keys `F13`–`F24` and the Windows Copilot key `F23`) can be assigned directly without any modifiers. This is particularly useful for hardware macro pads, Stream Decks, gaming mice, or remapped keys like `Caps Lock`.
-- **Destructive action safety** — Deleting items or clearing history is never bound to text-editing keys like `⌘⌫` (`Cmd+Backspace`). Destructive actions always require confirmation and use `⌃X` / `⌃⇧X` (on Windows/Linux, `Ctrl+X` still yields to Cut whenever text is selected) or live in the `⌘K` action panel.
+- **Hyper Key (`✦`) Support** — If you use a physical or remapped Hyper key (such as `Caps Lock` mapped to `Ctrl+Alt+Shift+Super`), Asyar detects when all four modifiers are pressed together and renders them concisely in the UI using the special `✦` glyph (e.g. `✦Space` or `✦K`).
+- **Single-key function shortcuts (`F1`–`F24`)** — While alphanumeric characters (`A–Z`, `0–9`, symbols) strictly require at least one modifier key (`Ctrl`, `Alt`, `Shift`, `Super`) to protect normal text input, standalone function keys (`F1` through `F24`, including extended keys `F13`–`F24`) can be assigned directly without any modifiers. This is particularly useful for hardware macro pads, Stream Decks, gaming mice, or remapped keys like `Caps Lock`.
+- **Destructive action safety** — Deleting items or clearing history is never bound to text-editing keys like `Ctrl+Backspace`. Destructive actions always require confirmation and use `Ctrl+X` / `Ctrl+Shift+X` (`Ctrl+X` still yields to Cut whenever text is selected) or live in the `Ctrl+K` action panel.
 
 ## Related
 

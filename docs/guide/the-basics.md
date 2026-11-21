@@ -18,7 +18,7 @@ The search bar does several things depending on what you type and which features
 - **AI mode** — When the AI chip is visible at the right of the search bar, press `Tab` to enter AI mode and ask a question (see [The AI chip and Tab](#the-ai-chip-and-tab) below).
 - **Command arguments** — If the selected result is a command that expects inputs, press `Tab` to fill in its argument fields before running.
 
-A dropdown can appear beside the search bar for some commands to let you pick a scope or filter. Press `⌘P` to toggle that dropdown when it is visible.
+A dropdown can appear beside the search bar for some commands to let you pick a scope or filter. Press `Ctrl+P` to toggle that dropdown when it is visible.
 
 ## Results & how they're ranked
 
@@ -34,16 +34,16 @@ Results from multiple sources — apps, commands, AI agents, browser bookmarks, 
 
 Asyar is designed to be used entirely with the keyboard:
 
-| Key       | What it does                                                            |
-| --------- | ----------------------------------------------------------------------- |
-| `↑` / `↓` | Move up and down through the results list                               |
-| `Enter`   | Run the selected result (launch app, execute command, open URL, etc.)   |
-| `⌘K`      | Open the action panel for the selected result                           |
-| `Tab`     | Fill command arguments, or switch to AI / context mode                  |
-| `⌘P`      | Toggle the search-bar dropdown (when one is shown)                      |
-| `⌘,`      | Open Settings                                                           |
-| `Esc`     | Clear the search → go back from a view → hide Asyar                     |
-| `⌫`       | Go back from an open view, or exit AI mode when the search bar is empty |
+| Key         | What it does                                                            |
+| ----------- | ----------------------------------------------------------------------- |
+| `↑` / `↓`   | Move up and down through the results list                               |
+| `Enter`     | Run the selected result (launch app, execute command, open URL, etc.)   |
+| `Ctrl+K`    | Open the action panel for the selected result                           |
+| `Tab`       | Fill command arguments, or switch to AI / context mode                  |
+| `Ctrl+P`    | Toggle the search-bar dropdown (when one is shown)                      |
+| `Ctrl+,`    | Open Settings                                                           |
+| `Esc`       | Clear the search → go back from a view → hide Asyar                     |
+| `Backspace` | Go back from an open view, or exit AI mode when the search bar is empty |
 
 Asyar keeps focus in the search bar automatically. You can click a result to select it, but you do not have to.
 
@@ -52,17 +52,17 @@ Asyar keeps focus in the search bar automatically. You can click a result to sel
 By default, Asyar centers itself on your active display. You can reposition the window to suit your screen layout:
 
 - **Drag to move**: Click and drag the launcher from any non-interactive header or padding area to place it anywhere on your screen.
-- **Snap guides**: As you drag near screen edges or vertical/horizontal centers, subtle alignment snap guide lines appear. On macOS, alignment haptic feedback confirms when the launcher snaps into alignment.
+- **Snap guides**: As you drag near screen edges or vertical/horizontal centers, subtle alignment snap guide lines appear.
 - **Toggle snap**: You can enable or disable drag snapping in **Settings → General → Placement**.
 - Note that launcher placement is deliberately kept local per-machine rather than synced, ensuring optimal positions across varying multi-monitor setups.
 
-## The action panel (⌘K)
+## The action panel (Ctrl+K)
 
-Every result in Asyar can have multiple actions beyond the default one. Press `⌘K` with a result selected (or highlighted) to open the **action panel** at the bottom of the window.
+Every result in Asyar can have multiple actions beyond the default one. Press `Ctrl+K` with a result selected (or highlighted) to open the **action panel** at the bottom of the window.
 
-The action panel shows all available actions for that item. For example, an application might offer actions like Open, Reveal in Finder, or Hide All Windows. A command might offer Edit, Assign Shortcut, or Delete.
+The action panel shows all available actions for that item. For example, an application might offer actions like Open, Reveal in File Manager, or Copy Path. A command might offer Edit, Assign Shortcut, or Delete.
 
-Use `↑` / `↓` inside the action panel to move between actions, then press `Enter` to run one. Press `Esc`, `⌫`, or `⌘K` again to close the panel without taking any action.
+Use `↑` / `↓` inside the action panel to move between actions, then press `Enter` to run one. Press `Esc`, `Backspace`, or `Ctrl+K` again to close the panel without taking any action.
 
 Extensions can also contribute their own actions to the panel, so the list grows as you install more extensions.
 
@@ -75,7 +75,7 @@ Once you press `Tab`:
 - The chip becomes active and the search bar transforms into an AI input.
 - Type your question or prompt, then press `Enter` to send it.
 - The AI response appears in the launcher.
-- Press `⌫` when the input is empty to exit AI mode and return to normal search.
+- Press `Backspace` when the input is empty to exit AI mode and return to normal search.
 
 You can configure which AI provider powers the chip, and add multiple AI providers, in **Settings → AI**.
 
@@ -89,7 +89,7 @@ Press `Tab` to enter argument mode. A row of input chips appears inline in the s
 
 Asyar remembers the last value you typed for each argument field (unless the extension explicitly disables seeding), so repeat invocations are fast.
 
-To exit argument mode without running the command, press `Esc` or `⌫`.
+To exit argument mode without running the command, press `Esc` or `Backspace`.
 
 ## Related
 
@@ -98,6 +98,5 @@ To exit argument mode without running the command, press `Esc` or `⌫`.
 - [Settings](./settings.md)
 - [AI & Agents](./features/ai-and-agents.md)
 - [Window Management](./features/window-management.md)
-- [Screen OCR](./features/screen-ocr.md)
 - [Walkthrough](./features/walkthrough.md)
 - [Usage Statistics](./features/usage-stats.md)

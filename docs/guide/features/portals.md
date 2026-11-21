@@ -17,11 +17,11 @@ Portals appear as regular search results the moment you type their name, so find
 
 **To create a portal:**
 
-1. Open Asyar and search for **New Portal**, or type `portals` and press `Enter` to open the Portals view, then press `⌘N`.
+1. Open Asyar and search for **New Portal**, or type `portals` and press `Enter` to open the Portals view, then press `Ctrl+N`.
 2. Fill in the **Name** — this is what you will search for later.
 3. Enter the **URL**. To make it dynamic, include `{query}` in the URL (for example `https://google.com/search?q={query}`). Type `{` to open the placeholder picker, or click the `{ }` button.
 4. Optionally change the **Icon** emoji.
-5. Press **Save** (`⌘S`) or click the Save button.
+5. Press **Save** (`Ctrl+S`) or click the Save button.
 
 **To open a portal:**
 
@@ -31,26 +31,26 @@ Portals appear as regular search results the moment you type their name, so find
 
 **To manage portals:**
 
-Type `portals` and press `Enter` to open the Portals view. Use `↑` / `↓` to select portals, and use `⌘K` to edit, duplicate, or delete the selected portal.
+Type `portals` and press `Enter` to open the Portals view. Use `↑` / `↓` to select portals, and use `Ctrl+K` to edit, duplicate, or delete the selected portal.
 
 ## Shortcuts & actions
 
-| Action                  | How   |
-| ----------------------- | ----- |
-| New portal (in view)    | `⌘N`  |
-| Edit portal             | `⌘E`  |
-| Duplicate portal        | `⌘D`  |
-| Delete portal (confirm) | `⌃X`  |
-| Save form               | `⌘S`  |
-| Cancel form             | `Esc` |
-| Open action panel       | `⌘K`  |
+| Action                  | How      |
+| ----------------------- | -------- |
+| New portal (in view)    | `Ctrl+N` |
+| Edit portal             | `Ctrl+E` |
+| Duplicate portal        | `Ctrl+D` |
+| Delete portal (confirm) | `Ctrl+X` |
+| Save form               | `Ctrl+S` |
+| Cancel form             | `Esc`    |
+| Open action panel       | `Ctrl+K` |
 
-**Action panel (⌘K) entries inside the Portals view:**
+**Action panel (Ctrl+K) entries inside the Portals view:**
 
-- **New Portal** (`⌘N`) — open the new-portal form.
-- **Edit** (`⌘E`) — edit the selected portal's name, URL, or icon.
-- **Duplicate** (`⌘D`) — create a copy of the selected portal.
-- **Delete** (`⌃X`) — permanently remove the selected portal (with confirmation).
+- **New Portal** (`Ctrl+N`) — open the new-portal form.
+- **Edit** (`Ctrl+E`) — edit the selected portal's name, URL, or icon.
+- **Duplicate** (`Ctrl+D`) — create a copy of the selected portal.
+- **Delete** (`Ctrl+X`) — permanently remove the selected portal (with confirmation).
 
 ## Available placeholders
 

@@ -205,18 +205,12 @@ fn validate_update_offer(
 }
 
 /// Resolve a real installed directory before downloading or mutating anything.
-/// Reparse points/junctions must not redirect the updater outside its root.
+/// Symlinks must not redirect the updater outside its root.
 fn validate_update_target(base_dir: &Path, update: &AvailableUpdate) -> Result<PathBuf, AppError> {
     installer::validate_extension_id(&update.extension_id)?;
     let root = dunce::canonicalize(base_dir)?;
     let live = root.join(&update.extension_id);
     let metadata = fs::symlink_metadata(&live)?;
-    #[cfg(windows)]
-    let is_link = {
-        use std::os::windows::fs::MetadataExt;
-        metadata.file_attributes() & 0x400 != 0 // FILE_ATTRIBUTE_REPARSE_POINT
-    };
-    #[cfg(not(windows))]
     let is_link = metadata.file_type().is_symlink();
     if is_link || !metadata.is_dir() || dunce::canonicalize(&live)?.parent() != Some(root.as_path())
     {

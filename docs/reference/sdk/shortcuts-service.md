@@ -9,7 +9,7 @@
 | `shortcuts:read` | `list()` |
 | `shortcuts:run`  | `run()`  |
 
-List the user's Apple Shortcuts and run them. Available on **macOS** only; on other platforms every call rejects with `Unsupported platform operation`.
+List the user's Apple Shortcuts and run them. Apple Shortcuts do not exist on Linux, so **every call rejects with `Unsupported platform operation`** in Asyar for Linux. The API is kept for extensions that also target other Asyar builds.
 
 The host runs the system `shortcuts` tool itself, so an extension needs neither `shell:spawn` nor a per-binary shell consent prompt, and no entry is added to Runs and no notification is shown.
 

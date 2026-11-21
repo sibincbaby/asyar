@@ -58,5 +58,5 @@ Version 1 is the `baseline`: it calls the pre-ledger `init_table` functions, whi
 ## 14. Known Limitations & Future Work
 
 1. **Checksum Verification:** The publish pipeline computes SHA-256 checksums for extension ZIPs and stores them in the Asyar Store. The app verifies checksums on download. Cryptographic signature verification (code signing) is not yet implemented — the system relies on HTTPS transport + checksum integrity.
-2. **Symlink Support for Dev Tools:** The `asyar link` CLI command creates symlinks from the app data extensions directory to the developer's project. The Rust custom protocol handler resolves symlinks correctly on macOS and Linux. Windows support uses a copy fallback (`asyar link --copy`).
+2. **Symlink Support for Dev Tools:** The `asyar link` CLI command creates symlinks from the app data extensions directory to the developer's project. The Rust custom protocol handler resolves symlinks correctly on Linux. The `asyar link --copy` option provides a file-copy fallback.
 3. **`unsafe-eval` Application Policy:** Release builds forbid `'unsafe-eval'` in the extension-view Content-Security-Policy. Debug builds still allow it for Svelte hot reload, so a Store-certified extension must not rely on eval or `new Function` — the release CSP will reject it.

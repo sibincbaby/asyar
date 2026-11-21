@@ -359,13 +359,6 @@ describe('SettingsHandler — general settings handlers', () => {
     mockUpdateSettings.mockClear();
   });
 
-  it('handleDockIconToggle toggles showDockIcon', async () => {
-    const handler = new SettingsHandler();
-    handler.settings.general.showDockIcon = false;
-    await handler.handleDockIconToggle();
-    expect(mockUpdateSettings).toHaveBeenCalledWith('general', { showDockIcon: true });
-  });
-
   it('handleTrayIconToggle toggles showTrayIcon', async () => {
     const handler = new SettingsHandler();
     handler.settings.general.showTrayIcon = true;

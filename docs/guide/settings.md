@@ -5,16 +5,15 @@
 ![The General settings tab](../images/settings-general.png)
 _Figure: the General settings tab._
 
-Open Settings with `⌘,` from anywhere inside the launcher, or search for "Settings" and press `Enter`. The window is divided into tabs along the top.
+Open Settings with `Ctrl+,` from anywhere inside the launcher, or search for "Settings" and press `Enter`. The window is divided into tabs along the top.
 
 ## General
 
 The General tab covers core appearance, window placement, and system integration:
 
 - **Startup** — Toggle "Launch Asyar at login" to have Asyar start automatically when you log in to your computer.
-- **Menu Bar Icon** — Toggle "Show icon in menu bar" to control whether Asyar appears in the system menu bar / system tray.
-- **Dock Icon** (macOS) — Toggle "Show icon in Dock" to control whether Asyar appears in the macOS Dock and ⌘Tab application switcher.
-- **Placement & Drag to Snap** — Toggle "Drag to Snap" to control whether alignment snap guide lines and haptic feedback appear when you reposition the launcher window. Note: launcher window placement is stored locally per machine and is deliberately excluded from cloud sync so multi-monitor differences don't clash across machines.
+- **Tray Icon** — Toggle "Show icon in menu bar" (the in-app label) to control whether Asyar appears in your system tray.
+- **Placement & Drag to Snap** — Toggle "Drag to Snap" to control whether alignment snap guide lines appear when you reposition the launcher window. Note: launcher window placement is stored locally per machine and is deliberately excluded from cloud sync so multi-monitor differences don't clash across machines.
 - **Hotkey** — Change the global show/hide shortcut. Click inside the recorder, press your new combination (including standalone `F1`–`F24` keys or Hyper key combinations), and click Save.
 - **Appearance** — Switch between Light, Dark, or System (follows your operating system) colour scheme.
 - **Window Mode** — Choose between Default (search bar + results list visible immediately) and Compact (search bar only; results expand when you type).
@@ -34,7 +33,7 @@ The Appearance tab gives you a larger visual picker for the same settings:
 
 The Shortcuts tab has one purpose: changing the global activation shortcut.
 
-- **Asyar activation shortcut** — Click inside the recorder and press the shortcut you want. Asyar supports standard modifier combinations (e.g. `⌥Space`), Hyper key combinations (all four modifiers, rendered as `✦`), and standalone function keys (`F1`–`F24`, including extended keys `F13`–`F24` and the Windows Copilot key `F23`) without modifiers for dedicated macro keys or remapped `Caps Lock`. Asyar checks for conflicts with other registered shortcuts and warns you if the combination is already in use. Click Save to apply it.
+- **Asyar activation shortcut** — Click inside the recorder and press the shortcut you want. Asyar supports standard modifier combinations (e.g. `Alt+Space`), Hyper key combinations (all four modifiers, rendered as `✦`), and standalone function keys (`F1`–`F24`, including extended keys `F13`–`F24`) without modifiers for dedicated macro keys or remapped `Caps Lock`. Asyar checks for conflicts with other registered shortcuts and warns you if the combination is already in use. Click Save to apply it.
 
 All other per-item shortcuts (for commands, snippets, scripts, and agents) are managed from the **Applications & Extensions** tab and from each item's row in the launcher.
 
@@ -49,13 +48,13 @@ This tab has two sub-sections that share a tab.
 
 **Extensions** (the Extensions tab) manages both built-in features and installed extensions:
 
-- **Built-in Features vs. Installed Extensions** — The list is organized into distinct sections with item counts for built-in capabilities (like Calculator, Snippets, Screen OCR, Window Management, and Clipboard) and installed third-party extensions.
+- **Built-in Features vs. Installed Extensions** — The list is organized into distinct sections with item counts for built-in capabilities (like Calculator, Snippets, Window Management, and Clipboard) and installed third-party extensions.
 - **Filter Chips** — Scope the list using filter chips at the top:
   - **All** — Shows all built-in features and installed extensions.
   - **Commands** — Shows only extensions and features that declare runnable commands.
   - **Extensions** — Scopes specifically to third-party installed extensions (excluding built-in features).
   - **Themes** — Shows only installed theme extensions.
-- **Toggles & Disableability** — Turn any extension or optional built-in feature on or off with its toggle. All 21 optional built-in features (such as Calculator, File Search, Snippets, Screen OCR, Notes, Runs, Window Management, etc.) can be turned off to streamline your launcher UI; when disabled, their commands, views, and search entries are removed, while underlying platform services remain running and accessible to Tier 2 extensions. Essential platform infrastructure (`System` and `Settings`) displays a locked, non-interactive toggle with a tooltip explaining that core infrastructure cannot be disabled. Expand an extension with the chevron to view its individual commands and directly assign search aliases or global hotkeys.
+- **Toggles & Disableability** — Turn any extension or optional built-in feature on or off with its toggle. All optional built-in features (such as Calculator, File Search, Snippets, Notes, Runs, Window Management, etc.) can be turned off to streamline your launcher UI; when disabled, their commands, views, and search entries are removed, while underlying platform services remain running and accessible to Tier 2 extensions. Essential platform infrastructure (`System` and `Settings`) displays a locked, non-interactive toggle with a tooltip explaining that core infrastructure cannot be disabled. Expand an extension with the chevron to view its individual commands and directly assign search aliases or global hotkeys.
 - **Detail Panel** — Selecting any feature, extension, or command opens the right-hand panel displaying its icon, metadata badges (`Built-in`, `Extension`, `Theme`, `Command`), description, trigger chip, permissions, runtime status, and configuration preferences.
 - **Local Network Devices** — For extensions that request the `network:lan` permission, the detail panel includes a **Local network devices** section where you can view approved endpoints, run a local scan to discover and approve devices (Sonos, Google Cast, Home Assistant, etc.), add custom IP/port endpoints manually, or revoke existing approvals.
 - **Install & Update** — Use the **+** button in the toolbar to create or install extensions from a file (developer mode), and update available extensions directly from this view. Auto-update behaviour is controlled in Advanced.
@@ -113,7 +112,7 @@ This section is split across two related tabs.
 - **Extension Search** — Toggle whether installed extensions can contribute results to the main search bar.
 - **Escape Key** — Choose how `Esc` behaves when a view is open: Step Backwards (default), Hide Window, or Reset Launcher.
 - **Auto Updates** — Extensions update silently in the background when this is on.
-- **Text Expansion** — Enable or disable snippet text expansion. Requires Accessibility permission on macOS (macOS only).
+- **Text Expansion** — Enable or disable snippet text expansion.
 - **Developer Mode** — Unlocks the extension inspector, verbose logging, and extension sideloading. Intended for extension developers.
 
 ## Account, Backup & About
@@ -145,7 +144,6 @@ This section is split across two related tabs.
 - [Getting Started](./getting-started.md)
 - [Keyboard Shortcuts](./keyboard-shortcuts.md)
 - [Troubleshooting](./troubleshooting.md)
-- [Screen OCR](./features/screen-ocr.md)
 - [System Commands](./features/system.md)
 - [Walkthrough](./features/walkthrough.md)
 - [Usage Statistics](./features/usage-stats.md)

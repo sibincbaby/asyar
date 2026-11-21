@@ -43,7 +43,7 @@ Asyar extensions come in two tiers. Understanding this distinction shapes every 
 
 ## Tier 2 — Installed Extensions
 
-- **Location:** Reside dynamically on the OS-specific application data directory (macOS: `~/Library/Application Support/org.asyar.app/extensions/`, Windows: `%APPDATA%/org.asyar.app/extensions/`, Linux: `~/.local/share/org.asyar.app/extensions/`).
+- **Location:** Reside dynamically in the application data directory (`~/.local/share/org.asyar.app/extensions/`).
 - **Loading Strategy:** Manifest-only. When the Host application starts, `ExtensionLoaderService` parses their `manifest.json` files and extracts the commands, but explicitly sets `module: null`. **The host application never evaluates or imports a Tier 2 extension's JavaScript directly in the main window.**
 - **Context:** Flagged as `isBuiltIn: false`. They execute entirely within an isolated `<iframe>` sandbox.
 - **Deferred Execution:** The code environment for a Tier 2 extension only boots when a user executes a specific command mapped to that extension, causing the Host to construct and mount the sandbox `<ExtensionIframe>`.

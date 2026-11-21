@@ -5,7 +5,6 @@
     EncryptionStatusSection,
     SecretRedactionSection,
     ShellTrustManager,
-    SystemAccessSection,
     UsageShareSection,
   } from '../../../components';
   import { secretRedactionService } from '../../../services/privacy/secretRedactionService.svelte';
@@ -36,10 +35,6 @@
 
   <div id="privacy-redaction" class="anchor-group">
     <SecretRedactionSection />
-  </div>
-
-  <div id="privacy-system-access" class="anchor-group">
-    <SystemAccessSection />
   </div>
 
   <div id="privacy-shell-trust" class="anchor-group">

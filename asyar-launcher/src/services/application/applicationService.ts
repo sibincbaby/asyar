@@ -3,15 +3,9 @@ import type { FrontmostApplication } from 'asyar-sdk/contracts';
 import {
   getFrontmostApplication,
   appIsRunning,
-  uninstallApplication,
   revealApplication,
-  runApplicationAsAdmin,
-  scanUninstallTargets,
-  type UninstallScanResult,
 } from '../../lib/ipc/applicationCommands';
 import { syncApplicationIndex, listApplications } from '../../lib/ipc/commands';
-
-export type { AppDataPath, UninstallScanResult } from '../../lib/ipc/applicationCommands';
 
 /**
  * Host-side service that fulfils the query half of `ApplicationService`
@@ -51,56 +45,11 @@ export class ApplicationService {
   }
 
   /**
-   * Uninstalls the selected application.
-   *
-   * macOS: moves the `.app` bundle to Trash, then trashes each path in
-   * `dataPaths` that survives the per-path safety validator
-   * (`~/Library/*` scope, absolute, not a symlink). Windows: ignores
-   * `dataPaths` and launches the vendor uninstaller; user-data cleanup is
-   * the vendor's responsibility.
-   *
-   * Tier 1 built-in capability — NOT exposed through the SDK to Tier 2
-   * extensions. The Rust command rejects any non-core caller.
-   *
-   * All safety checks (system-protected paths, Asyar self, .app extension,
-   * existence, per-data-path validation) live in Rust; this is a
-   * pass-through. The application-index watcher detects the bundle
-   * disappearing from the scanned directory and fires
-   * `applications-changed` on its own — no manual sync needed.
-   */
-  async uninstallApplication(path: string, dataPaths: string[] = []): Promise<void> {
-    await uninstallApplication(path, dataPaths);
-  }
-
-  /**
-   * Reveals the application in Finder / File Explorer. On Windows the Rust
-   * side resolves the Start-menu shortcut to the program's own folder.
+   * Reveals the application in the file manager.
    * Tier 1 only — not exposed through the SDK.
    */
   async revealApplication(path: string): Promise<void> {
     await revealApplication(path);
-  }
-
-  /**
-   * Launches the application through the Windows UAC prompt. The Rust command
-   * rejects non-core callers and non-Windows hosts.
-   */
-  async runApplicationAsAdmin(path: string): Promise<void> {
-    await runApplicationAsAdmin(path);
-  }
-
-  /**
-   * Scans `~/Library/*` for data belonging to the application at `path`.
-   * macOS-only — Windows and Linux return a Rust error (the vendor
-   * uninstaller handles data on Windows; Linux is unsupported for
-   * uninstall altogether).
-   *
-   * The caller should render the returned paths in a confirm sheet before
-   * passing their `path` list to `uninstallApplication`. The scan is
-   * advisory — Rust re-validates each path before trashing.
-   */
-  async scanUninstallTargets(path: string): Promise<UninstallScanResult> {
-    return scanUninstallTargets(path);
   }
 }
 

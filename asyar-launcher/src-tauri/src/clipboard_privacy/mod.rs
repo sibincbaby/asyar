@@ -4,22 +4,12 @@ use std::sync::Mutex;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
-#[cfg(target_os = "macos")]
-pub mod macos;
-#[cfg(target_os = "windows")]
-pub mod windows;
 
 /// Platform dispatcher — reads the current pasteboard's type identifiers.
-/// Linux and unsupported platforms always return empty.
+/// Linux always returns empty.
 pub fn read_current_pasteboard_types() -> Vec<String> {
-    #[cfg(target_os = "macos")]
-    let result = macos::read_pasteboard_types();
-    #[cfg(target_os = "windows")]
-    let result = windows::read_pasteboard_types();
     #[cfg(target_os = "linux")]
     let result = linux::read_pasteboard_types();
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    let result: Vec<String> = Vec::new();
     result
 }
 
@@ -34,27 +24,6 @@ pub enum SkipReason {
     SourceDenylist(String),
 }
 
-pub const DEFAULT_DENYLIST_MACOS: &[&str] = &[
-    "com.agilebits.onepassword7",
-    "com.1password.1password",
-    "com.bitwarden.desktop",
-    "org.keepassxc.KeePassXC",
-    "com.dashlane.dashlanephonefinal",
-    "io.enpass.mac",
-    "com.apple.keychainaccess",
-    "com.lastpass.LastPass",
-];
-
-pub const DEFAULT_DENYLIST_WINDOWS: &[&str] = &[
-    "1Password.exe",
-    "Bitwarden.exe",
-    "KeePassXC.exe",
-    "KeePass.exe",
-    "Dashlane.exe",
-    "Enpass.exe",
-    "LastPass.exe",
-];
-
 pub const DEFAULT_DENYLIST_LINUX: &[&str] = &[
     "1password.desktop",
     "bitwarden.desktop",
@@ -64,15 +33,10 @@ pub const DEFAULT_DENYLIST_LINUX: &[&str] = &[
 ];
 
 pub fn default_denylist() -> Vec<String> {
-    #[cfg(target_os = "macos")]
-    let list = DEFAULT_DENYLIST_MACOS;
-    #[cfg(target_os = "windows")]
-    let list = DEFAULT_DENYLIST_WINDOWS;
-    #[cfg(target_os = "linux")]
-    let list = DEFAULT_DENYLIST_LINUX;
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    let list: &[&str] = &[];
-    list.iter().map(|s| s.to_string()).collect()
+    DEFAULT_DENYLIST_LINUX
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
 }
 
 pub fn merged_denylist(user: &[String]) -> Vec<String> {
@@ -284,17 +248,9 @@ mod tests {
 
     #[test]
     fn merged_denylist_dedupes_user_additions() {
-        // On macOS the default list includes com.bitwarden.desktop;
-        // a user re-adding it must dedupe. On other platforms the default
-        // list differs, so we use a known-default entry for this platform.
-        #[cfg(target_os = "macos")]
-        let known_default = "com.bitwarden.desktop".to_string();
-        #[cfg(target_os = "windows")]
-        let known_default = "Bitwarden.exe".to_string();
-        #[cfg(target_os = "linux")]
+        // The default list includes bitwarden.desktop; a user re-adding it
+        // must dedupe.
         let known_default = "bitwarden.desktop".to_string();
-        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-        let known_default = "_unused".to_string();
 
         let user = vec![known_default.clone(), "com.example.MyVault".to_string()];
         let merged = merged_denylist(&user);
@@ -303,11 +259,9 @@ mod tests {
             .filter(|d| d.eq_ignore_ascii_case(&known_default))
             .count();
 
-        #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
         assert_eq!(count, 1, "default + duplicate user entry should dedupe");
 
         assert!(merged.iter().any(|d| d == "com.example.MyVault"));
-        let _ = count;
     }
 
     #[test]

@@ -1,11 +1,6 @@
 //! Cross-platform media-session abstraction.
 //!
-//! - macOS: media-key transport plus scripting of Music, TV, Spotify and VLC
-//!   (`macos::media`). `MediaRemote.framework` is deliberately unused — Apple
-//!   blocked it for third-party apps in macOS 15.4+.
-//! - Linux: MPRIS over the session D-Bus (`linux::media`).
-//! - Windows: System Media Transport Controls plus `SendInput` media keys
-//!   (`windows::media`).
+//! Linux: MPRIS over the session D-Bus (`linux::media`).
 
 use crate::error::PlatformError;
 use serde::{Deserialize, Serialize};
@@ -31,7 +26,7 @@ pub enum MediaTransportAction {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaSessionInfo {
-    /// Bundle identifier, e.g. `com.apple.Music`.
+    /// Player identifier (MPRIS bus name).
     pub player_id: String,
     /// Display name, e.g. `Music`.
     pub player_name: String,
@@ -44,80 +39,28 @@ pub struct MediaSessionInfo {
 }
 
 /// Now-playing info for `player_id`, or the best running player (playing
-/// preferred over paused) when `None`. What `player_id` accepts is
-/// platform-specific: a bundle id or alias (macOS), a bus name or its suffix
-/// (Linux MPRIS), an app user model id or a substring of it (Windows).
+/// preferred over paused) when `None`. `player_id` is a bus name or its
+/// suffix (Linux MPRIS).
 pub fn get_now_playing(player_id: Option<&str>) -> Result<Option<MediaSessionInfo>, PlatformError> {
-    #[cfg(target_os = "macos")]
-    {
-        crate::macos::media::get_now_playing(player_id)
-    }
-    #[cfg(target_os = "linux")]
-    {
-        crate::linux::media::get_now_playing(player_id)
-    }
-    #[cfg(target_os = "windows")]
-    {
-        crate::windows::media::get_now_playing(player_id)
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        let _ = player_id;
-        Ok(None)
-    }
+    crate::linux::media::get_now_playing(player_id)
 }
 
 /// All running, supported players that currently have a track loaded.
 pub fn list_sessions() -> Result<Vec<MediaSessionInfo>, PlatformError> {
-    #[cfg(target_os = "macos")]
-    {
-        crate::macos::media::list_sessions()
-    }
-    #[cfg(target_os = "linux")]
-    {
-        crate::linux::media::list_sessions()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        crate::windows::media::list_sessions()
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        Ok(Vec::new())
-    }
+    crate::linux::media::list_sessions()
 }
 
 /// Sends a transport action. With `player_id == None` it goes to the active
-/// player (Linux, Windows) or whichever app owns the system media keys.
+/// player.
 pub fn send_transport(
     action: MediaTransportAction,
     player_id: Option<&str>,
 ) -> Result<(), PlatformError> {
-    #[cfg(target_os = "macos")]
-    {
-        crate::macos::media::send_transport(action, player_id)
-    }
-    #[cfg(target_os = "linux")]
-    {
-        crate::linux::media::send_transport(action, player_id)
-    }
-    #[cfg(target_os = "windows")]
-    {
-        crate::windows::media::send_transport(action, player_id)
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        let _ = (action, player_id);
-        Ok(())
-    }
+    crate::linux::media::send_transport(action, player_id)
 }
 
 /// Prefers a playing session over a paused one; stopped sessions never win.
 /// Ties keep the earliest session.
-#[cfg_attr(
-    not(any(target_os = "macos", target_os = "linux", target_os = "windows")),
-    allow(dead_code)
-)]
 pub(crate) fn pick_best(sessions: Vec<MediaSessionInfo>) -> Option<MediaSessionInfo> {
     let mut best: Option<MediaSessionInfo> = None;
     for s in sessions {

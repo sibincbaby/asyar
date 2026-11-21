@@ -82,23 +82,6 @@ fn validate_trash_path(path_str: &str, home_dir: &Path) -> Result<std::path::Pat
 /// file (e.g. note export) don't need it; `show_in_file_manager` validates
 /// first for the untrusted-path case.
 pub(crate) fn reveal_in_file_manager(path_str: &str) -> Result<(), AppError> {
-    #[cfg(target_os = "macos")]
-    {
-        Command::new("open")
-            .arg("-R")
-            .arg(path_str)
-            .spawn()
-            .map_err(|e| AppError::Other(format!("Failed to reveal path in Finder: {}", e)))?;
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("explorer")
-            .arg(format!("/select,{}", path_str))
-            .spawn()
-            .map_err(|e| AppError::Other(format!("Failed to reveal path in Explorer: {}", e)))?;
-    }
-
     #[cfg(target_os = "linux")]
     {
         let parent_dir = Path::new(path_str)
@@ -169,25 +152,6 @@ fn resolve_terminal_dir(path_str: &str) -> Result<std::path::PathBuf, AppError> 
 pub async fn open_in_terminal(path_str: String) -> Result<(), AppError> {
     let dir = resolve_terminal_dir(&path_str)?;
 
-    #[cfg(target_os = "macos")]
-    {
-        Command::new("open")
-            .arg("-a")
-            .arg("Terminal")
-            .arg(&dir)
-            .spawn()
-            .map_err(|e| AppError::Other(format!("Failed to open Terminal: {}", e)))?;
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("cmd")
-            .args(["/C", "start", "cmd", "/K", "cd", "/d"])
-            .arg(&dir)
-            .spawn()
-            .map_err(|e| AppError::Other(format!("Failed to open terminal: {}", e)))?;
-    }
-
     #[cfg(target_os = "linux")]
     {
         let mut cmd = Command::new("x-terminal-emulator");
@@ -200,21 +164,15 @@ pub async fn open_in_terminal(path_str: String) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Quick Look preview via the native shared `QLPreviewPanel` — the same
-/// panel Finder uses, so Escape closes it natively and it carries no debug
-/// chrome. Toggles: calling again with the same path dismisses, a different
-/// path swaps the preview in place. Runs on the main thread (panel ordering
-/// is main-thread-only AppKit work) and degrades to an error on other
-/// platforms so the frontend action falls back to `open_application_path`.
+/// Quick Look preview. Unavailable on Linux: always errors (after path
+/// validation) so the frontend action falls back to `open_application_path`.
 #[tauri::command]
 pub async fn quick_look_path<R: tauri::Runtime>(
     app_handle: tauri::AppHandle<R>,
     path_str: String,
 ) -> Result<(), AppError> {
     let path = Path::new(&path_str).to_path_buf();
-    // `fileURLWithPath:` requires an absolute path — a relative one would
-    // resolve against the app bundle directory. Same guard as
-    // `validate_show_path`.
+    // Same guard as `validate_show_path`.
     if !path.is_absolute() {
         return Err(AppError::Other(format!(
             "Path must be absolute: {}",
@@ -228,33 +186,10 @@ pub async fn quick_look_path<R: tauri::Runtime>(
         )));
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
-        app_handle
-            .run_on_main_thread(move || {
-                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    let _ = tx.send(crate::platform::macos::quick_look_toggle(&path));
-                }));
-            })
-            .map_err(|e| AppError::Other(format!("Failed to schedule Quick Look: {}", e)))?;
-        if rx
-            .await
-            .map_err(|e| AppError::Other(format!("Quick Look thread failed: {}", e)))?
-        {
-            Ok(())
-        } else {
-            Err(AppError::Other("Quick Look is unavailable".to_string()))
-        }
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = app_handle;
-        Err(AppError::Other(
-            "Quick Look is only available on macOS".to_string(),
-        ))
-    }
+    let _ = app_handle;
+    Err(AppError::Other(
+        "Quick Look is only available on macOS".to_string(),
+    ))
 }
 
 #[cfg(test)]
@@ -304,10 +239,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_quick_look_rejects_nonexistent_path() {
-        // Validation fires before any AppKit / main-thread work, so only
-        // the rejection branch is exercised here — headless-safe. The real
-        // panel flow is covered by the ignored smoke test in
-        // `platform::macos::quicklook`.
+        // Only the validation rejection branch is exercised here.
         let app = tauri::test::mock_app();
         let result = quick_look_path(
             app.handle().clone(),

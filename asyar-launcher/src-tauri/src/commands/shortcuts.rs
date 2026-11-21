@@ -599,54 +599,18 @@ pub fn toggle_launcher(app: &tauri::AppHandle) {
         return;
     };
 
-    // Launcher-toggle re-shows the parked webview with a native alpha flip.
     // Every hide enters the shared pop-to-root state machine; the follow-up
     // resign-key/blur callback is coalesced there. Native summons evaluate the
     // elapsed deadline before reveal, while item shortcuts use the JS
     // prepare_show/commit_show path and clear the deadline without evaluating.
-    #[cfg(target_os = "macos")]
-    {
-        use tauri_nspanel::ManagerExt;
-        let Ok(panel) = app.get_webview_panel(SPOTLIGHT_LABEL) else {
-            return;
-        };
-        // Branch on the logical flag, NOT panel.is_visible(): a parked panel
-        // is ordered in (isVisible == true) even though the user perceives it
-        // as hidden, so the NSWindow check would make the toggle hide-only.
-        if !launcher_visibility_after(
-            LauncherAction::Toggle,
-            state.asyar_visible.load(Ordering::Relaxed),
-        ) {
-            state.asyar_visible.store(false, Ordering::Relaxed);
-            state.mark_interaction();
-            crate::platform::macos::park_launcher_panel(&window, &panel);
-            crate::launcher::pop_to_root::on_launcher_hidden(app);
-        } else {
-            reveal_launcher(app, &state, &window, &panel);
-        }
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let currently_visible = window.is_visible().unwrap_or(false);
-        if !launcher_visibility_after(LauncherAction::Toggle, currently_visible) {
-            state.asyar_visible.store(false, Ordering::Relaxed);
-            state.mark_interaction();
-            let _ = window.hide();
-            crate::launcher::pop_to_root::on_launcher_hidden(app);
-            #[cfg(target_os = "windows")]
-            if let Ok(hwnd) = state.previous_hwnd.lock() {
-                crate::platform::windows::restore_foreground_window(*hwnd);
-            }
-        } else {
-            #[cfg(target_os = "windows")]
-            if should_capture_foreground(LauncherAction::Toggle, currently_visible) {
-                if let Ok(mut hwnd) = state.previous_hwnd.lock() {
-                    *hwnd = crate::platform::windows::capture_foreground_window();
-                }
-            }
-            reveal_launcher(app, &state, &window);
-        }
+    let currently_visible = window.is_visible().unwrap_or(false);
+    if !launcher_visibility_after(LauncherAction::Toggle, currently_visible) {
+        state.asyar_visible.store(false, Ordering::Relaxed);
+        state.mark_interaction();
+        let _ = window.hide();
+        crate::launcher::pop_to_root::on_launcher_hidden(app);
+    } else {
+        reveal_launcher(app, &state, &window);
     }
 }
 
@@ -658,43 +622,9 @@ pub(crate) fn show_spotlight_launcher(app: &tauri::AppHandle) {
         return;
     };
 
-    #[cfg(target_os = "macos")]
-    {
-        use tauri_nspanel::ManagerExt;
-        let Ok(panel) = app.get_webview_panel(SPOTLIGHT_LABEL) else {
-            log::warn!("[show_spotlight_launcher] no panel labelled {SPOTLIGHT_LABEL}");
-            return;
-        };
-        reveal_launcher(app, &state, &window, &panel);
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        #[cfg(target_os = "windows")]
-        if should_capture_foreground(LauncherAction::Show, window.is_visible().unwrap_or(false)) {
-            if let Ok(mut hwnd) = state.previous_hwnd.lock() {
-                *hwnd = crate::platform::windows::capture_foreground_window();
-            }
-        }
-        reveal_launcher(app, &state, &window);
-    }
+    reveal_launcher(app, &state, &window);
 }
 
-#[cfg(target_os = "macos")]
-fn reveal_launcher(
-    app: &tauri::AppHandle,
-    state: &tauri::State<'_, AppState>,
-    window: &tauri::WebviewWindow,
-    panel: &tauri_nspanel::Panel,
-) {
-    crate::launcher::pop_to_root::on_native_summon(app);
-    state.asyar_visible.store(true, Ordering::Relaxed);
-    state.mark_interaction();
-    crate::platform::macos::reveal_launcher_panel(window, panel);
-    crate::scripts::inline_scheduler::nudge_reveal();
-}
-
-#[cfg(not(target_os = "macos"))]
 fn reveal_launcher(
     app: &tauri::AppHandle,
     state: &tauri::State<'_, AppState>,
@@ -703,16 +633,12 @@ fn reveal_launcher(
     crate::launcher::pop_to_root::on_native_summon(app);
     state.asyar_visible.store(true, Ordering::Relaxed);
     state.mark_interaction();
-    #[cfg(target_os = "windows")]
-    let _ = crate::platform::windows::setup_spotlight_window(window);
     #[cfg(target_os = "linux")]
     let _ = crate::platform::linux::setup_spotlight_window(window);
 
     let _ = window.show();
     #[cfg(target_os = "linux")]
     let _ = crate::platform::linux::present_and_focus_spotlight_window(window);
-    #[cfg(not(target_os = "linux"))]
-    let _ = window.set_focus();
     #[cfg(target_os = "linux")]
     crate::mark_launcher_shown(state);
     crate::scripts::inline_scheduler::nudge_reveal();
@@ -723,11 +649,6 @@ fn launcher_visibility_after(action: LauncherAction, currently_visible: bool) ->
         LauncherAction::Show => true,
         LauncherAction::Toggle => !currently_visible,
     }
-}
-
-#[cfg(any(target_os = "windows", test))]
-fn should_capture_foreground(action: LauncherAction, currently_visible: bool) -> bool {
-    matches!(action, LauncherAction::Toggle | LauncherAction::Show) && !currently_visible
 }
 
 /// Returns the currently persisted global shortcut configuration from disk.
@@ -921,15 +842,6 @@ mod tests {
         assert!(!launcher_visibility_after(LauncherAction::Toggle, true));
     }
 
-    #[test]
-    fn hidden_show_captures_previous_foreground_window() {
-        assert!(should_capture_foreground(LauncherAction::Show, false));
-    }
-
-    #[test]
-    fn visible_show_does_not_replace_previous_foreground_window() {
-        assert!(!should_capture_foreground(LauncherAction::Show, true));
-    }
     use tauri_plugin_global_shortcut::Code;
 
     // --- get_code_from_string ---
@@ -1001,7 +913,6 @@ mod tests {
 
     #[test]
     fn test_parse_copilot_key() {
-        // Windows Copilot hardware key emits Win + Shift + F23
         assert!(parse_shortcut("Super+Shift+F23").is_ok());
     }
 

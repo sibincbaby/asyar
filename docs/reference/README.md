@@ -7,9 +7,9 @@ Information-oriented lookup material. Each page describes one thing precisely �
 - **[Manifest](./manifest.md)** — Every field in `manifest.json`, required and optional.
 - **[CLI](./cli.md)** — The `asyar` command-line tool: `validate`, `build`, `dev`, `link`.
 - **[Permissions](./permissions.md)** — Every permission string, what it unlocks, and what happens when one is missing.
-- **[Actions](./actions.md)** — The ⌘K Action Drawer: fields, context, categories, registration.
+- **[Actions](./actions.md)** — The Ctrl+K Action Drawer: fields, context, categories, registration.
 - **[Command Arguments](./command-arguments.md)** — Inline chip-row inputs declared per command; collected before the command runs.
-- **[Dynamic Commands](./dynamic-commands.md)** — Runtime-registered commands for items whose set depends on the user's environment (Apple Shortcuts, SSH hosts, project paths, scripts in directories).
+- **[Dynamic Commands](./dynamic-commands.md)** — Runtime-registered commands for items whose set depends on the user's environment (SSH hosts, project paths, scripts in directories).
 - **[Script Headers](./script-headers.md)** — `# @asyar.*` directives for shell scripts discovered in user-configured directories: title, icon, arguments, mode (incl. live-ticking `inline`), refresh interval.
 - **[Search bar accessory](./searchbar-accessory.md)** — Per-command dropdown rendered in the top-right of the search bar while a view is active.
 - **[Troubleshooting](./troubleshooting.md)** — Symptoms, causes, and fixes.

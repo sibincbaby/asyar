@@ -51,7 +51,7 @@ See [manifest LAN schema](../reference/manifest.md#lan-endpoint-schema) and
 ## Secret references
 
 `network:secrets` is an opt-in, parameterized permission that also requires
-`network`. Extensions name a login secret's generic source (Keychain item or
+`network`. Extensions name a login secret's generic source (keyring item or
 JSON file), destination hosts, methods, optional path prefixes, and header
 template. Consent shows those declarations before use. The platform has no
 provider-specific login logic.

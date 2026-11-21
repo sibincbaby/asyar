@@ -89,10 +89,9 @@ Two faces. There is no third.
 
 - `--font-ui` is applied globally to `*`. You only name it explicitly inside a
   component that also sets `font-family` for another reason.
-- **Satoshi renders on every platform, macOS included.** There is deliberately
-  no per-platform override. Asyar used to fall back to San Francisco on macOS;
-  that gave the app no typographic identity on its primary platform. Do not
-  reintroduce it.
+- **Satoshi renders everywhere.** There is deliberately no per-platform
+  system-font override; it would give the app no typographic identity. Do not
+  reintroduce one.
 - Reach for mono when characters need to line up or be read individually. A
   duration, a count, or a version number in prose stays in `--font-ui`; the
   same value in a table column goes mono. `.text-mono` already carries
@@ -167,8 +166,8 @@ Light Mode) with `--radius-lg` (`10px`), over a soft neutral canvas
 (`--bg-secondary: rgb(236, 236, 240)`). Rows inside a card are separated by
 inset `--separator` hairlines (`left: var(--space-5); right: var(--space-5)`).
 
-Never set an opaque background on the root container — platform overrides
-(macOS transparency, Windows Acrylic, opaque Linux) handle that automatically.
+Never set an opaque background on the root container — platform layers
+(opaque surfaces on Linux) handle that automatically.
 **Elevation is a scalar, not a stack:** a popup opened from a card is still
 one popup, not a card plus a popup. If you want a fourth level, what you
 actually want is `--scrim` to push the thing beneath it back.
@@ -537,7 +536,7 @@ fails the build if a component is missing from it, so the barrel is trustworthy
 | A card                                        | `Card`                                                      |
 | A page header with a back button              | `AppBar`                                                    |
 | Key-value metadata inspector in a detail pane | `MetadataList`                                              |
-| A ⌘K-style action menu                        | `ActionListPopup`                                           |
+| A Ctrl+K-style action menu                    | `ActionListPopup`                                           |
 
 | You are building                              | Use                                                                                     |
 | --------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -675,7 +674,7 @@ Rules that keep it one look:
    (as "Search only in…" does) would wipe its own work.
 3. **No second colour.** There is no danger or warning hint. A hint is an offer
    in the primary accent; a problem belongs in `WarningBanner` or `ErrorState`.
-4. **The chip is a token, not a sentence.** `@Coffee`, `⌘K`, a short word. A
+4. **The chip is a token, not a sentence.** `@Coffee`, `Ctrl+K`, a short word. A
    sentence belongs in the title.
 5. **Place it beside what it relates to.** Put it right after the group it
    offers to narrow or extend, not at the end of the list — the end is usually
@@ -698,12 +697,11 @@ surfaces is immediately obvious.
 ### The settings shell
 
 Settings is a persistent desktop window, not a floating launcher panel. It
-follows native macOS System Settings / Raycast Settings.
+follows a native desktop settings layout (Raycast Settings).
 
 - **Window & sidebar (`SettingsSidebar`).** Full-height, `220px`. The window
-  uses the macOS overlay titlebar (`titleBarStyle: "Overlay"`,
-  `hiddenTitle: true`) with a traffic-light top inset. Top to bottom: a soft
-  recessed search pill (`⌘F` deep search — no `⌘F` keycap chip inside the
+  hides its native title (`hiddenTitle: true`) and leaves a top inset. Top to bottom: a soft
+  recessed search pill (`Ctrl+F` deep search — no `Ctrl+F` keycap chip inside the
   input), the Account profile card, then nav groups separated by a `1px`
   `--separator` hairline. **No uppercase `APP` / `SYSTEM` group headers** — only
   search `Results` uses a group label. Icon badges are `20px` (`--size-md`):
@@ -792,8 +790,8 @@ Other rules:
   (`a11y_no_static_element_interactions`). The Svelte 4 hyphenated names
   silently suppress nothing.
 - Decorative icons get `aria-hidden="true"`; meaningful ones get a label.
-- **Never hijack text editing shortcuts**: In views with a search bar or text input, never bind native text editing shortcuts (`⌘⌫` / `Cmd+Backspace`, `⌥⌫`, `⌘A`, `⌘C`, `⌘V`, `⌘X`, `⌘Z`) to list actions or item deletion.
-- **Destructive actions belong in ⌘K**: Operations that delete, trash, or uninstall items belong in the `⌘K` Action Panel (styled with `destructive: true`), not bound directly to `⌘⌫`.
+- **Never hijack text editing shortcuts**: In views with a search bar or text input, never bind native text editing shortcuts (`Ctrl+Backspace`, `Ctrl+A`, `Ctrl+C`, `Ctrl+V`, `Ctrl+X`, `Ctrl+Z`) to list actions or item deletion.
+- **Destructive actions belong in Ctrl+K**: Operations that delete, trash, or uninstall items belong in the `Ctrl+K` Action Panel (styled with `destructive: true`), not bound directly to `Ctrl+Backspace`.
 
 ---
 

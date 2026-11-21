@@ -19,9 +19,6 @@ use crate::event_hub::{EventHub, HubEvent};
 use serde::{Deserialize, Serialize};
 
 pub mod linux;
-#[cfg(target_os = "macos")]
-pub mod macos;
-pub mod windows;
 
 /// Discriminant used on the wire (kebab-case) and as registry keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -98,37 +95,17 @@ pub trait SystemEventsWatcher: Send + Sync {
     fn start(&self, hub: std::sync::Arc<SystemEventsHub>) -> Result<(), AppError>;
 }
 
-#[cfg(target_os = "macos")]
-pub fn default_watcher() -> Box<dyn SystemEventsWatcher> {
-    Box::new(macos::MacWatcher::new())
-}
 #[cfg(target_os = "linux")]
 pub fn default_watcher() -> Box<dyn SystemEventsWatcher> {
     Box::new(linux::LinuxWatcher::new())
 }
-#[cfg(target_os = "windows")]
-pub fn default_watcher() -> Box<dyn SystemEventsWatcher> {
-    Box::new(windows::WindowsWatcher::new())
-}
-#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-pub fn default_watcher() -> Box<dyn SystemEventsWatcher> {
-    Box::new(fake::NoopWatcher)
-}
 
 pub mod fake {
     use super::*;
-    use std::sync::Arc;
 
     /// Re-export of the generic recording emitter, specialized to
     /// [`SystemEvent`] for ergonomics in existing tests.
     pub type RecordingEmitter = crate::event_hub::fake::RecordingEmitter<SystemEvent>;
-
-    pub struct NoopWatcher;
-    impl SystemEventsWatcher for NoopWatcher {
-        fn start(&self, _hub: Arc<SystemEventsHub>) -> Result<(), AppError> {
-            Ok(())
-        }
-    }
 }
 
 #[cfg(test)]

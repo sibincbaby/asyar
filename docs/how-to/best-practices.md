@@ -8,7 +8,7 @@ order: 4
 
 - **Resolve services in `main.ts`, pass as props.** Never call `getService()` inside Svelte components.
 - **Create exactly one `ExtensionContext` per iframe.** Creating more than one attaches duplicate event listeners.
-- **Always unregister actions in `onDestroy`.** Leftover actions pollute the ⌘K drawer for other views.
+- **Always unregister actions in `onDestroy`.** Leftover actions pollute the Ctrl+K drawer for other views.
 - **Set `viewPath` on search results.** The `action` closure is ignored for installed extensions; `viewPath` is what actually controls navigation.
 - **Bundle everything.** Svelte's runtime, component libraries, utility packages — all of it must be in `dist/`.
 - **Use `logger.debug()` aggressively during development.** Strip or convert to `logger.info()` before publishing.

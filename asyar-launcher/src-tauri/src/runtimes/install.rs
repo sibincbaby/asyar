@@ -31,8 +31,7 @@ pub(crate) fn install_atomically(
 /// simulated in tests without relying on a real OS-level failure). If
 /// `final_dir` already holds a previous install, it's backed up first and
 /// restored on failure — a bare remove-then-rename would instead leave a
-/// previously-working runtime uninstalled if the rename itself fails (e.g.
-/// a file lock or antivirus scan holding it open on Windows).
+/// previously-working runtime uninstalled if the rename itself fails.
 fn commit(
     staging_dir: &Path,
     final_dir: &Path,
@@ -79,50 +78,6 @@ fn backup_path_for(final_dir: &Path) -> PathBuf {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
     final_dir.with_file_name(format!("{name}.bak-{}", std::process::id()))
-}
-
-/// Pure decision: does this binary need an ad-hoc `codesign -s -` re-sign
-/// before it can run? Only macOS enforces the "some signature, any
-/// signature" requirement, and only when the binary doesn't already carry a
-/// valid one. Kept side-effect-free so it's testable without shelling out —
-/// the real `codesign` invocation lives in `resign_adhoc`, gated to macOS
-/// and wired in only by the real install flow.
-pub(crate) fn needs_resign(is_macos: bool, has_valid_signature: bool) -> bool {
-    is_macos && !has_valid_signature
-}
-
-/// Checks whether `path` already carries a valid code signature, via
-/// `codesign --verify --strict` (exit status 0 == valid). Side-effecting
-/// (shells out) and macOS-only, structurally analogous to `resign_adhoc`
-/// below — kept separate from `needs_resign` so the pure decision stays
-/// unit-testable without shelling out.
-#[cfg(target_os = "macos")]
-pub(crate) fn has_valid_signature(path: &Path) -> bool {
-    std::process::Command::new("codesign")
-        .args(["--verify", "--strict"])
-        .arg(path)
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
-}
-
-/// Ad-hoc re-signs `path` so a freshly downloaded binary can execute under
-/// macOS's Gatekeeper/AMFI signature requirement. `-s -` is the ad-hoc
-/// identity, no real signing key is required.
-#[cfg(target_os = "macos")]
-pub(crate) fn resign_adhoc(path: &Path) -> Result<(), AppError> {
-    let status = std::process::Command::new("codesign")
-        .args(["-s", "-", "--force"])
-        .arg(path)
-        .status()
-        .map_err(AppError::Io)?;
-    if !status.success() {
-        return Err(AppError::Platform(format!(
-            "codesign ad-hoc re-sign failed for {:?}",
-            path
-        )));
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -215,33 +170,5 @@ mod tests {
             !final_dir.exists(),
             "a populate failure must never promote the staging dir to the final path (rename must not happen)"
         );
-    }
-
-    #[test]
-    fn needs_resign_macos_unsigned_requires_resign() {
-        assert!(needs_resign(true, false));
-    }
-
-    #[test]
-    fn needs_resign_macos_signed_does_not_require_resign() {
-        assert!(!needs_resign(true, true));
-    }
-
-    #[test]
-    fn needs_resign_non_macos_unsigned_does_not_require_resign() {
-        assert!(!needs_resign(false, false));
-    }
-
-    #[test]
-    fn needs_resign_non_macos_signed_does_not_require_resign() {
-        assert!(!needs_resign(false, true));
-    }
-
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn has_valid_signature_false_for_a_path_with_no_binary() {
-        let tmp = TempDir::new().unwrap();
-        let missing = tmp.path().join("does-not-exist");
-        assert!(!has_valid_signature(&missing));
     }
 }

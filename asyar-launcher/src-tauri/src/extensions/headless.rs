@@ -10,28 +10,12 @@ pub struct HeadlessRegistry(pub Mutex<HashMap<String, std::process::Child>>);
 /// Returns a list of candidate Node.js binary paths to try, in order of preference.
 /// The first entry is always the bare binary name (relies on PATH).
 fn node_candidates() -> Vec<String> {
-    if cfg!(target_os = "windows") {
-        vec![
-            "node.exe".to_string(),
-            r"C:\Program Files\nodejs\node.exe".to_string(),
-            r"C:\Program Files (x86)\nodejs\node.exe".to_string(),
-        ]
-    } else if cfg!(target_os = "macos") {
-        vec![
-            "node".to_string(),
-            "/opt/homebrew/bin/node".to_string(), // Apple Silicon Homebrew
-            "/usr/local/bin/node".to_string(),    // Intel Homebrew / nvm
-            "/usr/bin/node".to_string(),
-        ]
-    } else {
-        // Linux
-        vec![
-            "node".to_string(),
-            "/usr/bin/node".to_string(),
-            "/usr/local/bin/node".to_string(),
-            "/snap/bin/node".to_string(),
-        ]
-    }
+    vec![
+        "node".to_string(),
+        "/usr/bin/node".to_string(),
+        "/usr/local/bin/node".to_string(),
+        "/snap/bin/node".to_string(),
+    ]
 }
 
 /// Returns the path to the Node.js binary, or None if not found anywhere.
@@ -39,7 +23,7 @@ fn resolve_node_binary() -> Option<String> {
     for candidate in node_candidates() {
         // For bare names (no path separator), try running with --version to test PATH resolution
         // For full paths, check existence first
-        let found = if candidate.contains('/') || candidate.contains('\\') {
+        let found = if candidate.contains('/') {
             std::path::Path::new(&candidate).exists()
         } else {
             std::process::Command::new(&candidate)
@@ -115,26 +99,6 @@ mod tests {
             Some(path) => assert!(!path.is_empty()),
             None => eprintln!("SKIP: node not found — install Node.js to enable this test"),
         }
-    }
-
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn windows_candidates_include_exe_suffix() {
-        let candidates = node_candidates();
-        assert!(
-            candidates.iter().any(|c| c.ends_with(".exe")),
-            "Windows candidates must include .exe paths"
-        );
-    }
-
-    #[test]
-    #[cfg(not(target_os = "windows"))]
-    fn non_windows_candidates_do_not_include_exe_suffix() {
-        let candidates = node_candidates();
-        assert!(
-            !candidates.iter().any(|c| c.ends_with(".exe")),
-            "Non-Windows candidates must not include .exe paths"
-        );
     }
 
     #[test]

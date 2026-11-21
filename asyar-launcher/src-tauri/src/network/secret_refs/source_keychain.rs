@@ -41,32 +41,8 @@ impl KeychainReader for OsKeychainReader {
         service: &str,
         account: Option<&str>,
     ) -> Result<Zeroizing<Vec<u8>>, SecretError> {
-        #[cfg(target_os = "macos")]
-        {
-            use security_framework::item::{ItemClass, ItemSearchOptions, SearchResult};
-            let mut options = ItemSearchOptions::new();
-            options
-                .class(ItemClass::generic_password())
-                .service(service)
-                .load_data(true)
-                .limit(1);
-            if let Some(a) = account {
-                options.account(a);
-            }
-            let results = options.search().map_err(|e| match e.code() {
-                -128 | -25293 => SecretError::UserDenied,
-                _ => SecretError::SourceUnavailable,
-            })?;
-            match results.into_iter().next() {
-                Some(SearchResult::Data(data)) => Ok(Zeroizing::new(data)),
-                _ => Err(SecretError::SourceUnavailable),
-            }
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            let _ = (service, account);
-            Err(SecretError::UnsupportedPlatform)
-        }
+        let _ = (service, account);
+        Err(SecretError::UnsupportedPlatform)
     }
 }
 #[derive(Default)]
@@ -202,7 +178,6 @@ mod tests {
         assert!(a.is_ok() && b.is_ok());
         assert_eq!(reader.max.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
-    #[cfg(not(target_os = "macos"))]
     #[test]
     fn unsupported_platform_returns_skip() {
         assert!(matches!(

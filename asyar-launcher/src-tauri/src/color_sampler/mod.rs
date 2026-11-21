@@ -1,13 +1,7 @@
 //! Screen color sampling ("eyedropper") service.
 //!
-//! Cross-platform `pick_color()` with per-platform impls in sibling modules:
-//!
-//! ```text
-//! pick_color(app)
-//!   ├─ macOS:   NSColorSampler        (native loupe, main-thread callback)
-//!   ├─ Windows: LL mouse/kbd hooks    (click-to-pick + GetPixel, Esc cancels)
-//!   └─ Linux:   XDG portal PickColor  (native loupe; x11rb grab fallback)
-//! ```
+//! `pick_color()` on Linux: XDG portal PickColor (native loupe; x11rb grab
+//! fallback) in the `linux` sibling module.
 //!
 //! Resolves to `Ok(None)` when the user cancels — cancellation is a normal
 //! outcome, not an error.
@@ -17,10 +11,6 @@ use serde::Serialize;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
-#[cfg(target_os = "macos")]
-pub mod macos;
-#[cfg(target_os = "windows")]
-pub mod windows;
 
 /// One sampled screen pixel in sRGB.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
@@ -43,7 +33,7 @@ impl PickedColor {
         }
     }
 
-    /// From components in the 0.0–1.0 range (NSColor, portal `(ddd)` result).
+    /// From components in the 0.0–1.0 range (portal `(ddd)` result).
     /// Out-of-range and NaN inputs are clamped.
     pub fn from_unit_rgb(r: f64, g: f64, b: f64) -> Self {
         fn to_u8(v: f64) -> u8 {
@@ -52,15 +42,6 @@ impl PickedColor {
             (v.clamp(0.0, 1.0) * 255.0).round() as u8
         }
         Self::from_rgb8(to_u8(r), to_u8(g), to_u8(b))
-    }
-
-    /// From a Win32 GDI `COLORREF` (`0x00BBGGRR`).
-    pub fn from_colorref(colorref: u32) -> Self {
-        Self::from_rgb8(
-            (colorref & 0xFF) as u8,
-            ((colorref >> 8) & 0xFF) as u8,
-            ((colorref >> 16) & 0xFF) as u8,
-        )
     }
 }
 
@@ -78,30 +59,12 @@ pub fn channel_from_mask(pixel: u32, mask: u32) -> u8 {
 /// Show the OS eyedropper and resolve with the picked color, or `None` if
 /// the user cancelled.
 pub async fn pick_color(app: &tauri::AppHandle) -> Result<Option<PickedColor>, AppError> {
-    #[cfg(target_os = "macos")]
-    {
-        macos::pick_color(app).await
-    }
-    #[cfg(target_os = "windows")]
-    {
-        let _ = app;
-        tauri::async_runtime::spawn_blocking(windows::pick_color_blocking)
-            .await
-            .map_err(|e| AppError::Platform(format!("color pick task failed: {e}")))?
-    }
     #[cfg(target_os = "linux")]
     {
         let _ = app;
         tauri::async_runtime::spawn_blocking(linux::pick_color_blocking)
             .await
             .map_err(|e| AppError::Platform(format!("color pick task failed: {e}")))?
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    {
-        let _ = app;
-        Err(AppError::Platform(
-            "screen color picking is not supported on this platform".into(),
-        ))
     }
 }
 
@@ -130,14 +93,6 @@ mod tests {
     fn from_unit_rgb_clamps_out_of_range_and_nan() {
         let c = PickedColor::from_unit_rgb(-0.25, 1.5, f64::NAN);
         assert_eq!((c.r, c.g, c.b), (0, 255, 0));
-    }
-
-    #[test]
-    fn from_colorref_uses_bgr_byte_order() {
-        // COLORREF layout is 0x00BBGGRR.
-        let c = PickedColor::from_colorref(0x00CC_8811);
-        assert_eq!((c.r, c.g, c.b), (0x11, 0x88, 0xCC));
-        assert_eq!(c.hex, "#1188cc");
     }
 
     #[test]

@@ -303,15 +303,6 @@
         onchange={() => handler.handleTrayIconToggle()}
       />
     </SettingsRow>
-    <SettingsRow
-      label={t('settings.general.show_dock_icon')}
-      description={t('settings.general.show_dock_icon_description')}
-    >
-      <Toggle
-        checked={handler.settings.general.showDockIcon}
-        onchange={() => handler.handleDockIconToggle()}
-      />
-    </SettingsRow>
   </div>
 </SettingsCard>
 

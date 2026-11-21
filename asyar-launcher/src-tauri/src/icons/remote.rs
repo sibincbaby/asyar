@@ -49,19 +49,7 @@ pub fn icon_cache_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> PathBuf {
     app.path()
         .app_data_dir()
         .map(|path| path.join("icon_cache"))
-        .unwrap_or_else(|_| {
-            #[cfg(target_os = "windows")]
-            {
-                app.path()
-                    .app_local_data_dir()
-                    .unwrap_or_default()
-                    .join("icon_cache")
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                PathBuf::from("/tmp/asyar_icon_cache")
-            }
-        })
+        .unwrap_or_else(|_| PathBuf::from("/tmp/asyar_icon_cache"))
 }
 
 /// Cache key for one extension's icon URL. The owner is part of the key so two
@@ -89,14 +77,7 @@ pub fn cached_icon(cache_dir: &Path, key: &str) -> Option<String> {
 }
 
 fn icon_url(filename: &str) -> String {
-    #[cfg(target_os = "windows")]
-    {
-        format!("http://asyar-icon.localhost/{filename}")
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        format!("asyar-icon://localhost/{filename}")
-    }
+    format!("asyar-icon://localhost/{filename}")
 }
 
 /// Fetches, processes and caches a remote icon, returning its `asyar-icon://`

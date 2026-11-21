@@ -12,11 +12,7 @@ independent menu-bar tray icon. Asyar's own tray icon stays separate.
 Optional `title` displays up to 32 Unicode characters next to a top-level icon
 (no control characters or newlines; submenu children cannot have titles).
 
-| Platform | Title presentation                                                                     |
-| -------- | -------------------------------------------------------------------------------------- |
-| macOS    | Full text to the right of the icon; emoji-only icons prefix the title.                 |
-| Linux    | AppIndicator label, which the desktop environment may hide (GNOME needs an extension). |
-| Windows  | Tooltip fallback: `title — text`.                                                      |
+On Linux the title is shown as an AppIndicator label, which the desktop environment may hide (GNOME needs an extension).
 
 `updateItem(id, updates)` shallow-merges updates into the registered item,
 preserving omitted fields and callbacks. A supplied `submenu` replaces the

@@ -364,21 +364,16 @@ describe('stale worker callbacks', () => {
 
 describe('worker module loading contract', () => {
   it('uses the manifest entry and keeps relative imports at their original URL', () => {
-    const code = createWorkerBootstrap('org.test', 7, 'assets/daemon.js', false);
+    const code = createWorkerBootstrap('org.test', 7, 'assets/daemon.js');
     expect(code).toContain('asyar-extension://org.test/assets/daemon.js');
     expect(code).not.toContain('dist/worker.js');
     expect(code).not.toContain('resp.text');
     expect(code).toContain("self.__ASYAR_ROLE__ = 'worker'");
   });
-  it('uses the Windows custom-protocol URL', () => {
-    expect(createWorkerBootstrap('org.test', 7, 'assets/daemon.js', true)).toContain(
-      'http://asyar-extension.localhost/org.test/assets/daemon.js',
-    );
-  });
   it.each(['../escape.js', '/absolute.js', 'https://other/worker.js', 'a/../../escape.js'])(
     'rejects entry outside the extension: %s',
     (entry) => {
-      expect(() => createWorkerBootstrap('org.test', 7, entry, false)).toThrow();
+      expect(() => createWorkerBootstrap('org.test', 7, entry)).toThrow();
     },
   );
 });

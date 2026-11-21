@@ -2508,12 +2508,8 @@ mod service_tests {
 
     #[test]
     fn test_search_returns_app_path_for_non_default_location() {
-        // Pick a path guaranteed not to be a default scan location on any OS.
-        let custom_parent = if cfg!(target_os = "windows") {
-            "C:\\ProgramData\\AsyarTest"
-        } else {
-            "/opt/asyar-test"
-        };
+        // Pick a path guaranteed not to be a default scan location.
+        let custom_parent = "/opt/asyar-test";
         let custom_path = format!("{}{}Ice.app", custom_parent, std::path::MAIN_SEPARATOR);
 
         let state = make_state();

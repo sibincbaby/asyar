@@ -15,7 +15,7 @@ Any external source — browser, terminal, automation tool, another app — can 
 Trigger a command from a terminal:
 
 ```bash
-open "asyar://extensions/com.example.currency/convert?from=USD&to=EUR&amount=100"
+xdg-open "asyar://extensions/com.example.currency/convert?from=USD&to=EUR&amount=100"
 ```
 
 Generate a deeplink from inside your extension:
@@ -148,12 +148,12 @@ window.open(
 A shell alias triggers a command silently:
 
 ```bash
-alias weather='open "asyar://extensions/com.example.weather/check?city=Berlin"'
+alias weather='xdg-open "asyar://extensions/com.example.weather/check?city=Berlin"'
 ```
 
-### macOS Shortcuts / Automations
+### Desktop automations
 
-A Shortcuts workflow opens an `asyar://` URL as its action. Any extension command becomes a callable automation step — no app scripting or AppleScript required.
+Any tool that can run `xdg-open` (cron jobs, window-manager keybindings, desktop automation scripts) can open an `asyar://` URL. Any extension command becomes a callable automation step.
 
 ### Webhook → local action
 
@@ -161,7 +161,7 @@ A local webhook receiver (e.g. a small HTTP server) opens a deeplink in response
 
 ```python
 import subprocess
-subprocess.run(["open", "asyar://extensions/com.example.deploy/notify?env=staging&status=success"])
+subprocess.run(["xdg-open", "asyar://extensions/com.example.deploy/notify?env=staging&status=success"])
 ```
 
 ### Sharing runnable commands

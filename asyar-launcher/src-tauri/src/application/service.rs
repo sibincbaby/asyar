@@ -3,7 +3,6 @@ use crate::platform::ExtractedIcon;
 use crate::search_engine::models::{build_app_id, Application, SearchableItem};
 use crate::search_engine::SearchState;
 use log::info;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -88,18 +87,6 @@ pub fn open_application_path<R: tauri::Runtime>(
     app_handle: &AppHandle<R>,
     path: String,
 ) -> Result<(), AppError> {
-    #[cfg(target_os = "windows")]
-    {
-        if path.starts_with("shell:AppsFolder\\") {
-            use std::process::Command;
-            Command::new("explorer.exe")
-                .arg(&path)
-                .spawn()
-                .map_err(|e| AppError::Platform(format!("Failed to launch AppX app: {}", e)))?;
-            return Ok(());
-        }
-    }
-
     #[cfg(target_os = "linux")]
     if application_launch_route(Path::new(&path)) == ApplicationLaunchRoute::GioDesktopEntry {
         return launch_linux_desktop_entry(Path::new(&path));
@@ -125,34 +112,6 @@ pub fn open_application_path<R: tauri::Runtime>(
 
 /// Retrieves metadata about the currently focused application.
 pub fn get_frontmost_application() -> Result<Option<FrontmostApplication>, AppError> {
-    #[cfg(target_os = "macos")]
-    {
-        if let Some((name, id, path, title)) =
-            crate::platform::macos::get_frontmost_application_metadata()
-        {
-            return Ok(Some(FrontmostApplication {
-                name,
-                bundle_id: Some(id),
-                path: if path.is_empty() { None } else { Some(path) },
-                window_title: Some(title),
-            }));
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        if let Some((name, path, title)) =
-            crate::platform::windows::get_frontmost_application_metadata()
-        {
-            return Ok(Some(FrontmostApplication {
-                name,
-                bundle_id: None,
-                path: Some(path),
-                window_title: Some(title),
-            }));
-        }
-    }
-
     #[cfg(target_os = "linux")]
     {
         if let Some(meta) = crate::platform::linux::get_frontmost_application_metadata() {
@@ -203,30 +162,6 @@ pub fn sync_application_index<R: tauri::Runtime>(
             },
         );
     }
-
-    #[cfg(target_os = "windows")]
-    for uwp in &scanner.uwp_apps {
-        let full_app_id = build_app_id(uwp_stable_name(&uwp.aumid), &uwp.aumid);
-        let path = format!("shell:AppsFolder\\{}", uwp.aumid);
-
-        current_apps.insert(
-            full_app_id.clone(),
-            Application {
-                id: full_app_id,
-                name: uwp.name.clone(),
-                path: path.clone(),
-                usage_count: 0,
-                icon: extract_uwp_app_icon(&uwp.aumid, &uwp.install_location, &icon_cache_dir),
-                last_used_at: None,
-                bundle_id: Some(uwp.aumid.clone()),
-                exe_name: None,
-            },
-        );
-    }
-
-    // 2.5 Migrate legacy UWP app IDs if any were indexed under localized display names
-    let alias_state = app.try_state::<crate::aliases::AliasState>();
-    let _ = migrate_uwp_app_ids(search_state, alias_state.as_deref());
 
     // 3. Get currently indexed app_ IDs
     let indexed_ids: Vec<String> = {
@@ -320,9 +255,8 @@ pub fn sync_application_index<R: tauri::Runtime>(
 /// file name (see [`bundle_file_name`]), which no rename of the *displayed*
 /// name touches — so such an app sits in both the indexed and the scanned set
 /// and is neither added nor removed. Without this pass it would keep whatever
-/// name it was first indexed under for the lifetime of the index: a user
-/// switching macOS to German would go on seeing "Photos", and so would every
-/// install that was indexed before this resolution was fixed.
+/// name it was first indexed under for the lifetime of the index, including
+/// every install indexed before this resolution was fixed.
 ///
 /// Only the name and icon are copied over. `usage_count` and `last_used_at` live
 /// on the indexed item and are absent from a freshly scanned one, so swapping the
@@ -383,36 +317,7 @@ pub fn list_applications<R: tauri::Runtime>(
         });
     }
 
-    #[cfg(target_os = "windows")]
-    for uwp in &scanner.uwp_apps {
-        let full_app_id = build_app_id(uwp_stable_name(&uwp.aumid), &uwp.aumid);
-        let path = format!("shell:AppsFolder\\{}", uwp.aumid);
-
-        applications.push(Application {
-            id: full_app_id,
-            name: uwp.name.clone(),
-            path: path.clone(),
-            usage_count: 0,
-            icon: extract_uwp_app_icon(&uwp.aumid, &uwp.install_location, &icon_cache_dir),
-            last_used_at: None,
-            bundle_id: Some(uwp.aumid.clone()),
-            exe_name: None,
-        });
-    }
-
     Ok(applications)
-}
-
-// `any(windows, test)` so the deserialization-contract test compiles on every
-// platform — the PascalCase mismatch below was a Windows-only runtime failure
-// that a host-platform unit test now guards against.
-#[cfg(any(target_os = "windows", test))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct UwpApp {
-    pub name: String,
-    pub aumid: String,
-    pub install_location: String,
 }
 
 struct AppScanner {
@@ -423,8 +328,6 @@ struct AppScanner {
     /// Canonical paths of directories already scanned, preventing infinite
     /// recursion caused by circular symlinks or overlapping scan trees.
     visited_dirs: HashSet<PathBuf>,
-    #[cfg(target_os = "windows")]
-    uwp_apps: Vec<UwpApp>,
 }
 
 impl AppScanner {
@@ -433,8 +336,6 @@ impl AppScanner {
             paths: Vec::new(),
             seen: HashSet::new(),
             visited_dirs: HashSet::new(),
-            #[cfg(target_os = "windows")]
-            uwp_apps: Vec::new(),
         }
     }
 
@@ -465,8 +366,7 @@ impl AppScanner {
         }
 
         // A scan root may name a single bundle rather than a folder of them —
-        // the Finder entry in the macOS defaults, or a custom path a user
-        // aimed straight at one app. That bundle *is* the app: record it and
+        // a custom path a user aimed straight at one app. That bundle *is* the app: record it and
         // stop, because descending would index the helper apps nested in it.
         if is_app_bundle(dir_path) && dir_path.exists() {
             self.record(dir_path);
@@ -510,105 +410,8 @@ impl AppScanner {
             }
         }
 
-        #[cfg(target_os = "windows")]
-        {
-            if let Err(e) = self.scan_uwp_apps() {
-                info!("Error scanning UWP apps: {}", e);
-            }
-        }
-
         Ok(())
     }
-
-    #[cfg(target_os = "windows")]
-    fn scan_uwp_apps(&mut self) -> Result<(), AppError> {
-        use std::os::windows::process::CommandExt;
-        use std::process::Command;
-
-        // CREATE_NO_WINDOW — keep the console-subsystem `powershell` child from
-        // briefly flashing a black console window when our GUI process spawns it
-        // (happens during the startup index, #411).
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-
-        let output = Command::new("powershell")
-            .args(&[
-                "-NoProfile",
-                "-NonInteractive",
-                "-Command",
-                uwp_scan_powershell_script(),
-            ])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output();
-
-        let output = match output {
-            Ok(out) => out,
-            Err(e) => {
-                info!("Failed to run PowerShell for UWP apps: {}", e);
-                return Ok(());
-            }
-        };
-
-        if !output.status.success() {
-            let err_msg = String::from_utf8_lossy(&output.stderr);
-            info!("PowerShell UWP scan failed: {}", err_msg);
-            return Ok(());
-        }
-
-        let json_str = String::from_utf8_lossy(&output.stdout);
-        let trimmed = json_str.trim();
-        if trimmed.is_empty() {
-            return Ok(());
-        }
-
-        let raw_apps: Vec<UwpApp> = if trimmed.starts_with('[') {
-            serde_json::from_str(trimmed).unwrap_or_default()
-        } else {
-            serde_json::from_str::<UwpApp>(trimmed)
-                .map(|app| vec![app])
-                .unwrap_or_default()
-        };
-
-        for app in raw_apps {
-            if self.seen.insert(app.aumid.clone()) {
-                self.uwp_apps.push(app);
-            }
-        }
-
-        Ok(())
-    }
-}
-
-/// PowerShell that enumerates launchable packaged (UWP/MSIX) apps via
-/// `Get-StartApps` — the authoritative list the Start menu itself uses — and
-/// best-effort resolves each one's on-disk `InstallLocation` (used only to find
-/// an icon). Gated to `windows`/`test` so the regression test can assert its
-/// shape on every platform without a dead-code warning elsewhere.
-#[cfg(any(target_os = "windows", test))]
-fn uwp_scan_powershell_script() -> &'static str {
-    r#"
-            $OutputEncoding = [System.Text.Encoding]::UTF8
-            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            $packages = @{}
-            Get-AppxPackage | ForEach-Object {
-                if ($_.InstallLocation) {
-                    $packages[$_.PackageFamilyName] = $_.InstallLocation
-                }
-            }
-            $result = Get-StartApps | Where-Object { $_.AppID -like '*!*' } | ForEach-Object {
-                $aumid = $_.AppID
-                $family = $aumid.Split('!')[0]
-                $loc = $packages[$family]
-                if (-not $loc) { $loc = '' }
-                [PSCustomObject]@{
-                    Name = $_.Name
-                    Aumid = $aumid
-                    InstallLocation = $loc
-                }
-            }
-            if ($result) {
-                $result | ConvertTo-Json -Compress
-            }
-        "#
 }
 
 pub fn is_default_app_location(app_path: &str) -> bool {
@@ -635,19 +438,6 @@ pub fn normalize_scan_path(path: &str) -> String {
     let trimmed = path.trim();
     if trimmed.len() <= 1 {
         return trimmed.to_string();
-    }
-    // Preserve trailing separator on Windows drive roots (e.g. `C:\`) —
-    // `C:` and `C:\` mean different things and stripping breaks the scan.
-    #[cfg(target_os = "windows")]
-    {
-        let bytes = trimmed.as_bytes();
-        if bytes.len() == 3
-            && bytes[1] == b':'
-            && (bytes[2] == b'\\' || bytes[2] == b'/')
-            && bytes[0].is_ascii_alphabetic()
-        {
-            return trimmed.to_string();
-        }
     }
     trimmed
         .trim_end_matches(['/', std::path::MAIN_SEPARATOR])
@@ -744,7 +534,6 @@ pub fn display_parent_dir(app_path: &str) -> String {
     display_path(parent)
 }
 
-#[cfg(any(target_os = "linux", test))]
 pub(crate) fn is_bundle_visible(path: &Path) -> bool {
     if path.extension().is_some_and(|ext| ext == "desktop") {
         return crate::platform::linux::is_visible_desktop_file(path);
@@ -752,7 +541,6 @@ pub(crate) fn is_bundle_visible(path: &Path) -> bool {
     true
 }
 
-#[cfg(any(target_os = "linux", test))]
 pub fn get_linux_default_app_scan_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
     let mut seen = HashSet::new();
@@ -807,131 +595,25 @@ pub fn get_linux_default_app_scan_paths() -> Vec<PathBuf> {
     paths
 }
 
-#[cfg(target_os = "macos")]
-fn get_macos_default_app_scan_paths(home: Option<&Path>) -> Vec<PathBuf> {
-    let mut paths = vec![
-        PathBuf::from("/Applications"),
-        PathBuf::from("/System/Applications"),
-        PathBuf::from("/System/Library/CoreServices/Applications"),
-        // Finder lives in neither app folder. Named as a single bundle
-        // rather than scanning its directory: /System/Library/CoreServices
-        // holds ~150 bundles, nearly all background agents and helpers no
-        // one launches (rcd, PIPAgent, liquiddetectiond, …). Filtering
-        // those by LSUIElement/LSBackgroundOnly still leaves a couple of
-        // dozen, so the whole directory is not worth its noise for the one
-        // app users actually ask for by name.
-        PathBuf::from("/System/Library/CoreServices/Finder.app"),
-    ];
-    // Installers that don't ask for admin rights write here instead of
-    // /Applications. Same rationale as the per-user locations the Linux
-    // and Windows arms below already cover.
-    if let Some(home) = home {
-        paths.push(home.join("Applications"));
-
-        // Parallels creates this sibling directory only when its macOS app
-        // sharing integration is enabled. Avoid watching a nonexistent path
-        // on hosts that do not use Parallels.
-        let parallels = home.join("Applications (Parallels)");
-        if parallels.is_dir() {
-            paths.push(parallels);
-        }
-    }
-    paths
-}
-
 pub fn get_default_app_scan_paths() -> Vec<PathBuf> {
-    #[cfg(target_os = "macos")]
-    {
-        let home = dirs::home_dir();
-        get_macos_default_app_scan_paths(home.as_deref())
-    }
     #[cfg(target_os = "linux")]
     {
         get_linux_default_app_scan_paths()
     }
-    #[cfg(target_os = "windows")]
-    {
-        let mut paths = vec![];
-        if let Ok(appdata) = std::env::var("APPDATA") {
-            paths.push(PathBuf::from(appdata).join("Microsoft\\Windows\\Start Menu\\Programs"));
-        }
-        if let Ok(programdata) = std::env::var("PROGRAMDATA") {
-            paths.push(PathBuf::from(programdata).join("Microsoft\\Windows\\Start Menu\\Programs"));
-        }
-        paths
-    }
 }
 
 fn is_app_bundle(path: &Path) -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        path.extension().map(|e| e == "app").unwrap_or(false)
-    }
-
     #[cfg(target_os = "linux")]
     {
         path.extension().map(|e| e == "desktop").unwrap_or(false)
     }
-
-    #[cfg(target_os = "windows")]
-    {
-        path.extension().map(|e| e == "lnk").unwrap_or(false)
-    }
-}
-
-#[allow(dead_code)]
-fn find_uwp_icon_path_from_manifest_content(content: &str) -> Option<String> {
-    if let Some(caps) = Regex::new(r#"Square44x44Logo\s*=\s*"([^"]+)""#)
-        .ok()?
-        .captures(content)
-    {
-        Some(caps.get(1)?.as_str().to_string())
-    } else if let Some(caps) = Regex::new(r#"Square150x150Logo\s*=\s*"([^"]+)""#)
-        .ok()?
-        .captures(content)
-    {
-        Some(caps.get(1)?.as_str().to_string())
-    } else if let Some(caps) = Regex::new(r#"Logo\s*=\s*"([^"]+)""#)
-        .ok()?
-        .captures(content)
-    {
-        Some(caps.get(1)?.as_str().to_string())
-    } else {
-        None
-    }
-}
-
-#[allow(dead_code)]
-fn score_candidate(filename: &str) -> i32 {
-    let mut score = 0;
-    if filename.contains("targetsize-48") {
-        score += 100;
-    } else if filename.contains("targetsize-32") {
-        score += 90;
-    } else if filename.contains("targetsize-256") {
-        score += 85;
-    } else if filename.contains("scale-200") {
-        score += 80;
-    } else if filename.contains("scale-150") {
-        score += 70;
-    } else if filename.contains("scale-100") {
-        score += 60;
-    } else if !filename.contains("scale-") && !filename.contains("targetsize-") {
-        score += 50;
-    }
-
-    if filename.contains("altform-unplated") {
-        score += 10;
-    }
-
-    score
 }
 
 /// Extract a platform-native bundle / process identifier for an installed app.
 ///
 /// Works the same whether the path comes from a default scan location or from
 /// a user-configured custom scan directory — the logic is purely
-/// path-content-based (Info.plist or .desktop), no registry lookup.
+/// path-content-based (.desktop), no registry lookup.
 /// The bundle's file name on disk, without extension.
 ///
 /// This is the app's stable identity: `build_app_id` embeds it, and the id
@@ -945,64 +627,6 @@ pub(crate) fn bundle_file_name(path: &Path) -> String {
         .to_string()
 }
 
-/// Extracts a language-independent stable package name from a UWP AUMID.
-///
-/// For standard UWP AUMIDs like `Microsoft.WindowsCalculator_8wekyb3d8bbwe!App`,
-/// this extracts `Microsoft.WindowsCalculator`.
-/// Like `bundle_file_name` for file paths, this ensures UWP app IDs remain
-/// byte-identical across system language changes.
-pub(crate) fn uwp_stable_name(aumid: &str) -> &str {
-    let package_family = aumid.split('!').next().unwrap_or(aumid);
-    if let Some((name, _publisher_id)) = package_family.rsplit_once('_') {
-        if !name.is_empty() {
-            return name;
-        }
-    }
-    package_family
-}
-
-/// Migrates any legacy indexed UWP application IDs built from localized display names
-/// to stable IDs built from AUMIDs.
-pub(crate) fn migrate_uwp_app_ids(
-    search_state: &SearchState,
-    alias_state: Option<&crate::aliases::AliasState>,
-) -> Result<u32, AppError> {
-    let mut items = search_state
-        .items
-        .write()
-        .map_err(|e| AppError::Other(e.to_string()))?;
-    let mut migrated = 0;
-    for item in items.iter_mut() {
-        let SearchableItem::Application(app) = item else {
-            continue;
-        };
-        let aumid_opt = if let Some(ref bundle_id) = app.bundle_id {
-            if app.path.starts_with(r"shell:AppsFolder\") {
-                Some(bundle_id.clone())
-            } else {
-                None
-            }
-        } else {
-            app.path
-                .strip_prefix(r"shell:AppsFolder\")
-                .map(|aumid| aumid.to_string())
-        };
-
-        if let Some(aumid) = aumid_opt {
-            let target_id = build_app_id(uwp_stable_name(&aumid), &aumid);
-            if app.id != target_id {
-                let old_id = app.id.clone();
-                app.id = target_id.clone();
-                migrated += 1;
-                if let Some(aliases) = alias_state {
-                    let _ = aliases.migrate_object_id(&old_id, &target_id);
-                }
-            }
-        }
-    }
-    Ok(migrated)
-}
-
 /// What the user sees for this app: the name translated into the user's
 /// language where the bundle ships one, the plain file name otherwise.
 ///
@@ -1013,41 +637,13 @@ pub(crate) fn display_name(path: &Path) -> String {
 }
 
 pub(crate) fn extract_bundle_id(path: &Path) -> Option<String> {
-    #[cfg(target_os = "macos")]
-    {
-        // macOS .app bundles contain Contents/Info.plist with CFBundleIdentifier.
-        let plist_path = path.join("Contents/Info.plist");
-        if !plist_path.is_file() {
-            return None;
-        }
-        let value = plist::Value::from_file(&plist_path).ok()?;
-        let dict = value.as_dictionary()?;
-        let id = dict.get("CFBundleIdentifier")?.as_string()?;
-        let trimmed = id.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed.to_string())
-        }
-    }
-
     #[cfg(target_os = "linux")]
     {
         crate::platform::linux::DesktopEntry::from_file(path)
             .and_then(|entry| entry.extract_bundle_id())
     }
-
-    #[cfg(target_os = "windows")]
-    {
-        // .lnk shortcuts don't carry a bundle identifier. Leave None — the
-        // caller falls back to `name` for isRunning() which uses process-name
-        // matching on Windows.
-        let _ = path;
-        None
-    }
 }
 
-#[cfg(any(target_os = "linux", test))]
 fn resolve_linux_exe_name(
     exec_program: &str,
     path_env: Option<&std::ffi::OsStr>,
@@ -1089,7 +685,6 @@ fn resolve_linux_exe_name(
     Some(initial_lower)
 }
 
-#[cfg(any(target_os = "linux", test))]
 fn resolve_linux_desktop_entry_exe_name(
     entry: &crate::platform::linux::DesktopEntry,
     path_env: Option<&std::ffi::OsStr>,
@@ -1102,113 +697,9 @@ fn resolve_linux_desktop_entry_exe_name(
     resolve_linux_exe_name(&prog, path_env)
 }
 
-#[cfg(any(target_os = "windows", test))]
-fn split_windows_args(args: &str) -> Vec<String> {
-    let mut tokens = Vec::new();
-    let mut current = String::new();
-    let mut in_quotes = false;
-    let mut in_token = false;
-
-    for ch in args.chars() {
-        match ch {
-            '"' => {
-                in_quotes = !in_quotes;
-                in_token = true;
-            }
-            c if c.is_whitespace() && !in_quotes => {
-                if in_token {
-                    tokens.push(std::mem::take(&mut current));
-                    in_token = false;
-                }
-            }
-            c => {
-                current.push(c);
-                in_token = true;
-            }
-        }
-    }
-    if in_token {
-        tokens.push(current);
-    }
-    tokens
-}
-
-#[cfg(any(target_os = "windows", test))]
-fn extract_squirrel_process_start(args: &str) -> Option<String> {
-    let tokens = split_windows_args(args);
-    let mut i = 0;
-    while i < tokens.len() {
-        let tok = tokens[i].trim();
-        let raw_val = if let Some(prefix) = tok.get(.."--processStart=".len()) {
-            if prefix.eq_ignore_ascii_case("--processStart=") {
-                Some(tok["--processStart=".len()..].trim_matches('"').to_string())
-            } else {
-                None
-            }
-        } else if tok.eq_ignore_ascii_case("--processStart") {
-            tokens
-                .get(i + 1)
-                .map(|v| v.trim().trim_matches('"').to_string())
-        } else {
-            None
-        };
-
-        if let Some(val) = raw_val {
-            let base = val.rsplit(['\\', '/']).next().unwrap_or(&val).trim();
-            if !base.is_empty() {
-                return Some(base.to_string());
-            }
-        }
-        i += 1;
-    }
-    None
-}
-
-#[cfg(any(target_os = "windows", test))]
-fn resolve_windows_exe_name(target_path: &str, args: &str) -> Option<String> {
-    const WIN_WRAPPERS: &[&str] = &[
-        "cmd.exe",
-        "powershell.exe",
-        "pwsh.exe",
-        "wscript.exe",
-        "cscript.exe",
-        "mshta.exe",
-        "rundll32.exe",
-        "explorer.exe",
-        "msiexec.exe",
-        "conhost.exe",
-    ];
-
-    let file_name = target_path
-        .rsplit(['\\', '/'])
-        .next()
-        .unwrap_or(target_path)
-        .trim();
-    if file_name.is_empty() {
-        return None;
-    }
-
-    let lower = file_name.to_lowercase();
-    let candidate = if lower == "update.exe" || lower == "squirrel.exe" {
-        let started = extract_squirrel_process_start(args)?;
-        let mut started_lower = started.to_lowercase();
-        if !started_lower.ends_with(".exe") {
-            started_lower.push_str(".exe");
-        }
-        started_lower
-    } else {
-        lower
-    };
-
-    if !candidate.ends_with(".exe") || WIN_WRAPPERS.contains(&candidate.as_str()) {
-        return None;
-    }
-    Some(candidate)
-}
-
 /// Lowercased executable basename the running indicator matches against
-/// `AppPresenceQuery::running_keys`. `None` on macOS (matched by bundle id)
-/// and wherever no executable can be named, so the app simply gets no dot.
+/// `AppPresenceQuery::running_keys`. `None` wherever no executable can be
+/// named, so the app simply gets no dot.
 pub(crate) fn extract_exe_name(path: &Path) -> Option<String> {
     #[cfg(target_os = "linux")]
     {
@@ -1216,30 +707,7 @@ pub(crate) fn extract_exe_name(path: &Path) -> Option<String> {
             resolve_linux_desktop_entry_exe_name(&entry, std::env::var_os("PATH").as_deref())
         })
     }
-
-    #[cfg(target_os = "windows")]
-    {
-        let is_lnk = path
-            .extension()
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("lnk"));
-        let (target, args) = if is_lnk {
-            super::location::windows_impl::resolve_shortcut_target_and_args(path)?
-        } else {
-            (path.to_path_buf(), String::new())
-        };
-        resolve_windows_exe_name(&target.to_string_lossy(), &args)
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        let _ = path;
-        None
-    }
 }
-
-/// How long a "no icon found" marker suppresses re-extraction on Windows.
-/// On macOS and Linux the marker only expires when the source mtime changes.
-const MISSING_MARKER_TTL: std::time::Duration = std::time::Duration::from_secs(60 * 60);
 
 /// Resolves the directory used to cache extracted app icons. Icons are never
 /// purged from here: clipboard history references source-app icons from this
@@ -1248,19 +716,7 @@ fn icon_cache_dir<R: tauri::Runtime>(app: &AppHandle<R>) -> PathBuf {
     app.path()
         .app_data_dir()
         .map(|p| p.join("icon_cache"))
-        .unwrap_or_else(|_| {
-            #[cfg(target_os = "windows")]
-            {
-                app.path()
-                    .app_local_data_dir()
-                    .unwrap_or_default()
-                    .join("icon_cache")
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                PathBuf::from("/tmp/asyar_icon_cache")
-            }
-        })
+        .unwrap_or_else(|_| PathBuf::from("/tmp/asyar_icon_cache"))
 }
 
 pub(crate) fn truncate_to_char_boundary(s: &str, max_bytes: usize) -> &str {
@@ -1283,21 +739,9 @@ pub(crate) fn truncate_cache_key(cache_key: &str, max_bytes: usize) -> std::borr
     std::borrow::Cow::Owned(format!("{prefix}_{hash_str}"))
 }
 
-/// Returns the timestamp that determines icon freshness for an application.
-///
-/// For macOS `.app` bundles, `Contents/Info.plist` is updated whenever an app
-/// is built, updated, or reinstalled. If `Info.plist` is missing, the bundle
-/// root metadata is used.
-/// For `.desktop` or `.lnk` paths, the file's own modification time is used.
+/// Returns the timestamp that determines icon freshness for an application:
+/// the `.desktop` file's own modification time.
 fn icon_source_mtime(app_path: &Path) -> Option<std::time::SystemTime> {
-    let plist = app_path.join("Contents/Info.plist");
-    if plist.is_file() {
-        if let Ok(meta) = plist.metadata() {
-            if let Ok(mtime) = meta.modified() {
-                return Some(mtime);
-            }
-        }
-    }
     app_path.metadata().ok()?.modified().ok()
 }
 
@@ -1311,7 +755,7 @@ fn cached_icon_is_fresh(cached: &Path, source_mtime: Option<std::time::SystemTim
     match cached.metadata().and_then(|meta| meta.modified()) {
         Ok(cached_mtime) => {
             // Check for matching timestamps. Accounts for sub-second precision variance
-            // across differing filesystems (APFS, NTFS, ext4) by allowing < 1s difference.
+            // across differing filesystems by allowing < 1s difference.
             cached_mtime == source_mtime
                 || cached_mtime
                     .duration_since(source_mtime)
@@ -1323,10 +767,8 @@ fn cached_icon_is_fresh(cached: &Path, source_mtime: Option<std::time::SystemTim
     }
 }
 
-/// Writes a "no icon found" marker. Instead of stamping the file's mtime (which
-/// a `.lnk` never gets when its target changes), the source mtime is stored in
-/// the marker's contents so a changed source retries immediately. The marker's
-/// own mtime remains the TTL clock.
+/// Writes a "no icon found" marker. The source mtime is stored in the marker's
+/// contents so a changed source retries immediately.
 fn write_missing_marker(marker: &Path, source_mtime: Option<std::time::SystemTime>) {
     let _ = std::fs::create_dir_all(marker.parent().unwrap());
     let contents = source_mtime
@@ -1336,19 +778,12 @@ fn write_missing_marker(marker: &Path, source_mtime: Option<std::time::SystemTim
     let _ = std::fs::write(marker, contents);
 }
 
-/// A negative result is retried when either the marker is older than
-/// [`MISSING_MARKER_TTL`] (Windows only) or the source mtime differs from the
-/// one stored when the marker was written. A `.lnk` is untouched while its
-/// target changes underneath it, so the source mtime check is what makes a
-/// re-pointed shortcut repair itself right away.
-fn missing_marker_is_fresh(
-    marker: &Path,
-    source_mtime: Option<std::time::SystemTime>,
-    is_windows: bool,
-) -> bool {
-    let Ok(metadata) = marker.metadata().and_then(|m| m.modified()) else {
+/// A negative result is retried when the source mtime differs from the one
+/// stored when the marker was written.
+fn missing_marker_is_fresh(marker: &Path, source_mtime: Option<std::time::SystemTime>) -> bool {
+    if marker.metadata().and_then(|m| m.modified()).is_err() {
         return false;
-    };
+    }
     // The source mtime is stored in the marker contents; a changed source means
     // the marker is stale regardless of age.
     let source_unchanged = match source_mtime {
@@ -1369,16 +804,7 @@ fn missing_marker_is_fresh(
                     .unwrap_or(false)
         }
     };
-    if !source_unchanged {
-        return false;
-    }
-    if is_windows {
-        return metadata
-            .elapsed()
-            .map(|age| age < MISSING_MARKER_TTL)
-            .unwrap_or(false);
-    }
-    true
+    source_unchanged
 }
 
 fn stamp_cache_file(path: &Path, source_mtime: Option<std::time::SystemTime>) {
@@ -1392,23 +818,13 @@ fn stamp_cache_file(path: &Path, source_mtime: Option<std::time::SystemTime>) {
 }
 
 /// Builds the cache file stem for an application's extracted icon.
-///
-/// Windows prepends a version prefix (`w3_`) so caches written by the
-/// placeholder-soft-cache scheme are orphaned instead of purged (old `.lnk`
-/// entries, including ones shortened by `truncate_cache_key`, simply stop
-/// matching).
-fn app_icon_cache_base_name_for_platform(app_path: &str, is_windows: bool) -> String {
+fn app_icon_cache_base_name(app_path: &str) -> String {
     let raw = app_path
         .replace(['/', '\\', ':', ' '], "_")
         .replace(".app", "")
         .replace(".desktop", "")
         .replace(".exe", "");
-    let cache_key = if is_windows { format!("w3_{raw}") } else { raw };
-    truncate_cache_key(&cache_key, 200).into_owned()
-}
-
-fn app_icon_cache_base_name(app_path: &str) -> String {
-    app_icon_cache_base_name_for_platform(app_path, cfg!(target_os = "windows"))
+    truncate_cache_key(&raw, 200).into_owned()
 }
 
 pub(crate) fn extract_app_icon(app_path: &str, cache_dir: &Path) -> Option<String> {
@@ -1420,15 +836,8 @@ pub(crate) fn extract_app_icon(app_path: &str, cache_dir: &Path) -> Option<Strin
     let missing_marker = cache_dir.join(format!("{base_name}.missing"));
 
     let source_mtime = icon_source_mtime(Path::new(app_path));
-    let is_windows = cfg!(target_os = "windows");
 
-    let icon_url = move |filename: &str| -> String {
-        if is_windows {
-            format!("http://asyar-icon.localhost/{filename}")
-        } else {
-            format!("asyar-icon://localhost/{filename}")
-        }
-    };
+    let icon_url = move |filename: &str| -> String { format!("asyar-icon://localhost/{filename}") };
 
     if cached_icon_is_fresh(&cache_file_png, source_mtime) {
         return Some(icon_url(&cache_filename_png));
@@ -1436,7 +845,7 @@ pub(crate) fn extract_app_icon(app_path: &str, cache_dir: &Path) -> Option<Strin
     if cached_icon_is_fresh(&cache_file_svg, source_mtime) {
         return Some(icon_url(&cache_filename_svg));
     }
-    if missing_marker_is_fresh(&missing_marker, source_mtime, is_windows) {
+    if missing_marker_is_fresh(&missing_marker, source_mtime) {
         return None;
     }
 
@@ -1522,161 +931,10 @@ fn on_extraction_failed(
     None
 }
 
-#[cfg(target_os = "windows")]
-pub(crate) fn extract_uwp_app_icon(
-    aumid: &str,
-    install_location: &str,
-    cache_dir: &Path,
-) -> Option<String> {
-    let cache_key = format!("uwp_{}", aumid.replace(['/', '\\', ':', ' ', '!'], "_"));
-    let cache_filename = format!("{}.png", truncate_cache_key(&cache_key, 200));
-    let cache_file = cache_dir.join(&cache_filename);
-
-    if cache_file.exists() {
-        return Some(format!("http://asyar-icon.localhost/{}", cache_filename));
-    }
-
-    if let Some(bytes) = find_uwp_icon_bytes(install_location) {
-        let _ = std::fs::create_dir_all(cache_dir);
-        if std::fs::write(&cache_file, bytes).is_ok() {
-            return Some(format!("http://asyar-icon.localhost/{}", cache_filename));
-        }
-    }
-
-    None
-}
-
-#[cfg(target_os = "windows")]
-fn find_uwp_icon_bytes(install_location: &str) -> Option<Vec<u8>> {
-    // An app indexed without a resolvable install location has no manifest to
-    // read. Bail early so `Path::new("").join(...)` doesn't probe the process
-    // CWD for a stray `AppxManifest.xml`.
-    if install_location.is_empty() {
-        return None;
-    }
-    let manifest_path = Path::new(install_location).join("AppxManifest.xml");
-    if !manifest_path.is_file() {
-        return None;
-    }
-
-    let content = std::fs::read_to_string(&manifest_path).ok()?;
-    let logo_path = find_uwp_icon_path_from_manifest_content(&content)?;
-
-    let logo_path_clean = if logo_path.starts_with("ms-resource:") {
-        logo_path.strip_prefix("ms-resource:").unwrap().to_string()
-    } else {
-        logo_path
-    };
-
-    let logo_path_normalized = logo_path_clean.replace('\\', "/");
-    let full_logo_path = Path::new(install_location).join(&logo_path_normalized);
-
-    let parent_dir = full_logo_path.parent()?;
-    if !parent_dir.is_dir() {
-        return None;
-    }
-
-    let stem = full_logo_path.file_stem()?.to_str()?;
-    let stem_lower = stem.to_lowercase();
-
-    let mut best_candidate: Option<PathBuf> = None;
-    let mut best_score = -1;
-
-    if let Ok(entries) = std::fs::read_dir(parent_dir) {
-        for entry in entries.filter_map(Result::ok) {
-            let path = entry.path();
-            if path.is_file() {
-                if let Some(filename) = path.file_name().and_then(|s| s.to_str()) {
-                    let filename_lower = filename.to_lowercase();
-                    if filename_lower.starts_with(&stem_lower) {
-                        let score = score_candidate(&filename_lower);
-                        if score > best_score {
-                            best_score = score;
-                            best_candidate = Some(path);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if let Some(cand) = best_candidate {
-        std::fs::read(cand).ok()
-    } else {
-        std::fs::read(full_logo_path).ok()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
-
-    #[test]
-    fn test_uwp_scan_script_indexes_apps_without_install_location() {
-        // #411: launchable packaged apps (e.g. Codex) were dropped when their
-        // InstallLocation couldn't be resolved from Get-AppxPackage. The script
-        // must emit every Get-StartApps AUMID entry; InstallLocation is only an
-        // icon hint and may be blank.
-        let script = uwp_scan_powershell_script();
-
-        // Still drives off the authoritative launchable list, AUMID-only.
-        assert!(script.contains("Get-StartApps"));
-        assert!(script.contains("$_.AppID -like '*!*'"));
-
-        // Must NOT gate emission on a resolved install location.
-        assert!(
-            !script.contains("if ($loc) {"),
-            "script still drops apps whose InstallLocation is unresolved"
-        );
-        // Must fall back to an empty location instead of dropping the app.
-        assert!(
-            script.contains("if (-not $loc) { $loc = '' }"),
-            "script must keep launchable apps even without an InstallLocation"
-        );
-    }
-
-    #[test]
-    fn test_uwp_app_deserializes_pascalcase_powershell_json() {
-        // The scan PowerShell emits PascalCase keys (Name/Aumid/InstallLocation);
-        // UwpApp's fields are snake_case. Without a rename the deserialize fails
-        // and every AppX app is silently dropped (#411). This is the JSON->struct
-        // seam the string-shape tests don't cover.
-        let json = r#"{"Name":"Calculator","Aumid":"Microsoft.WindowsCalculator_8wekyb3d8bbwe!App","InstallLocation":"C:\\Program Files\\WindowsApps\\Calc"}"#;
-        let app: UwpApp = serde_json::from_str(json).expect("PascalCase JSON must deserialize");
-        assert_eq!(app.name, "Calculator");
-        assert_eq!(app.aumid, "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App");
-        assert_eq!(app.install_location, "C:\\Program Files\\WindowsApps\\Calc");
-
-        // Array form (the common multi-app case) must work too.
-        let arr = r#"[{"Name":"A","Aumid":"a!b","InstallLocation":""}]"#;
-        let apps: Vec<UwpApp> = serde_json::from_str(arr).expect("array form must deserialize");
-        assert_eq!(apps.len(), 1);
-        assert_eq!(apps[0].install_location, "");
-    }
-
-    #[test]
-    fn test_uwp_scan_script_forces_utf8_output() {
-        // Windows PowerShell 5.1 writes redirected stdout in the legacy OEM code
-        // page; without forcing UTF-8, non-ASCII app names are corrupted when
-        // Rust reads the captured bytes as UTF-8.
-        let script = uwp_scan_powershell_script();
-        assert!(
-            script.contains("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8"),
-            "script must force UTF-8 stdout so non-ASCII app names survive"
-        );
-    }
-
-    #[test]
-    fn test_uwp_scan_script_avoids_quadratic_array_growth() {
-        // `$x += ` inside a loop reallocates the whole array every iteration
-        // (O(n^2)); accumulate via direct pipeline assignment instead.
-        let script = uwp_scan_powershell_script();
-        assert!(
-            !script.contains("+="),
-            "accumulate UWP apps via pipeline assignment, not array +="
-        );
-    }
 
     #[test]
     fn test_get_default_app_scan_paths_is_non_empty() {
@@ -1685,55 +943,6 @@ mod tests {
             !paths.is_empty(),
             "get_default_app_scan_paths() must return at least one path on every platform"
         );
-    }
-
-    #[test]
-    #[cfg(target_os = "macos")]
-    fn test_get_default_app_scan_paths_includes_user_applications() {
-        // macOS installers that don't require admin rights (Autodesk, some
-        // Adobe tools, browser-generated PWA shims) land in ~/Applications.
-        // Linux and Windows already scan their per-user location; macOS must
-        // too, or those apps are invisible to search.
-        let home = dirs::home_dir().expect("home dir must resolve in tests");
-        assert!(
-            get_default_app_scan_paths().contains(&home.join("Applications")),
-            "macOS defaults must include the per-user ~/Applications folder"
-        );
-    }
-
-    #[test]
-    #[cfg(target_os = "macos")]
-    fn test_get_default_app_scan_paths_includes_vetted_system_applications_only() {
-        let paths = get_default_app_scan_paths();
-
-        assert!(paths.contains(&PathBuf::from("/System/Library/CoreServices/Applications")));
-        assert!(!paths.contains(&PathBuf::from("/System/Library/CoreServices")));
-        assert!(!paths.contains(&PathBuf::from("/System/Library/PreferencePanes")));
-        assert!(!paths.contains(&PathBuf::from("/Library/PreferencePanes")));
-        assert!(!paths.contains(&PathBuf::from("/Library/Internet Plug-Ins")));
-        assert!(!paths.contains(&PathBuf::from(
-            "/System/Volumes/Preboot/Cryptexes/App/System/Applications"
-        )));
-    }
-
-    #[test]
-    #[cfg(target_os = "macos")]
-    fn test_macos_default_app_scan_paths_include_existing_parallels_applications() {
-        let home = tempfile::tempdir().expect("temporary home must be created");
-        let parallels = home.path().join("Applications (Parallels)");
-        std::fs::create_dir(&parallels).expect("Parallels applications directory must be created");
-
-        let paths = get_macos_default_app_scan_paths(Some(home.path()));
-
-        assert!(paths.contains(&parallels));
-    }
-
-    #[test]
-    #[cfg(target_os = "macos")]
-    fn test_is_default_app_location_macos_matches_applications_dir() {
-        // Not Finder.app — no such path exists. Finder has its own tests below.
-        assert!(is_default_app_location("/Applications/Safari.app"));
-        assert!(is_default_app_location("/System/Applications/Calendar.app"));
     }
 
     /// An app as the index holds it, carrying frecency data a scan never has.
@@ -1820,44 +1029,18 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "macos")]
-    fn test_default_scan_paths_include_finder() {
-        // Finder ships in /System/Library/CoreServices, which is neither
-        // /Applications nor /System/Applications nor ~/Applications, so no
-        // scan ever reached it and searching "finder" returned no application.
-        let finder = Path::new("/System/Library/CoreServices/Finder.app");
-        let paths = get_default_app_scan_paths();
-        assert!(
-            paths.iter().any(|p| p == finder),
-            "Finder must be a default scan target, got {:?}",
-            paths
-        );
-        assert!(
-            is_default_app_location(finder.to_str().unwrap()),
-            "Finder must count as a default location, so its row shows no path subtitle"
-        );
-    }
-
-    #[test]
     fn test_scanner_records_a_scan_root_that_is_itself_a_bundle() {
         // A scan entry may name a single bundle rather than a folder of them —
-        // the Finder entry above, or a custom path a user aimed straight at one
+        // a custom path a user aimed straight at one
         // app. Only a root's children were ever considered, so such an entry
         // yielded nothing at all.
         let tmp = std::env::temp_dir().join("asyar_test_bundle_root");
         let _ = fs::remove_dir_all(&tmp);
         fs::create_dir_all(&tmp).unwrap();
 
-        #[cfg(target_os = "macos")]
-        let app_path = tmp.join("Rooted.app");
         #[cfg(target_os = "linux")]
         let app_path = tmp.join("rooted.desktop");
-        #[cfg(target_os = "windows")]
-        let app_path = tmp.join("Rooted.lnk");
 
-        #[cfg(target_os = "macos")]
-        fs::create_dir_all(&app_path).unwrap();
-        #[cfg(not(target_os = "macos"))]
         fs::write(
             &app_path,
             b"[Desktop Entry]\nType=Application\nName=Rooted\nExec=rooted\n",
@@ -1877,61 +1060,17 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "macos")]
-    fn test_scanner_does_not_descend_into_a_bundle_root() {
-        // Bundles nest helper apps under Contents/. Recursing into a bundle
-        // root would index those helpers in place of the app itself.
-        let tmp = std::env::temp_dir().join("asyar_test_bundle_root_nested");
-        let _ = fs::remove_dir_all(&tmp);
-        let outer = tmp.join("Outer.app");
-        fs::create_dir_all(outer.join("Contents/Library/Helper.app")).unwrap();
-
-        let mut scanner = AppScanner::new();
-        scanner.scan_directory(&outer).unwrap();
-
-        assert_eq!(
-            scanner.paths,
-            vec![outer.to_str().unwrap().to_string()],
-            "nested helper bundles must not be indexed, got {:?}",
-            scanner.paths
-        );
-
-        let _ = fs::remove_dir_all(&tmp);
-    }
-
-    #[test]
     fn test_scanner_ignores_a_bundle_scan_root_that_is_absent() {
-        // The Finder entry is an absolute path we assume exists. A macOS
-        // release that moves or drops it must degrade to "not indexed", not to
-        // a row pointing at nothing.
-        #[cfg(target_os = "macos")]
-        let missing = std::env::temp_dir().join("asyar_absent_bundle.app");
+        // A scan root that no longer exists must degrade to "not indexed", not
+        // to a row pointing at nothing.
         #[cfg(target_os = "linux")]
         let missing = std::env::temp_dir().join("asyar_absent_bundle.desktop");
-        #[cfg(target_os = "windows")]
-        let missing = std::env::temp_dir().join("asyar_absent_bundle.lnk");
         let _ = fs::remove_dir_all(&missing);
 
         let mut scanner = AppScanner::new();
         scanner.scan_directory(&missing).unwrap();
 
         assert!(scanner.paths.is_empty());
-    }
-
-    #[test]
-    #[cfg(target_os = "macos")]
-    fn test_display_name_resolves_a_stock_system_app() {
-        // Whether the answer reads "Photos" or "Fotos" depends on the machine
-        // running the suite, so only the locale-independent properties are
-        // asserted here. That the *right* translation is picked is covered
-        // deterministically in `platform::macos::display_name`, where the
-        // locale is injected instead of read from the host.
-        let name = display_name(Path::new("/System/Applications/Photos.app"));
-        assert!(!name.is_empty());
-        assert!(
-            !name.ends_with(".app"),
-            "the extension must never leak into a display name, got {name}"
-        );
     }
 
     #[test]
@@ -1959,17 +1098,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "macos")]
-    fn test_is_default_app_location_macos_matches_user_applications() {
-        // Derived from get_default_app_scan_paths(), so ~/Applications must
-        // count as a default location — the settings UI relies on this to
-        // reject it as a redundant custom path.
-        let home = dirs::home_dir().expect("home dir must resolve in tests");
-        let app = home.join("Applications").join("Some.app");
-        assert!(is_default_app_location(app.to_str().expect("utf-8 path")));
-    }
-
-    #[test]
     fn test_normalize_scan_path_trims_whitespace() {
         assert_eq!(normalize_scan_path("  /Applications  "), "/Applications");
     }
@@ -1977,25 +1105,6 @@ mod tests {
     #[test]
     fn test_normalize_scan_path_strips_trailing_forward_slash() {
         assert_eq!(normalize_scan_path("/Applications/"), "/Applications");
-    }
-
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn test_normalize_scan_path_strips_trailing_backslash_on_windows() {
-        assert_eq!(
-            normalize_scan_path("C:\\Program Files\\"),
-            "C:\\Program Files"
-        );
-    }
-
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn test_normalize_scan_path_preserves_windows_drive_root() {
-        // `C:\` is the drive root — stripping the trailing separator would
-        // give `C:` which refers to the "current directory on C:" rather than
-        // the root, so the separator must stay.
-        assert_eq!(normalize_scan_path("C:\\"), "C:\\");
-        assert_eq!(normalize_scan_path("D:\\"), "D:\\");
     }
 
     #[test]
@@ -2092,13 +1201,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "macos")]
-    fn test_is_default_app_location_rejects_user_directory() {
-        assert!(!is_default_app_location("/Users/test/MyApps/Foo.app"));
-        assert!(!is_default_app_location("/opt/custom/Bar.app"));
-    }
-
-    #[test]
     fn test_is_default_app_location_handles_unrelated_paths() {
         assert!(!is_default_app_location("/nonexistent/path/App.app"));
     }
@@ -2150,17 +1252,9 @@ mod tests {
         assert_eq!(display_parent_dir(&outside), parent);
     }
 
-    /// Returns an absolute path guaranteed not to live under `$HOME` on any
-    /// platform. Used by tests that need to exercise the non-home branch.
+    /// Returns an absolute path guaranteed not to live under `$HOME`. Used by tests that need to exercise the non-home branch.
     fn outside_home_path() -> String {
-        #[cfg(target_os = "windows")]
-        {
-            "C:\\ProgramData\\Asyar\\Foo.lnk".to_string()
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            "/opt/asyar-test/Foo.app".to_string()
-        }
+        "/opt/asyar-test/Foo.app".to_string()
     }
 
     #[test]
@@ -2184,39 +1278,10 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "macos")]
-    fn test_is_app_bundle_macos_dot_app() {
-        assert!(is_app_bundle(Path::new("/Applications/Finder.app")));
-    }
-
-    #[test]
-    #[cfg(target_os = "macos")]
-    fn test_is_app_bundle_macos_no_app_extension_is_false() {
-        assert!(!is_app_bundle(Path::new("/Applications/Finder")));
-        assert!(!is_app_bundle(Path::new("/usr/bin/ls")));
-    }
-
-    #[test]
     #[cfg(target_os = "linux")]
     fn test_is_app_bundle_linux_dot_desktop() {
         assert!(is_app_bundle(Path::new(
             "/usr/share/applications/firefox.desktop"
-        )));
-    }
-
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn test_is_app_bundle_windows_dot_lnk() {
-        assert!(is_app_bundle(Path::new(
-            "C:\\Users\\Public\\Desktop\\App.lnk"
-        )));
-    }
-
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn test_is_app_bundle_windows_dot_exe_is_false() {
-        assert!(!is_app_bundle(Path::new(
-            "C:\\Windows\\System32\\notepad.exe"
         )));
     }
 
@@ -2248,17 +1313,10 @@ mod tests {
         let _ = fs::remove_dir_all(&tmp);
         fs::create_dir_all(&tmp).unwrap();
 
-        #[cfg(target_os = "macos")]
-        let app_path = tmp.join("TestApp.app");
         #[cfg(target_os = "linux")]
         let app_path = tmp.join("test.desktop");
-        #[cfg(target_os = "windows")]
-        let app_path = tmp.join("Test.lnk");
 
-        // Create a fake app bundle (directory on macOS, file on others)
-        #[cfg(target_os = "macos")]
-        fs::create_dir_all(&app_path).unwrap();
-        #[cfg(not(target_os = "macos"))]
+        // Create a fake .desktop entry
         fs::write(
             &app_path,
             b"[Desktop Entry]\nType=Application\nName=Test\nExec=test\n",
@@ -2286,16 +1344,9 @@ mod tests {
         let child = tmp.join("child");
         fs::create_dir_all(&child).unwrap();
 
-        #[cfg(target_os = "macos")]
-        let app_path = child.join("Overlap.app");
         #[cfg(target_os = "linux")]
         let app_path = child.join("overlap.desktop");
-        #[cfg(target_os = "windows")]
-        let app_path = child.join("Overlap.lnk");
 
-        #[cfg(target_os = "macos")]
-        fs::create_dir_all(&app_path).unwrap();
-        #[cfg(not(target_os = "macos"))]
         fs::write(
             &app_path,
             b"[Desktop Entry]\nType=Application\nName=Overlap\nExec=overlap\n",
@@ -2329,14 +1380,8 @@ mod tests {
         let loop_link = tmp.join("loop");
         let _ = std::os::unix::fs::symlink(&tmp, &loop_link);
 
-        #[cfg(target_os = "macos")]
-        let app_path = tmp.join("Normal.app");
-        #[cfg(not(target_os = "macos"))]
         let app_path = tmp.join("normal.desktop");
 
-        #[cfg(target_os = "macos")]
-        fs::create_dir_all(&app_path).unwrap();
-        #[cfg(not(target_os = "macos"))]
         fs::write(
             &app_path,
             b"[Desktop Entry]\nType=Application\nName=Normal\nExec=normal\n",
@@ -2365,14 +1410,8 @@ mod tests {
         let deep_dir = tmp.join("d1").join("d2").join("d3").join("d4");
         fs::create_dir_all(&deep_dir).unwrap();
 
-        #[cfg(target_os = "macos")]
-        let app_path = deep_dir.join("TooDeep.app");
-        #[cfg(not(target_os = "macos"))]
         let app_path = deep_dir.join("toodeep.desktop");
 
-        #[cfg(target_os = "macos")]
-        fs::create_dir_all(&app_path).unwrap();
-        #[cfg(not(target_os = "macos"))]
         fs::write(
             &app_path,
             b"[Desktop Entry]\nType=Application\nName=TooDeep\nExec=toodeep\n",
@@ -2400,14 +1439,8 @@ mod tests {
         fs::create_dir_all(&scan_dir).unwrap();
         fs::create_dir_all(&external_dir).unwrap();
 
-        #[cfg(target_os = "macos")]
-        let app_path = external_dir.join("External.app");
-        #[cfg(not(target_os = "macos"))]
         let app_path = external_dir.join("external.desktop");
 
-        #[cfg(target_os = "macos")]
-        fs::create_dir_all(&app_path).unwrap();
-        #[cfg(not(target_os = "macos"))]
         fs::write(
             &app_path,
             b"[Desktop Entry]\nType=Application\nName=External\nExec=external\n",
@@ -2456,52 +1489,6 @@ mod tests {
     }
 
     #[test]
-    fn test_find_uwp_icon_path_from_manifest_content() {
-        let manifest = r#"
-            <Applications>
-              <Application Id="App" Executable="YourApp.exe" EntryPoint="YourApp.App">
-                <uap:VisualElements 
-                    DisplayName="Your App Name" 
-                    Square150x150Logo="Assets\Square150x150Logo.png" 
-                    Square44x44Logo="Assets\Square44x44Logo.png" 
-                    Description="A brief description" 
-                    BackgroundColor="transparent">
-                </uap:VisualElements>
-              </Application>
-            </Applications>
-        "#;
-        assert_eq!(
-            find_uwp_icon_path_from_manifest_content(manifest),
-            Some("Assets\\Square44x44Logo.png".to_string())
-        );
-
-        let manifest_logo_only = r#"
-            <Applications>
-              <Application Id="App" Executable="YourApp.exe" EntryPoint="YourApp.App">
-                <VisualElements 
-                    Logo="Assets\Logo.png">
-                </VisualElements>
-              </Application>
-            </Applications>
-        "#;
-        assert_eq!(
-            find_uwp_icon_path_from_manifest_content(manifest_logo_only),
-            Some("Assets\\Logo.png".to_string())
-        );
-    }
-
-    #[test]
-    fn test_score_candidate() {
-        assert_eq!(
-            score_candidate("CalculatorSdkLogo.targetsize-48_altform-unplated.png"),
-            110
-        );
-        assert_eq!(score_candidate("CalculatorSdkLogo.targetsize-48.png"), 100);
-        assert_eq!(score_candidate("CalculatorSdkLogo.scale-200.png"), 80);
-        assert_eq!(score_candidate("CalculatorSdkLogo.png"), 50);
-    }
-
-    #[test]
     fn test_extract_app_icon_negative_caching() {
         let tmp = tempfile::tempdir().unwrap();
         let cache_dir = tmp.path().join("icon_cache");
@@ -2519,14 +1506,6 @@ mod tests {
         // Subsequent call immediately returns None via marker check
         let result2 = extract_app_icon("/nonexistent/path/app.desktop", &cache_dir);
         assert!(result2.is_none());
-    }
-
-    #[test]
-    fn test_app_icon_cache_base_name_versions_windows_cache_keys() {
-        let windows_key = app_icon_cache_base_name_for_platform("C:\\Apps\\Demo.exe", true);
-        let unix_key = app_icon_cache_base_name_for_platform("/Applications/Demo.app", false);
-        assert!(windows_key.starts_with("w3_"));
-        assert!(!unix_key.starts_with("w3_"));
     }
 
     #[test]
@@ -2671,36 +1650,6 @@ mod tests {
                 .set_modified(time)
                 .unwrap();
         }
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::OpenOptionsExt;
-            const FILE_WRITE_ATTRIBUTES: u32 = 0x0000_0100;
-            const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
-            std::fs::OpenOptions::new()
-                .access_mode(FILE_WRITE_ATTRIBUTES)
-                .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
-                .open(path)
-                .unwrap()
-                .set_modified(time)
-                .unwrap();
-        }
-    }
-
-    #[test]
-    fn test_icon_source_mtime_reads_info_plist_for_app_bundle() {
-        let tmp = tempfile::tempdir().unwrap();
-        let app = tmp.path().join("Demo.app");
-        let contents = app.join("Contents");
-        std::fs::create_dir_all(&contents).unwrap();
-        let plist = contents.join("Info.plist");
-        std::fs::write(&plist, b"<plist/>").unwrap();
-
-        let expected_time =
-            std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_123);
-        set_test_mtime(&plist, expected_time);
-
-        let mtime = icon_source_mtime(&app);
-        assert_eq!(mtime, Some(expected_time));
     }
 
     #[test]
@@ -2728,43 +1677,6 @@ mod tests {
 
         // None source_mtime -> relies on existence
         assert!(cached_icon_is_fresh(&cache_file, None));
-    }
-
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn test_extract_app_icon_refreshes_stale_cache_when_bundle_changes() {
-        let tmp = tempfile::tempdir().unwrap();
-        let cache_dir = tmp.path().join("icon_cache");
-        std::fs::create_dir_all(&cache_dir).unwrap();
-
-        let app = tmp.path().join("Demo.app");
-        let contents = app.join("Contents");
-        std::fs::create_dir_all(&contents).unwrap();
-        let plist = contents.join("Info.plist");
-        std::fs::write(&plist, b"<plist/>").unwrap();
-
-        let old_time =
-            std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000);
-        let new_time =
-            std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
-        set_test_mtime(&plist, new_time);
-
-        let cache_key = app
-            .to_string_lossy()
-            .replace(['/', '\\', ':', ' '], "_")
-            .replace(".app", "");
-        let base_name = truncate_cache_key(&cache_key, 200);
-        let cached = cache_dir.join(format!("{base_name}.png"));
-        std::fs::write(&cached, b"stale-placeholder").unwrap();
-        set_test_mtime(&cached, old_time);
-
-        let result = extract_app_icon(app.to_str().unwrap(), &cache_dir);
-        assert!(result.is_some(), "must return refreshed icon");
-        let bytes = std::fs::read(&cached).unwrap();
-        assert_ne!(
-            bytes, b"stale-placeholder",
-            "stale cached bytes must be replaced with fresh extraction"
-        );
     }
 
     #[cfg(target_os = "linux")]
@@ -2814,34 +1726,12 @@ mod tests {
         let source_mtime = std::time::SystemTime::now();
         write_missing_marker(&marker, Some(source_mtime));
 
-        // Young and unchanged: fresh on every platform.
-        assert!(missing_marker_is_fresh(&marker, Some(source_mtime), true));
-        assert!(missing_marker_is_fresh(&marker, Some(source_mtime), false));
+        // Unchanged source: fresh.
+        assert!(missing_marker_is_fresh(&marker, Some(source_mtime)));
 
-        // A changed source mtime retries immediately, before the TTL expires.
+        // A changed source mtime retries immediately.
         let changed = source_mtime + std::time::Duration::from_secs(10);
-        assert!(!missing_marker_is_fresh(&marker, Some(changed), true));
-        assert!(!missing_marker_is_fresh(&marker, Some(changed), false));
-    }
-
-    #[test]
-    fn test_missing_marker_ttl_is_windows_only() {
-        let tmp = tempfile::tempdir().unwrap();
-        let cache_dir = tmp.path().join("icon_cache");
-        std::fs::create_dir_all(&cache_dir).unwrap();
-
-        let marker = cache_dir.join("demo.missing");
-        let source_mtime = std::time::SystemTime::now();
-        write_missing_marker(&marker, Some(source_mtime));
-        set_test_mtime(
-            &marker,
-            std::time::SystemTime::now() - MISSING_MARKER_TTL * 2,
-        );
-
-        // Past the TTL with an unchanged source: stale on Windows ...
-        assert!(!missing_marker_is_fresh(&marker, Some(source_mtime), true));
-        // ... but not on macOS or Linux, where only the source mtime matters.
-        assert!(missing_marker_is_fresh(&marker, Some(source_mtime), false));
+        assert!(!missing_marker_is_fresh(&marker, Some(changed)));
     }
 
     #[test]
@@ -2855,20 +1745,13 @@ mod tests {
         write_missing_marker(&marker, Some(source_mtime));
 
         // Fresh marker: short-circuits without touching it.
-        assert!(missing_marker_is_fresh(&marker, Some(source_mtime), true));
+        assert!(missing_marker_is_fresh(&marker, Some(source_mtime)));
         assert!(extract_app_icon("/nonexistent/path/app.desktop", &cache_dir).is_none());
 
-        // Age the marker past the TTL; the retry fails again and rewrites it.
-        let old = std::time::SystemTime::now() - MISSING_MARKER_TTL * 2;
-        set_test_mtime(&marker, old);
-        assert!(!missing_marker_is_fresh(&marker, Some(source_mtime), true));
-
-        // A failed re-extraction rewrites the marker (via `on_extraction_failed`),
-        // which on Windows makes it fresh again immediately.
+        // A rewritten marker with no source mtime is fresh.
         write_missing_marker(&marker, None);
-        set_test_mtime(&marker, std::time::SystemTime::now());
         assert!(
-            missing_marker_is_fresh(&marker, None, true),
+            missing_marker_is_fresh(&marker, None),
             "rewritten marker must be fresh"
         );
     }
@@ -2913,66 +1796,6 @@ mod tests {
         );
         assert_eq!(url, Some("asyar-icon://localhost/demo.png".to_string()));
         assert!(cached_icon_is_fresh(&entry.png_file, Some(source_mtime)));
-    }
-
-    #[test]
-    fn test_uwp_stable_name_extracts_package_name_from_aumid() {
-        assert_eq!(
-            uwp_stable_name("Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"),
-            "Microsoft.WindowsCalculator"
-        );
-        assert_eq!(
-            uwp_stable_name("SpotifyAB.SpotifyMusic_zpdvkgc140fx8!Spotify"),
-            "SpotifyAB.SpotifyMusic"
-        );
-        assert_eq!(uwp_stable_name("Publisher.App_12345!App"), "Publisher.App");
-        assert_eq!(uwp_stable_name("NoPublisher_123"), "NoPublisher");
-        assert_eq!(uwp_stable_name("SimpleApp"), "SimpleApp");
-    }
-
-    #[test]
-    fn test_uwp_app_id_is_stable_across_display_name_changes() {
-        let aumid = "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App";
-        let english_id = build_app_id(uwp_stable_name(aumid), aumid);
-        let german_id = build_app_id(uwp_stable_name(aumid), aumid);
-        assert_eq!(english_id, german_id);
-
-        let old_english_id = build_app_id("Calculator", aumid);
-        let old_german_id = build_app_id("Rechner", aumid);
-        assert_ne!(old_english_id, old_german_id);
-    }
-
-    #[test]
-    fn test_migrate_uwp_app_ids_preserves_frecency() {
-        let aumid = "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App";
-        let old_id = build_app_id("Calculator", aumid);
-        let expected_id = build_app_id(uwp_stable_name(aumid), aumid);
-
-        let legacy_item = SearchableItem::Application(Application {
-            id: old_id.clone(),
-            name: "Calculator".to_string(),
-            path: format!("shell:AppsFolder\\{aumid}"),
-            usage_count: 42,
-            icon: None,
-            last_used_at: Some(1724000000),
-            bundle_id: Some(aumid.to_string()),
-            exe_name: None,
-        });
-
-        let search_state = SearchState::new_for_test();
-        search_state.items.write().unwrap().push(legacy_item);
-
-        let migrated = migrate_uwp_app_ids(&search_state, None).unwrap();
-        assert_eq!(migrated, 1);
-
-        let items = search_state.items.read().unwrap();
-        assert_eq!(items.len(), 1);
-        let SearchableItem::Application(ref app) = items[0] else {
-            panic!("Expected Application item");
-        };
-        assert_eq!(app.id, expected_id);
-        assert_eq!(app.usage_count, 42);
-        assert_eq!(app.last_used_at, Some(1724000000));
     }
 
     #[test]
@@ -3088,61 +1911,6 @@ mod tests {
     fn get_frontmost_application_returns_ok() {
         let result = get_frontmost_application();
         assert!(result.is_ok());
-    }
-
-    #[test]
-    fn resolve_windows_exe_name_handles_standard_squirrel_wrappers_and_unicode() {
-        assert_eq!(
-            resolve_windows_exe_name(r"C:\Program Files\Mozilla Firefox\firefox.exe", ""),
-            Some("firefox.exe".to_string())
-        );
-
-        // Squirrel Update.exe shortcuts
-        assert_eq!(
-            resolve_windows_exe_name(
-                r"C:\Users\me\AppData\Local\Discord\Update.exe",
-                "--processStart Discord.exe"
-            ),
-            Some("discord.exe".to_string())
-        );
-        assert_eq!(
-            resolve_windows_exe_name(
-                r"C:\Users\me\AppData\Local\slack\Update.exe",
-                r#"--processStart "slack.exe" --process-start-args "--startup""#
-            ),
-            Some("slack.exe".to_string())
-        );
-        assert_eq!(
-            resolve_windows_exe_name(
-                r"C:\Users\me\AppData\Local\Postman\Update.exe",
-                "--processStart=Postman.exe"
-            ),
-            Some("postman.exe".to_string())
-        );
-        assert_eq!(
-            resolve_windows_exe_name(r"C:\Users\me\AppData\Local\Discord\Update.exe", ""),
-            None
-        );
-
-        // Wrapper/host binaries and non-exe targets
-        assert_eq!(
-            resolve_windows_exe_name(r"C:\Windows\System32\cmd.exe", "/c start app"),
-            None
-        );
-        assert_eq!(
-            resolve_windows_exe_name(
-                r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
-                ""
-            ),
-            None
-        );
-        assert_eq!(resolve_windows_exe_name(r"C:\Tools\launch.bat", ""), None);
-
-        // Unicode lowercasing
-        assert_eq!(
-            resolve_windows_exe_name(r"C:\Program Files\Äpp\Äpp.EXE", ""),
-            Some("äpp.exe".to_string())
-        );
     }
 
     #[cfg(unix)]

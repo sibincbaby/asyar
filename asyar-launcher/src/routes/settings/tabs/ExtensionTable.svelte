@@ -591,10 +591,8 @@
     flex-shrink: 0;
   }
 
-  /* Hide the horizontal scrollbar on non-macOS only. On macOS, omitting
-     the ::-webkit-scrollbar rule keeps WebKit's native NSScroller overlay
-     (which fades out when not scrolling anyway). */
-  html:not([data-platform='macos']) .toolbar-row::-webkit-scrollbar {
+  /* Hide the horizontal scrollbar. */
+  .toolbar-row::-webkit-scrollbar {
     display: none;
   }
 

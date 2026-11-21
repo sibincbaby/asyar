@@ -469,21 +469,6 @@ impl RuntimeManager {
             Ok(())
         })?;
 
-        // `needs_resign` stays the single source of truth for the decision
-        // so it's exercised by its own unit tests; only macOS actually
-        // checks the binary's real signature (shells out to `codesign`),
-        // since `needs_resign` short-circuits on `is_macos` everywhere else.
-        #[cfg(target_os = "macos")]
-        let has_valid_signature = install::has_valid_signature(&final_dir.join(&binary_name));
-        #[cfg(not(target_os = "macos"))]
-        let has_valid_signature = false;
-
-        if install::needs_resign(cfg!(target_os = "macos"), has_valid_signature) {
-            emit_progress(app_handle, RuntimeDownloadProgress::Signing);
-            #[cfg(target_os = "macos")]
-            install::resign_adhoc(&final_dir.join(&binary_name))?;
-        }
-
         emit_progress(app_handle, RuntimeDownloadProgress::Ready);
         Ok(())
     }
@@ -588,11 +573,7 @@ fn now_unix() -> u64 {
 }
 
 fn binary_file_name(name: &str) -> String {
-    if cfg!(target_os = "windows") {
-        format!("{name}.exe")
-    } else {
-        name.to_string()
-    }
+    name.to_string()
 }
 
 /// Picks the highest installed version dir for `name` under `runtimes_root`
@@ -680,13 +661,36 @@ fn resolve_artifact_from_catalog(
     Ok((version, artifact))
 }
 
-/// On-disk size of `path`'s subtree. Delegates to
-/// `application::uninstall::dir_size_bytes` — same best-effort accounting,
-/// same symlink-skip behavior — rather than maintaining a second copy that
-/// could drift out of sync (e.g. by following symlinks and risking
-/// unbounded recursion on a symlink loop).
+/// On-disk size of `path`'s subtree. Best-effort: unreadable subdirs are
+/// skipped, and symlinks are not followed (no recursion on symlink loops).
 fn dir_size(path: &Path) -> u64 {
-    crate::application::uninstall::dir_size_bytes(path)
+    fn walk(path: &Path, total: &mut u64) {
+        let entries = match std::fs::read_dir(path) {
+            Ok(e) => e,
+            Err(_) => return,
+        };
+        for entry in entries.flatten() {
+            // symlink_metadata (not metadata) to avoid following into the
+            // linked target's size — caller wanted on-disk size of this
+            // directory tree, not the world it links out to.
+            let Ok(meta) = entry.file_type() else {
+                continue;
+            };
+            if meta.is_symlink() {
+                continue;
+            }
+            if meta.is_file() {
+                if let Ok(md) = entry.metadata() {
+                    *total = total.saturating_add(md.len());
+                }
+            } else if meta.is_dir() {
+                walk(&entry.path(), total);
+            }
+        }
+    }
+    let mut total = 0u64;
+    walk(path, &mut total);
+    total
 }
 
 fn emit_progress(app_handle: &AppHandle, progress: RuntimeDownloadProgress) {
@@ -850,7 +854,7 @@ mod tests {
         let root = tmp.path().join("runtimes");
         let bun_dir = root.join("bun").join("1.1.0");
         std::fs::create_dir_all(&bun_dir).unwrap();
-        // binary_file_name, not a literal: the lookup expects `bun.exe` on Windows.
+        // binary_file_name, not a literal, to match the production lookup.
         std::fs::write(bun_dir.join(binary_file_name("bun")), b"binary").unwrap();
 
         assert!(installed_binary_path(&root, "bun").is_some());
@@ -951,16 +955,6 @@ mod tests {
                 "runtime name {name:?} must be rejected"
             );
         }
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn validate_runtime_name_rejects_drive_prefixed_and_rootful_names_on_windows() {
-        assert!(validate_runtime_name(r"C:\evil").is_err());
-        // Drive-relative: no root, but `Path::join` would still replace the
-        // runtimes root with it.
-        assert!(validate_runtime_name("C:evil").is_err());
-        assert!(validate_runtime_name(r"\etc").is_err());
     }
 
     #[test]

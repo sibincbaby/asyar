@@ -686,22 +686,15 @@
 <WorkerIframes />
 
 <style>
-  /*
-   * Non-macOS: visible styled scrollbar.
-   * macOS: NO ::-webkit-scrollbar rule at all — defining one (even
-   * width:0) opts WebKit out of the native NSScroller overlay
-   * scrollbar, switching it to legacy obtrusive mode. Leaving the
-   * default keeps the real macOS overlay scrollbar that fades in
-   * on scroll, controlled by System Settings → "Show scroll bars".
-   */
-  :global(html:not([data-platform='macos']) ::-webkit-scrollbar) {
+  /* Visible styled scrollbar. */
+  :global(::-webkit-scrollbar) {
     width: 8px;
     height: 8px;
   }
-  :global(html:not([data-platform='macos']) ::-webkit-scrollbar-track) {
+  :global(::-webkit-scrollbar-track) {
     background: transparent;
   }
-  :global(html:not([data-platform='macos']) ::-webkit-scrollbar-thumb) {
+  :global(::-webkit-scrollbar-thumb) {
     background-color: var(--scrollbar-thumb);
     border-radius: var(--radius-md);
   }

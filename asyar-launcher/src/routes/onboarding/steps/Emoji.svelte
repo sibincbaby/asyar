@@ -3,7 +3,6 @@
   import { onMount } from 'svelte';
   import { Card, Button, ExpansionDemo } from '../../../components';
   import { advanceStep } from '../stepLogic';
-  import AccessibilityGate from './AccessibilityGate.svelte';
   import { installEmoji, EMOJI_ID } from './emojiSetup';
   import { onboardingNav } from '../onboardingNav.svelte';
   import { listInstalledExtensions } from '../../../lib/ipc/commands';
@@ -12,7 +11,6 @@
 
   let installed = $state(false);
   let installing = $state(false);
-  let axGranted = $state(false);
   let error = $state('');
 
   $effect(() => {
@@ -90,7 +88,6 @@
       <span class="step__label"
         >{t('onboarding.step_num', { n: 2, label: t('onboarding.permission') })}</span
       >
-      <AccessibilityGate bind:granted={axGranted} />
     </div>
 
     <ExpansionDemo trigger=":party:" result="🎉" note={t('onboarding.emoji_note')} />

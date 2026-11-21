@@ -19,13 +19,9 @@ export interface SystemActionSpec {
  * these actually get registered is decided by `system_actions_supported`
  * at activation — e.g. `hibernate` only appears on machines where the OS
  * has it enabled.
- *
- * @param os `platform()` from `@tauri-apps/plugin-os` — Windows says
- * "Sign Out" where everything else says "Log Out".
  */
-export function systemActionSpecs(os: string): Record<SystemActionId, SystemActionSpec> {
-  const logOutName =
-    os === 'windows' ? t('features.system.sign_out') : t('features.system.log_out');
+export function systemActionSpecs(): Record<SystemActionId, SystemActionSpec> {
+  const logOutName = t('features.system.log_out');
   return {
     sleep: {
       id: 'sleep',

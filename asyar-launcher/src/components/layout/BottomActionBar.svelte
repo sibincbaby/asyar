@@ -120,8 +120,8 @@
 
 <!--
   Both bars are always mounted at fixed positions — compact↔expanded never
-  changes DOM layout. macOS: bottom bar is cropped away by NSWindow in compact.
-  Non-macOS: hidden via CSS since the window really shrinks.
+  changes DOM layout. The bottom bar is hidden via CSS in compact since the
+  window really shrinks.
 -->
 <div
   class="fixed bottom-0 left-0 right-0 flex items-center justify-between px-4 bottom-action-bar"
@@ -193,11 +193,9 @@
 
 <!--
   Sits at the compact seam (top: --shell-header-h) inside the
-  always-480px page. On macOS the window crops the pinned webview, so this
-  bar occupies the bottom 40px of the compact window; its visibility toggle
-  rides the same paint the presentation-gated resize commits with (see
-  compactSyncService.applyLauncherHeight), keeping the transition atomic.
-  Non-macOS: the window really shrinks, same geometry applies.
+  page; its visibility toggle rides the same paint the presentation-gated
+  resize commits with (see compactSyncService.applyLauncherHeight), keeping
+  the transition atomic.
 -->
 <div
   class="fixed left-0 right-0 flex items-center justify-between gap-3 px-4 show-more-bar"
@@ -228,7 +226,7 @@
 </div>
 
 <style>
-  :global(html:not([data-platform='macos'])) .bottom-action-bar.is-compact {
+  .bottom-action-bar.is-compact {
     display: none;
   }
   .show-more-bar {

@@ -63,10 +63,8 @@ impl BrowserService {
                         .join("places.sqlite");
                     readers::firefox::read_bookmarks_file(&path, &b)
                 }
-                BrowserFamily::Safari => {
-                    let path = paths::safari_root(&self.home).join("Bookmarks.plist");
-                    readers::safari::read_bookmarks_file(&path, &b)
-                }
+                // Safari does not exist on Linux; the family stays for the bridge wire format.
+                BrowserFamily::Safari => Ok(Vec::new()),
             };
             match result {
                 Ok(bookmarks) => out.extend(bookmarks),
@@ -119,10 +117,8 @@ impl BrowserService {
                         .join("places.sqlite");
                     readers::firefox::read_history_file(&path, &b, query, opts.limit)
                 }
-                BrowserFamily::Safari => {
-                    let path = paths::safari_root(&self.home).join("History.db");
-                    readers::safari::read_history_file(&path, &b, query, opts.limit)
-                }
+                // Safari does not exist on Linux; the family stays for the bridge wire format.
+                BrowserFamily::Safari => Ok(Vec::new()),
             };
             match result {
                 Ok(entries) => out.extend(entries),

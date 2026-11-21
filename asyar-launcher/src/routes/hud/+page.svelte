@@ -33,17 +33,8 @@
   }
 
   onMount(async () => {
-    // Bare route does not pass through AppShell, so detect platform explicitly.
-    if (typeof navigator !== 'undefined') {
-      const ua = navigator.userAgent;
-      if (ua.includes('Win')) {
-        document.documentElement.dataset.platform = 'windows';
-      } else if (ua.includes('Linux')) {
-        document.documentElement.dataset.platform = 'linux';
-      } else {
-        document.documentElement.dataset.platform = 'macos';
-      }
-    }
+    // Bare route does not pass through AppShell, so set the platform here.
+    document.documentElement.dataset.platform = 'linux';
 
     // Belt: recover the most recently set state from Rust in case the
     // `hud:show` event was emitted before this listener attached. (The
@@ -163,12 +154,10 @@
   }
 
   /*
-    Windows WebView2 and Linux WebKitGTK don't reliably support backdrop-filter
+    Linux WebKitGTK doesn't reliably support backdrop-filter
     blurring the OS desktop behind a transparent window. Use a solid, refined pill
     with a subtle border and shadow contained inside the window bounds so it floats cleanly.
   */
-  :global(html[data-platform='windows']) .hud-pill,
-  :global(html[data-platform='win32']) .hud-pill,
   :global(html[data-platform='linux']) .hud-pill {
     background: rgba(30, 30, 34, 0.96);
     backdrop-filter: none;

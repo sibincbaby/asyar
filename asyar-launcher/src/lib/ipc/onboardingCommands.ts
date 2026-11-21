@@ -22,7 +22,6 @@ export interface OnboardingState {
   current: OnboardingStepKind;
   total: number;
   position: number;
-  isMacos: boolean;
 }
 
 export const onboardingCommands = {

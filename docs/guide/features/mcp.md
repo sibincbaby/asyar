@@ -43,7 +43,7 @@ If you already use MCP servers in another app (such as Claude Desktop), Asyar ca
 
 ### Assign tools to an agent
 
-1. Open **Manage Agents**, select an agent, and open it in the editor (`⌘K` → **Edit Agent**, or create a new one).
+1. Open **Manage Agents**, select an agent, and open it in the editor (`Ctrl+K` → **Edit Agent**, or create a new one).
 2. In the **Tools** section, check the MCP tools you want the agent to be able to use.
 3. Save the agent.
 
@@ -53,13 +53,13 @@ When strict mode is on, every MCP tool call asks for your permission — even fo
 
 ## Shortcuts & actions
 
-| Action                       | How                                                                        |
-| ---------------------------- | -------------------------------------------------------------------------- |
-| Open server list             | Search "Manage MCP Servers" → `Enter`                                      |
-| Refresh server status        | `⌘R` (in Manage MCP Servers view)                                          |
-| Install a new server         | `⌘N` (in Manage MCP Servers view) or search "Install MCP Server" → `Enter` |
-| Import from existing configs | Search "Import MCP Servers" → `Enter`                                      |
-| Go back                      | `Esc`                                                                      |
+| Action                       | How                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| Open server list             | Search "Manage MCP Servers" → `Enter`                                          |
+| Refresh server status        | `Ctrl+R` (in Manage MCP Servers view)                                          |
+| Install a new server         | `Ctrl+N` (in Manage MCP Servers view) or search "Install MCP Server" → `Enter` |
+| Import from existing configs | Search "Import MCP Servers" → `Enter`                                          |
+| Go back                      | `Esc`                                                                          |
 
 ## Tips
 

@@ -191,14 +191,6 @@ mod tests {
         std::os::unix::fs::symlink(h.join(".ssh/a.json"), h.join(".cli/a.json")).unwrap();
         assert!(read_json_file_secret("~/.cli/a.json", "/token", &h, &[]).is_err());
     }
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn case_variant_of_denied_root_rejected_on_macos() {
-        let (_t, h) = setup();
-        std::fs::create_dir(h.join(".SSH")).unwrap();
-        std::fs::write(h.join(".SSH/a.json"), "{}").unwrap();
-        assert!(read_json_file_secret("~/.SSH/a.json", "", &h, &[]).is_err());
-    }
     #[test]
     fn oversize_and_non_regular_file_rejected() {
         let (_t, h) = setup();

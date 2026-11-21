@@ -8,70 +8,41 @@ use crate::{AppState, SPOTLIGHT_LABEL};
 use std::sync::atomic::Ordering;
 use tauri::AppHandle;
 use tauri::Manager;
-#[cfg(not(target_os = "macos"))]
 use tauri::{LogicalPosition, Position};
-#[cfg(target_os = "macos")]
-use tauri_nspanel::ManagerExt;
 
-/// Off-screen coordinate used on Windows/Linux to make the window invisible
-/// while keeping it mapped, so the webview's render process stays in its
-/// "visible" activity state and keeps pushing frames.
-#[cfg(not(target_os = "macos"))]
+/// Off-screen coordinate used to make the window invisible while keeping it
+/// mapped, so the webview's render process stays in its "visible" activity
+/// state and keeps pushing frames.
 const OFFSCREEN_COORD: f64 = -30_000.0;
 
 /// Phase 1 of the flash-free reveal: make the launcher imperceptible but
 /// mapped, so the webview resumes rendering without the user seeing the
 /// stale cached frame. The JS caller awaits two rAFs after this returns
 /// before calling `commit_show`.
-///
-/// Under the parked-panel lifecycle (see `park_launcher_panel`) the panel is
-/// normally already mapped at alpha 0 and rendering; callers that swap the
-/// view before revealing (user-item hotkeys) still need the two-rAF wait so
-/// the *new* view has painted before the alpha flip.
 #[tauri::command]
 pub fn prepare_show(
     app_handle: AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), AppError> {
     crate::launcher::pop_to_root::on_launcher_revealed(&app_handle);
-    // Intentionally NOT setting asyar_visible here: the panel is mapped but
+    // Intentionally NOT setting asyar_visible here: the window is mapped but
     // imperceptible until commit_show runs. A concurrent caller reading
     // is_visible during this window must still take the two-phase path,
-    // not the single-shot `show` that would composite at alpha 1 mid-prepare.
-    #[cfg(target_os = "macos")]
-    {
-        let panel = app_handle
-            .get_webview_panel(SPOTLIGHT_LABEL)
-            .map_err(|_| AppError::NotFound("launcher panel".to_string()))?;
-        let window = app_handle
-            .get_webview_window(SPOTLIGHT_LABEL)
-            .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
-        // Alpha 0 first so nothing composites visibly; panel.show() takes
-        // key focus while still invisible so keys typed during the two-rAF
-        // window land in the DOM. Mouse events come back on here, not at
-        // commit.
-        crate::platform::macos::set_window_alpha(&window, 0.0);
-        crate::platform::macos::set_ignores_mouse_events(&window, false);
-        panel.show();
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        capture_previous_foreground(&state)?;
-        let window = app_handle
-            .get_webview_window(SPOTLIGHT_LABEL)
-            .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
-        // Move off-screen before showing: the window stays in the compositor's
-        // visible set (so WebView2/WebKitGTK keep pushing frames) but the user
-        // can't see it. commit_show restores the final position.
-        let _ = window.set_position(Position::Logical(LogicalPosition {
-            x: OFFSCREEN_COORD,
-            y: OFFSCREEN_COORD,
-        }));
-        let _ = window.show();
-        #[cfg(target_os = "linux")]
-        crate::mark_launcher_shown(&state);
-    }
-    let _ = state;
+    // not the single-shot `show` that would composite mid-prepare.
+    capture_previous_foreground(&state)?;
+    let window = app_handle
+        .get_webview_window(SPOTLIGHT_LABEL)
+        .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
+    // Move off-screen before showing: the window stays in the compositor's
+    // visible set (so WebKitGTK keeps pushing frames) but the user can't see
+    // it. commit_show restores the final position.
+    let _ = window.set_position(Position::Logical(LogicalPosition {
+        x: OFFSCREEN_COORD,
+        y: OFFSCREEN_COORD,
+    }));
+    let _ = window.show();
+    #[cfg(target_os = "linux")]
+    crate::mark_launcher_shown(&state);
     Ok(())
 }
 
@@ -84,102 +55,53 @@ pub fn commit_show(
     app_handle: AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), AppError> {
-    #[cfg(target_os = "macos")]
-    {
-        let window = app_handle
-            .get_webview_window(SPOTLIGHT_LABEL)
-            .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
-        crate::platform::macos::position_launcher(&window)?;
-        crate::platform::macos::set_window_alpha(&window, 1.0);
-        // prepare_show's panel.show() ran on an already-visible (parked)
-        // panel, which doesn't rebuild the responder chain; without this,
-        // typed keys can dead-end at wry's parent view.
-        crate::platform::macos::reseat_first_responder(&window);
+    let window = app_handle
+        .get_webview_window(SPOTLIGHT_LABEL)
+        .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
+    if !log_placement_if_err(
+        crate::launcher_placement::service::apply(&app_handle),
+        "commit_show",
+    ) {
+        let _ = window.center();
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let window = app_handle
-            .get_webview_window(SPOTLIGHT_LABEL)
-            .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
-        if !log_placement_if_err(
-            crate::launcher_placement::service::apply(&app_handle),
-            "commit_show",
-        ) {
-            let _ = window.center();
-        }
-        #[cfg(target_os = "linux")]
-        let _ = crate::platform::linux::present_and_focus_spotlight_window(&window);
-        #[cfg(not(target_os = "linux"))]
-        let _ = window.set_focus();
-        #[cfg(target_os = "linux")]
-        crate::mark_launcher_shown(&state);
-    }
-    // Flip the visibility flag only after the panel is actually composited at
-    // its final position and alpha — otherwise a concurrent showWindow() that
-    // reads is_visible mid-prepare would take the single-shot `show` path and
-    // composite at alpha 1 before the new view has committed a fresh frame.
+    #[cfg(target_os = "linux")]
+    let _ = crate::platform::linux::present_and_focus_spotlight_window(&window);
+    #[cfg(target_os = "linux")]
+    crate::mark_launcher_shown(&state);
+    // Flip the visibility flag only after the window is actually at its final
+    // position — otherwise a concurrent showWindow() that reads is_visible
+    // mid-prepare would take the single-shot `show` path before the new view
+    // has committed a fresh frame.
     state.asyar_visible.store(true, Ordering::Relaxed);
     state.mark_interaction();
     crate::scripts::inline_scheduler::nudge_reveal();
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
-use objc2::msg_send;
-#[cfg(target_os = "macos")]
-use objc2::runtime::{AnyClass, Bool};
-
-/// Single-shot reveal for callers that know the panel is already visible
+/// Single-shot reveal for callers that know the window is already visible
 /// (no stale-frame risk, so no need for the two-phase dance). Also the
-/// fallback used by the shortcut service when its `panel_is_visible` check
-/// reports true.
+/// fallback used by the shortcut service when its visibility check reports
+/// true.
 #[tauri::command]
 pub fn show(app_handle: AppHandle, state: tauri::State<'_, AppState>) -> Result<(), AppError> {
     crate::launcher::pop_to_root::on_launcher_revealed(&app_handle);
     state.asyar_visible.store(true, Ordering::Relaxed);
     state.mark_interaction();
-    #[cfg(target_os = "macos")]
-    {
-        let is_main: Bool = unsafe {
-            let cls = AnyClass::get("NSThread").expect("NSThread class");
-            msg_send![cls, isMainThread]
-        };
-        let app = app_handle.clone();
-        let reveal = move || {
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                if let Ok(panel) = app.get_webview_panel(SPOTLIGHT_LABEL) {
-                    if let Some(window) = app.get_webview_window(SPOTLIGHT_LABEL) {
-                        crate::platform::macos::reveal_launcher_panel(&window, &panel);
-                    }
-                }
-            }));
-        };
-        if is_main.as_bool() {
-            reveal();
-        } else {
-            let _ = app_handle.run_on_main_thread(reveal);
-        }
+    capture_previous_foreground(&state)?;
+    let window = app_handle
+        .get_webview_window(SPOTLIGHT_LABEL)
+        .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
+    if !log_placement_if_err(
+        crate::launcher_placement::service::apply(&app_handle),
+        "show",
+    ) {
+        let _ = window.center();
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        capture_previous_foreground(&state)?;
-        let window = app_handle
-            .get_webview_window(SPOTLIGHT_LABEL)
-            .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
-        if !log_placement_if_err(
-            crate::launcher_placement::service::apply(&app_handle),
-            "show",
-        ) {
-            let _ = window.center();
-        }
-        let _ = window.show();
-        #[cfg(target_os = "linux")]
-        let _ = crate::platform::linux::present_and_focus_spotlight_window(&window);
-        #[cfg(not(target_os = "linux"))]
-        let _ = window.set_focus();
-        #[cfg(target_os = "linux")]
-        crate::mark_launcher_shown(&state);
-    }
+    let _ = window.show();
+    #[cfg(target_os = "linux")]
+    let _ = crate::platform::linux::present_and_focus_spotlight_window(&window);
+    #[cfg(target_os = "linux")]
+    crate::mark_launcher_shown(&state);
     crate::scripts::inline_scheduler::nudge_reveal();
     Ok(())
 }
@@ -192,65 +114,24 @@ pub fn is_visible(state: tauri::State<'_, AppState>) -> bool {
     state.asyar_visible.load(Ordering::Relaxed)
 }
 
-/// Hides the launcher window. On macOS "hidden" means parked (ordered in at
-/// alpha 0, mouse-transparent; see `park_launcher_panel`), so the webview
-/// keeps rendering and any later pop-to-root instruction can be composited
-/// before the next reveal. Focus returns to the previous app via park's
-/// order-out/order-in pair when the panel still owns key.
+/// Hides the launcher window.
 #[tauri::command]
 pub fn hide(app_handle: AppHandle, state: tauri::State<'_, AppState>) -> Result<(), AppError> {
     state.asyar_visible.store(false, Ordering::Relaxed);
     state.mark_interaction();
-    #[cfg(target_os = "macos")]
-    {
-        let is_main: Bool = unsafe {
-            let cls = AnyClass::get("NSThread").expect("NSThread class");
-            msg_send![cls, isMainThread]
-        };
-        let app = app_handle.clone();
-        let park = move || {
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                if let Ok(panel) = app.get_webview_panel(SPOTLIGHT_LABEL) {
-                    if let Some(window) = app.get_webview_window(SPOTLIGHT_LABEL) {
-                        crate::platform::macos::park_launcher_panel(&window, &panel);
-                    }
-                }
-            }));
-        };
-        if is_main.as_bool() {
-            park();
-        } else {
-            let _ = app_handle.run_on_main_thread(park);
-        }
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let window = app_handle
-            .get_webview_window(SPOTLIGHT_LABEL)
-            .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
-        if window.is_visible().unwrap_or(false) {
-            let _ = window.hide();
-            #[cfg(target_os = "windows")]
-            {
-                let prev = *state.previous_hwnd.lock().map_err(|_| AppError::Lock)?;
-                crate::platform::windows::restore_foreground_window(prev);
-            }
-        }
+    let window = app_handle
+        .get_webview_window(SPOTLIGHT_LABEL)
+        .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
+    if window.is_visible().unwrap_or(false) {
+        let _ = window.hide();
     }
     crate::launcher::pop_to_root::on_launcher_hidden(&app_handle);
     Ok(())
 }
 
-/// On Windows/Linux, remember which window was frontmost before we steal
-/// focus, so `hide` can restore it.
-#[cfg(not(target_os = "macos"))]
+/// Remember which window was frontmost before we steal focus, so it can be
+/// restored later.
 fn capture_previous_foreground(state: &tauri::State<'_, AppState>) -> Result<(), AppError> {
-    #[cfg(target_os = "windows")]
-    {
-        let prev = crate::platform::windows::capture_foreground_window();
-        let mut previous_hwnd = state.previous_hwnd.lock().map_err(|_| AppError::Lock)?;
-        *previous_hwnd = prev;
-    }
     #[cfg(target_os = "linux")]
     {
         let wid = crate::window_management::linux::capture_active_window_id();
@@ -282,27 +163,17 @@ pub fn set_launcher_keep_expanded(state: tauri::State<'_, AppState>, keep_expand
         .store(keep_expanded, Ordering::Relaxed);
 }
 
-/// Marks the in-flight presentation-gated resize's content as painted.
-/// Called from a rAF in the same webview rendering update that builds the
-/// new view's paint, so the gated resize commits in the same render-server
-/// commit as that paint (see `platform::macos::confirm_launcher_paint`).
+/// No-op on Linux (resizes are never presentation-gated); kept so the
+/// frontend can call it without platform guards.
 #[tauri::command]
-pub fn confirm_launcher_paint() {
-    #[cfg(target_os = "macos")]
-    crate::platform::macos::confirm_launcher_paint();
-}
+pub fn confirm_launcher_paint() {}
 
-/// Withdraws an in-flight presentation-gated resize whose confirm will
-/// never arrive (the frontend deferred a reversal mid-transition instead).
-/// The armed sentinel and its watchdog drop via the generation check.
+/// No-op on Linux (resizes are never presentation-gated); kept so the
+/// frontend can call it without platform guards.
 #[tauri::command]
-pub fn cancel_launcher_resize() {
-    #[cfg(target_os = "macos")]
-    crate::platform::macos::cancel_pending_resize();
-}
+pub fn cancel_launcher_resize() {}
 
 /// Logs placement errors without aborting the reveal sequence.
-#[cfg(any(not(target_os = "macos"), test))]
 fn log_placement_if_err<E: std::fmt::Display>(res: Result<(), E>, caller: &str) -> bool {
     match res {
         Ok(()) => true,
@@ -333,12 +204,9 @@ fn scaled_height(base: f64, scale: f64) -> f64 {
     base * scale
 }
 
-/// Resizes the launcher window height, keeping the top edge pinned. On macOS
-/// `defer_until_next_ca_commit: Some(true)` gates the resize on the current
-/// CA transaction's pre-commit phase;
-/// `after_next_presentation_update: Some(true)` gates it on WebKit's next
-/// *confirmed* WebContent paint (every visible compact↔expanded transition)
-/// and wins over the CA gate.
+/// Resizes the launcher window height, keeping the top edge pinned. The
+/// `defer_until_next_ca_commit` and `after_next_presentation_update` gates
+/// are ignored on Linux.
 #[tauri::command]
 pub fn set_launcher_height(
     app_handle: AppHandle,
@@ -353,34 +221,18 @@ pub fn set_launcher_height(
         .get_webview_window(SPOTLIGHT_LABEL)
         .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
 
-    #[cfg(target_os = "macos")]
-    {
-        use crate::platform::macos::ResizeMode;
-        let mode = if after_next_presentation_update.unwrap_or(false) {
-            ResizeMode::AfterNextPresentationUpdate
-        } else if defer_until_next_ca_commit.unwrap_or(false) {
-            ResizeMode::DeferToNextCaCommit
-        } else {
-            ResizeMode::Immediate
-        };
-        crate::platform::macos::set_launcher_window_height(&window, height, mode);
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = defer_until_next_ca_commit;
-        let _ = after_next_presentation_update;
-        use tauri::LogicalSize;
-        let size = window
-            .inner_size()
-            .map_err(|e| AppError::Platform(e.to_string()))?;
-        let scale = window.scale_factor().unwrap_or(1.0);
-        let logical_width = size.width as f64 / scale;
-        let _ = window.set_size(tauri::Size::Logical(LogicalSize {
-            width: logical_width,
-            height,
-        }));
-    }
+    let _ = defer_until_next_ca_commit;
+    let _ = after_next_presentation_update;
+    use tauri::LogicalSize;
+    let size = window
+        .inner_size()
+        .map_err(|e| AppError::Platform(e.to_string()))?;
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let logical_width = size.width as f64 / scale;
+    let _ = window.set_size(tauri::Size::Logical(LogicalSize {
+        width: logical_width,
+        height,
+    }));
 
     Ok(())
 }
@@ -395,10 +247,6 @@ pub fn set_ui_scale(app_handle: AppHandle, scale: f64) -> Result<(), AppError> {
 
     let scale = crate::bootstrap::windows::clamp_ui_scale(scale);
     app_handle.state::<AppState>().set_ui_scale(scale);
-    #[cfg(target_os = "macos")]
-    asyar_platform::macos::set_active_max_height(
-        crate::launcher_placement::LAUNCHER_MAX_HEIGHT * scale,
-    );
 
     let Some(window) = app_handle.get_webview_window(SPOTLIGHT_LABEL) else {
         log::warn!("[launcher] cannot apply UI scale: launcher window not found");
@@ -410,29 +258,6 @@ pub fn set_ui_scale(app_handle: AppHandle, scale: f64) -> Result<(), AppError> {
         crate::launcher_placement::LAUNCHER_MAX_HEIGHT
     };
 
-    #[cfg(target_os = "macos")]
-    let can_reposition = {
-        match crate::platform::macos::set_window_width(&window, BASE_WIDTH * scale) {
-            Ok(()) => {
-                crate::platform::macos::pin_launcher_webview(&window);
-                crate::platform::macos::set_launcher_window_height(
-                    &window,
-                    base_height * scale,
-                    crate::platform::macos::ResizeMode::Immediate,
-                );
-                true
-            }
-            Err(error) => {
-                log::warn!("[launcher] failed to resize width for UI scale: {error}");
-                false
-            }
-        }
-    };
-
-    #[cfg(not(target_os = "macos"))]
-    let can_reposition = true;
-
-    #[cfg(not(target_os = "macos"))]
     if let Err(error) = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
         width: BASE_WIDTH * scale,
         height: base_height * scale,
@@ -443,45 +268,18 @@ pub fn set_ui_scale(app_handle: AppHandle, scale: f64) -> Result<(), AppError> {
     if let Err(error) = window.set_zoom(scale) {
         log::warn!("[launcher] failed to apply UI zoom: {error}");
     }
-    if can_reposition {
-        if let Err(error) = crate::launcher_placement::service::apply(&app_handle) {
-            log::warn!("[launcher] failed to reposition after UI scale change: {error}");
-        }
+    if let Err(error) = crate::launcher_placement::service::apply(&app_handle) {
+        log::warn!("[launcher] failed to reposition after UI scale change: {error}");
     }
 
     Ok(())
 }
 
-/// Updates the NSVisualEffectView material on the launcher panel to match the
-/// given theme preference. On non-macOS this is a no-op — the command still
-/// succeeds so the JS caller does not need platform guards.
-///
-/// Passes the *preference* string (not the resolved value) so Rust can
-/// re-resolve `"system"` consistently with the OS-notification observer path.
+/// No-op on Linux — the command still succeeds so the JS caller does not
+/// need platform guards.
 #[tauri::command]
 pub fn set_panel_appearance(app_handle: AppHandle, pref: String) -> Result<(), AppError> {
-    #[cfg(target_os = "macos")]
-    {
-        let theme_pref = crate::parse_theme_preference_str(&pref);
-        {
-            if let Some(state) = app_handle.try_state::<std::sync::Mutex<crate::ThemePreference>>()
-            {
-                *state.lock().map_err(|_| AppError::Lock)? = theme_pref;
-            }
-        }
-        let handle_clone = app_handle.clone();
-        let _ = app_handle.run_on_main_thread(move || {
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                if let Some(window) = handle_clone.get_webview_window(crate::SPOTLIGHT_LABEL) {
-                    crate::platform::macos::apply_panel_appearance(&window, theme_pref);
-                }
-            }));
-        });
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = (app_handle, pref);
-    }
+    let _ = (app_handle, pref);
     Ok(())
 }
 
@@ -494,41 +292,26 @@ pub fn show_launcher(app: &AppHandle) -> Result<(), AppError> {
     crate::launcher::pop_to_root::on_launcher_revealed(app);
     let state = app.state::<AppState>();
     state.asyar_visible.store(true, Ordering::Relaxed);
-    #[cfg(target_os = "macos")]
-    {
-        let panel = app
-            .get_webview_panel(SPOTLIGHT_LABEL)
-            .map_err(|_| AppError::NotFound("launcher panel".to_string()))?;
-        let window = app
-            .get_webview_window(SPOTLIGHT_LABEL)
-            .ok_or_else(|| AppError::NotFound("launcher panel window".to_string()))?;
-        crate::platform::macos::reveal_launcher_panel(&window, &panel);
+    // Intentionally omits capture_previous_foreground: the caller is
+    // the onboarding completion flow, where the previously-focused
+    // window is Asyar's own onboarding window. Recording it would
+    // corrupt the snippet/paste target on the first launch.
+    let window = app
+        .get_webview_window(SPOTLIGHT_LABEL)
+        .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
+    #[cfg(target_os = "linux")]
+    let _ = crate::platform::linux::setup_spotlight_window(&window);
+    if !log_placement_if_err(
+        crate::launcher_placement::service::apply(app),
+        "show_launcher",
+    ) {
+        let _ = window.center();
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        // Intentionally omits capture_previous_foreground: the caller is
-        // the onboarding completion flow, where the previously-focused
-        // window is Asyar's own onboarding window. Recording it would
-        // corrupt the snippet/paste target on the first launch.
-        let window = app
-            .get_webview_window(SPOTLIGHT_LABEL)
-            .ok_or_else(|| AppError::NotFound("launcher window".to_string()))?;
-        #[cfg(target_os = "linux")]
-        let _ = crate::platform::linux::setup_spotlight_window(&window);
-        if !log_placement_if_err(
-            crate::launcher_placement::service::apply(app),
-            "show_launcher",
-        ) {
-            let _ = window.center();
-        }
-        let _ = window.show();
-        #[cfg(target_os = "linux")]
-        let _ = crate::platform::linux::present_and_focus_spotlight_window(&window);
-        #[cfg(not(target_os = "linux"))]
-        let _ = window.set_focus();
-        #[cfg(target_os = "linux")]
-        crate::mark_launcher_shown(&state);
-    }
+    let _ = window.show();
+    #[cfg(target_os = "linux")]
+    let _ = crate::platform::linux::present_and_focus_spotlight_window(&window);
+    #[cfg(target_os = "linux")]
+    crate::mark_launcher_shown(&state);
     Ok(())
 }
 
@@ -536,19 +319,6 @@ pub fn show_launcher(app: &AppHandle) -> Result<(), AppError> {
 #[tauri::command]
 pub fn quit_app(app_handle: AppHandle) {
     app_handle.exit(0);
-}
-
-/// Shows or hides the app from the macOS Dock / application switcher.
-/// On non-macOS platforms, this is a graceful no-op.
-#[tauri::command]
-pub fn set_dock_icon_visible(app_handle: AppHandle, visible: bool) -> Result<(), AppError> {
-    #[cfg(target_os = "macos")]
-    crate::platform::macos::apply_activation_policy(&app_handle, visible);
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = (app_handle, visible);
-    }
-    Ok(())
 }
 
 /// Shows or hides Asyar's main menu-bar / system tray icon.
@@ -622,27 +392,6 @@ mod tests {
         assert_eq!(clamp_ui_scale(0.3), 1.0);
         assert_eq!(clamp_ui_scale(1.2), 1.2);
         assert_eq!(clamp_ui_scale(5.0), 1.2);
-    }
-
-    #[test]
-    fn set_ui_scale_restores_crop_after_repin() {
-        let source = include_str!("app.rs");
-        let command = source
-            .split("pub fn set_ui_scale")
-            .nth(1)
-            .expect("set_ui_scale command")
-            .split("pub fn set_panel_appearance")
-            .next()
-            .expect("set_ui_scale body");
-        let repin = command.find("pin_launcher_webview").expect("webview repin");
-        let restore = command
-            .find("set_launcher_window_height")
-            .expect("crop height restore");
-
-        assert!(
-            restore > repin,
-            "crop height must be restored after repinning"
-        );
     }
 
     #[test]

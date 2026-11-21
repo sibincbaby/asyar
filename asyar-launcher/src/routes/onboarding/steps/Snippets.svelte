@@ -1,14 +1,12 @@
 <script lang="ts">
   import { Card, Button, ExpansionDemo } from '../../../components';
   import { advanceStep } from '../stepLogic';
-  import AccessibilityGate from './AccessibilityGate.svelte';
   import { seedSampleSnippet, enableExpansion } from './snippetsSetup';
   import { onboardingNav } from '../onboardingNav.svelte';
   import { t } from '../../../services/i18n';
 
   let seeded = $state(false);
   let enabled = $state(false);
-  let axGranted = $state(false);
   let working = $state(false);
   let error = $state('');
 
@@ -51,7 +49,6 @@
       <span class="step__label"
         >{t('onboarding.step_num', { n: 1, label: t('onboarding.permission') })}</span
       >
-      <AccessibilityGate bind:granted={axGranted} />
       <Button onclick={setUp} disabled={working || (seeded && enabled)}>
         {seeded && enabled
           ? t('onboarding.snippets_sample_ready')

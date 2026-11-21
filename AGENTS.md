@@ -29,7 +29,7 @@ Or manually run the steps:
 > **Always pass `--workspace` to `cargo test` and `cargo clippy`.** The Cargo workspace sets
 > `default-members = ["."]`, so the bare commands silently skip the ~610 tests in
 > `src-tauri/crates/*` (asyar-storage, asyar-search, asyar-platform, asyar-calculator) and
-> report ~3,190 instead of the full ~3,816. `scripts/check-ci.mjs` already does this.
+> report ~3,200 instead of the full ~3,800. `scripts/check-ci.mjs` already does this.
 
 8. **Type & Bindings Check (if bindings/types touched)**: `cargo test export_bindings -- --ignored` and check `git diff --exit-code -- asyar-launcher/src/bindings.ts`
 
@@ -77,8 +77,8 @@ Or manually run the steps:
 
 ## 5. Keyboard Shortcuts & Input Safety
 
-- **Preserve Text Editing**: Never bind native text editing shortcuts (`Cmd+Backspace`, `Option+Backspace`, `Cmd+A`, etc.) to list actions or item deletion.
-- **Destructive Actions in ⌘K**: Item deletion and trashing belong in the `⌘K` Action Panel, never bound directly to `Cmd+Backspace` / `Super+Backspace`.
+- **Preserve Text Editing**: Never bind native text editing shortcuts (`Ctrl+Backspace`, `Ctrl+A`, etc.) to list actions or item deletion.
+- **Destructive Actions in Ctrl+K**: Item deletion and trashing belong in the `Ctrl+K` Action Panel, never bound directly to `Ctrl+Backspace` / `Super+Backspace`.
 
 ## 6. Rules, Skills & Memories Structure
 

@@ -177,27 +177,6 @@ use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 #[cfg(target_os = "linux")]
 static SHIFT_HELD: AtomicBool = AtomicBool::new(false);
 
-#[cfg(target_os = "macos")]
-pub fn start_listener(app_handle: AppHandle) {
-    let app = app_handle.clone();
-    // NSEvent monitors must be registered on the main thread
-    if let Err(e) = app_handle.run_on_main_thread(move || {
-        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            crate::platform::macos::register_snippet_monitor(app);
-        }));
-    }) {
-        log::error!(
-            "[snippets] failed to schedule NSEvent monitor on main thread: {:?}",
-            e
-        );
-    }
-}
-
-#[cfg(target_os = "windows")]
-pub fn start_listener(app_handle: AppHandle) {
-    crate::platform::windows::register_snippet_monitor(app_handle);
-}
-
 #[cfg(target_os = "linux")]
 pub fn start_listener(app_handle: AppHandle) {
     std::thread::spawn(move || {
@@ -255,12 +234,7 @@ pub fn start_listener(app_handle: AppHandle) {
     });
 }
 
-#[cfg(not(target_os = "macos"))]
 fn resolve_keypress_for_current_platform(key: &rdev::Key, shift_held: bool) -> Option<char> {
-    #[cfg(target_os = "windows")]
-    {
-        return crate::platform::windows_key_resolver::resolve_keypress(*key, shift_held);
-    }
     #[cfg(target_os = "linux")]
     {
         return crate::platform::linux_key_resolver::resolve_keypress(*key, shift_held);
@@ -316,14 +290,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "windows")]
-    fn resolve_keypress_routes_to_windows_resolver_for_shift_colon() {
-        use super::resolve_keypress_for_current_platform;
-        let ch = resolve_keypress_for_current_platform(&rdev::Key::SemiColon, true);
-        assert_eq!(ch, Some(':'));
-    }
-
-    #[test]
     #[cfg(target_os = "linux")]
     fn resolve_keypress_routes_to_linux_resolver_for_shift_colon() {
         use super::resolve_keypress_for_current_platform;
@@ -332,13 +298,6 @@ mod tests {
         crate::platform::linux_key_resolver::reset_resolver_for_test();
         let ch = resolve_keypress_for_current_platform(&rdev::Key::SemiColon, true);
         assert_eq!(ch, Some(':'));
-    }
-
-    #[test]
-    #[cfg(target_os = "macos")]
-    fn macos_path_is_unchanged() {
-        // macOS uses NSEvent directly; resolve_keypress_for_current_platform is
-        // not compiled on macOS. This test is a compile-time gate only.
     }
 
     #[test]

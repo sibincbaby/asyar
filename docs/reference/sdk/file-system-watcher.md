@@ -10,7 +10,7 @@ after the launcher panel is dismissed.
 
 **Permission required:** `fs:watch`, plus a matching `permissionArgs["fs:watch"]` array of glob patterns in the manifest. The pattern list is the **scope** of what an extension is allowed to watch; calls to `watch(paths)` that escape every declared pattern are rejected at the host boundary with a permission error.
 
-Use this to react to user-initiated changes on the filesystem that happen **outside** Asyar — Apple Shortcuts edits, SSH config tweaks, dotfile refreshes, Homebrew formula updates, and so on. The host exposes a tiny, stable shape (`{ type: 'change', paths: string[] }`) regardless of which OS-native backend produced the raw event (FSEvents on macOS, inotify on Linux, ReadDirectoryChangesW on Windows).
+Use this to react to user-initiated changes on the filesystem that happen **outside** Asyar — SSH config tweaks, dotfile refreshes, package list updates, and so on. The host exposes a tiny, stable shape (`{ type: 'change', paths: string[] }`) regardless of which OS-native backend produced the raw event (inotify on Linux).
 
 ```typescript
 interface FileSystemWatcherOptions {
@@ -63,40 +63,6 @@ time.
 
 ---
 
-#### Example: Apple Shortcuts extension — reindex on change
-
-```typescript
-// worker.ts
-import { ExtensionContext as WorkerExtensionContext } from 'asyar-sdk/worker';
-import type { IFileSystemWatcherService, ExtensionStateProxy } from 'asyar-sdk/contracts';
-
-const ctx = new WorkerExtensionContext();
-ctx.setExtensionId('your.extension.id');
-
-const fsWatcher = ctx.getService<IFileSystemWatcherService>('fsWatcher');
-const state = ctx.getService<ExtensionStateProxy>('state');
-
-const handle = await fsWatcher.watch(['~/Library/Shortcuts/']);
-
-handle.onChange(async () => {
-  // Don't trust deltas; just re-pull the source of truth.
-  const shortcuts = await reindexShortcuts();
-  // Surface the fresh snapshot to the view via state — the view subscribes
-  // and re-renders on its own schedule, regardless of whether it was
-  // mounted at the moment of the change.
-  await state.set('shortcuts.list', shortcuts);
-  await state.set('shortcuts.lastReindexAt', Date.now());
-});
-
-// On worker deactivate (extension disabled / uninstalled), the host
-// auto-disposes every watcher handle for this extension. The explicit
-// dispose below is for the rare case where you stop watching mid-session
-// while keeping the worker alive.
-window.addEventListener('beforeunload', () => {
-  void handle.dispose();
-});
-```
-
 #### Example: SSH config extension — single-file watch
 
 ```typescript
@@ -137,11 +103,11 @@ import type { ExtensionContext, ExtensionStateProxy } from 'asyar-sdk/view';
 
 const stateProxy = context.getService<ExtensionStateProxy>('state');
 
-const initial = (await stateProxy.get('shortcuts.list')) as Shortcut[] | null;
-let shortcuts = $state<Shortcut[]>(initial ?? []);
+const initial = (await stateProxy.get('ssh.hosts')) as SshHost[] | null;
+let hosts = $state<SshHost[]>(initial ?? []);
 
-const unsubscribe = await stateProxy.subscribe('shortcuts.list', (v) => {
-  shortcuts = (v as Shortcut[] | null) ?? [];
+const unsubscribe = await stateProxy.subscribe('ssh.hosts', (v) => {
+  hosts = (v as SshHost[] | null) ?? [];
 });
 
 return () => void unsubscribe();
@@ -171,7 +137,7 @@ The host validates that every path passed to `watch()` is matched by at least on
 - Max 64 paths per handle.
 - Max 512 paths across all extensions combined.
 
-Breaches surface as a host-side validation error. These numbers are large enough that no well-behaved extension will hit them; they exist so a single buggy or malicious extension can't exhaust the host's kernel-level FS-watch budget (macOS FSEvents and Linux inotify both impose per-process ceilings).
+Breaches surface as a host-side validation error. These numbers are large enough that no well-behaved extension will hit them; they exist so a single buggy or malicious extension can't exhaust the host's kernel-level FS-watch budget (Linux inotify imposes per-process ceilings).
 
 #### Worker survival vs. view Dormant
 
@@ -191,13 +157,11 @@ view bag, by design.
 
 #### Platform coverage
 
-| Platform | Backend               | Notes                                                                   |
-| -------- | --------------------- | ----------------------------------------------------------------------- |
-| macOS    | FSEvents              | Default. Canonicalizes through `/private/var/folders/...` for tempdirs. |
-| Linux    | inotify               | Per-user inotify-instance and watch-count ceilings apply.               |
-| Windows  | ReadDirectoryChangesW | Non-recursive mode only watches the root, not subdirs.                  |
+| Platform | Backend | Notes                                                     |
+| -------- | ------- | --------------------------------------------------------- |
+| Linux    | inotify | Per-user inotify-instance and watch-count ceilings apply. |
 
-The extension-facing event shape is identical across all three. OS-specific failure modes (e.g. Linux's `/proc/sys/fs/inotify/max_user_watches` limit) surface as a watch-time error from `watch()` — there's no silent dropped-subscriber mode.
+The extension-facing event shape is the same regardless of backend. Linux-specific failure modes (e.g. the `/proc/sys/fs/inotify/max_user_watches` limit) surface as a watch-time error from `watch()` — there's no silent dropped-subscriber mode.
 
 #### Lifecycle
 

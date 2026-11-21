@@ -12,7 +12,7 @@ Tab, ranks alongside manifest commands, and persists its dropdown
 selections.
 
 The motivating use case is surfacing user-owned items from the operating
-system: macOS Apple Shortcuts, SSH hosts in `~/.ssh/config`, project
+system: SSH hosts in `~/.ssh/config`, project
 paths, automation flows, scripts in user directories. The set of items
 is unknown when the extension is built, so they cannot live in
 `manifest.json` — the extension discovers them at runtime and registers
@@ -24,9 +24,8 @@ Use dynamic commands when the **user's environment determines the
 list** — the extension can't know in advance how many items there will
 be or what they're called.
 
-- macOS: each Apple Shortcut becomes one dynamic command
-- All platforms: each entry in `~/.ssh/config` becomes one dynamic command
-- All platforms: each script in a user-configured directory becomes one
+- Each entry in `~/.ssh/config` becomes one dynamic command
+- Each script in a user-configured directory becomes one
   dynamic command
 - Cross-platform automation: each Power Automate flow / Raycast Script /
   Alfred-style template becomes one dynamic command
@@ -69,12 +68,12 @@ const commandsService = workerContext.getService<ICommandService>('commands');
 
 const regs: DynamicCommandRegistration[] = [
   {
-    id: 'sc-lights', // stable identifier — see "Stable ids" below
-    name: 'Set Lights', // displayed in search results
-    description: 'Smart-home command',
-    icon: 'icon:lightbulb',
-    typeLabel: 'Apple Shortcut', // right-side row label; defaults to the extension name
-    arguments: [{ name: 'value', type: 'text', placeholder: 'e.g. 85' }],
+    id: 'my-server', // stable identifier — see "Stable ids" below
+    name: 'SSH: my-server', // displayed in search results
+    description: 'Open an SSH session',
+    icon: 'icon:terminal',
+    typeLabel: 'SSH Host', // right-side row label; defaults to the extension name
+    arguments: [{ name: 'command', type: 'text', placeholder: 'e.g. uptime' }],
   },
   // ...up to N items; no max enforced today, but expect ~5-100 in practice
 ];
@@ -99,8 +98,6 @@ written.
 
 The natural pattern is **on every change in the underlying source**:
 
-- Apple Shortcuts: re-run `shortcuts list` from a `fs.watch` callback on
-  `~/Library/Shortcuts/`.
 - SSH hosts: re-parse `~/.ssh/config` from a `fs.watch` callback on it.
 - Scripts in directories: re-read the directory from a `fs.watch`
   callback on the directory.
@@ -143,22 +140,21 @@ See [Command Arguments](./command-arguments.md) for the full schema.
 `typeLabel` sets the label shown on the right of the search result row.
 Leave it unset and the row falls back to the extension's display name,
 which is right when every dynamic command comes from the same source. Set
-it when the individual item reads better: an Apple Shortcuts extension
-registering one command per shortcut labels each `Apple Shortcut`, not
-`Apple Shortcuts`.
+it when the individual item reads better: an SSH extension
+registering one command per host labels each `SSH Host`, not
+`SSH Hosts`.
 
 ## Stable ids
 
 The `id` field is the persistence key for argument selections. If the
-underlying source allows renaming (e.g., an Apple Shortcut's name is
-editable, but its UUID is not), use the **stable identity** as `id`:
+underlying source allows renaming (e.g., a script's display name is
+editable, but its file path is not), use the **stable identity** as `id`:
 
-| Source              | Recommended id                                               |
-| ------------------- | ------------------------------------------------------------ |
-| Apple Shortcut      | the shortcut's UUID from `shortcuts list --show-identifiers` |
-| SSH host            | the `Host` line value (rarely renamed)                       |
-| Script in directory | the file basename without extension                          |
-| Project             | absolute path hash, or workspace UUID if available           |
+| Source              | Recommended id                                     |
+| ------------------- | -------------------------------------------------- |
+| SSH host            | the `Host` line value (rarely renamed)             |
+| Script in directory | the file basename without extension                |
+| Project             | absolute path hash, or workspace UUID if available |
 
 The id format is `[a-zA-Z0-9_-]+`, max 128 characters. Colons and dots
 are not allowed (the launcher reserves `:` for storage namespacing).
@@ -203,61 +199,44 @@ A dynamic command sharing an id with a manifest command (within the
 same extension) is supported and isolated — the persistence keys
 differ by the `dynamic:` prefix the launcher applies internally.
 
-## Cross-platform notes
+## Platform notes
 
-The API itself is platform-neutral. Per-platform extensions should:
+The API itself is platform-neutral. Extensions should:
 
 - Declare `platforms` in `manifest.json` to constrain installation.
-- Use OS-native enumeration: `shortcuts list` on macOS, parsing
-  `~/.ssh/config` on all Unix-likes, registry / API calls on Windows.
+- Use Linux-native enumeration, for example parsing `~/.ssh/config`.
 - Watch the underlying source with `fs.watch` (file-based) or polling
   (API-based) and re-call `replaceDynamicCommands` on each change.
 
-The launcher core knows nothing about Apple Shortcuts, SSH, or any
+The launcher core knows nothing about SSH or any
 specific platform feature — those concerns belong in the extension.
 
-## Worked example: Apple Shortcuts
+## Worked example: SSH hosts
 
 ```ts
-// extensions/apple-shortcuts/src/worker.ts
+// extensions/ssh-hosts/src/worker.ts
 import { ExtensionContext as WorkerExtensionContext } from 'asyar-sdk/worker';
-import type {
-  ICommandService,
-  IShellService,
-  IFileSystemWatcherService,
-} from 'asyar-sdk/contracts';
+import type { ICommandService, IFileSystemWatcherService } from 'asyar-sdk/contracts';
 
 const ctx = new WorkerExtensionContext();
 const commandsService = ctx.getService<ICommandService>('commands');
-const shell = ctx.getService<IShellService>('shell');
 const fsWatcher = ctx.getService<IFileSystemWatcherService>('fsWatcher');
 
-async function listShortcuts() {
-  const out = await shell.execute({
-    command: '/usr/bin/shortcuts',
-    args: ['list', '--show-identifiers'],
-  });
-  // parse `name (uuid)` lines into an array
-  return out.stdout.split('\n').flatMap((line) => {
-    const m = line.match(/^(.+?)\s+\((.+?)\)$/);
-    return m ? [{ name: m[1], id: m[2] }] : [];
-  });
-}
-
 async function syncFromOS() {
-  const items = await listShortcuts();
+  const hosts = await parseSshConfig(); // your own parser: returns [{ host: string }]
   await commandsService.replaceDynamicCommands(
-    items.map((item) => ({
-      id: item.id,
-      name: item.name,
-      arguments: [{ name: 'input', type: 'text', placeholder: 'Optional input' }],
+    hosts.map((h) => ({
+      id: h.host,
+      name: `SSH: ${h.host}`,
+      typeLabel: 'SSH Host',
     })),
   );
 }
 
 // Initial sync at activate, plus re-sync on every fs change.
 await syncFromOS();
-await fsWatcher.watch(['~/Library/Shortcuts/'], async () => {
+const handle = await fsWatcher.watch(['~/.ssh/config']);
+handle.onChange(async () => {
   await syncFromOS();
 });
 ```

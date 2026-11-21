@@ -45,7 +45,7 @@ Math also understands wordy phrasing — `square root of 625`, `7 times 8`, `hal
 | ----------- | ------------------------- |
 | Copy result | `Enter` on the result row |
 
-The calculator result row has no action panel (⌘K) entries — its single action is copy on `Enter`.
+The calculator result row has no action panel (Ctrl+K) entries — its single action is copy on `Enter`.
 
 ## Tips
 

@@ -25,13 +25,13 @@ Beyond the quick-ask flow, you can create custom **agents** — each agent has i
 
 1. Search for **Manage Agents** and press `Enter`, or type `manage agents`.
 2. Select an agent from the list and press `Enter` to open its chat.
-3. To create a new agent, open the action panel with `⌘K` and choose **New Agent**.
+3. To create a new agent, open the action panel with `Ctrl+K` and choose **New Agent**.
 4. Fill in the name, optional description, system prompt, provider, model, and which tools the agent can use.
 5. Press **Save**.
 
 ### Configure AI providers
 
-Before you can use any agent, configure at least one AI provider in **Settings → AI** (`⌘,`):
+Before you can use any agent, configure at least one AI provider in **Settings → AI** (`Ctrl+,`):
 
 1. **Cloud, Local & Extension Providers**: Click **+ Add provider** and choose from built-in providers (**Anthropic**, **OpenAI**, **Google**, **Ollama**, **OpenRouter**, **Custom**) or any installed **Extension Providers** contributed via the AI Provider SPI.
    - Enter your API key and click **Save**. The field then shows **Key saved**, with **Replace** and **Remove**. The key is never shown again.
@@ -68,7 +68,7 @@ Each agent keeps its conversation history in threads. Inside the chat view:
 
 - Use `↑` / `↓` to move between threads in the sidebar.
 - Press `Enter` (with an empty search bar) to open the selected thread.
-- Open the action panel (`⌘K`) for quick actions:
+- Open the action panel (`Ctrl+K`) for quick actions:
   - **Copy Last Response**: Copies the agent's most recent reply as formatted Markdown directly to your clipboard.
   - **New Thread**: Starts a fresh conversation thread.
   - **Delete Current Thread**: Removes the active conversation.
@@ -88,15 +88,15 @@ _Figure: select text in any app, press the hotkey, and a silent agent replaces i
 During onboarding, Asyar offers to create a **Grammar Fix** silent agent for you (the "One-keystroke AI commands" step). It is set up with:
 
 - **Input:** the text you have selected in whatever app you are using.
-- **Output:** the corrected text replaces your selection instantly.
-- **Hotkey:** ⌘⇧L on macOS / Ctrl+Shift+L on Windows and Linux (you can change it at any time).
+- **Output:** the corrected text replaces your selection instantly. (Capturing and replacing the selection works on X11; it is not available on Wayland.)
+- **Hotkey:** Ctrl+Shift+L (you can change it at any time).
 
 So the workflow is: select some text → press the hotkey → done. No windows, no copy-paste.
 
 ### Create your own silent agents
 
 1. Open Asyar and search for **Manage Agents**, then press `Enter`.
-2. Open the action panel with `⌘K` and choose **New Agent**.
+2. Open the action panel with `Ctrl+K` and choose **New Agent**.
 3. Fill in the name and the system prompt that tells the agent what to do.
 4. Turn on **"Run silently (no chat view)"**.
 5. Choose an **input source** — where the agent gets its text:
@@ -128,15 +128,15 @@ So the workflow is: select some text → press the hotkey → done. No windows, 
 | ------------------------- | -------------------------------------------------- |
 | Enter AI mode             | `Tab` from the search bar                          |
 | Send a message            | `Enter` (while in AI mode or inside the chat view) |
-| Copy Last Response        | `⌘⇧C`                                              |
-| Pin / Unpin Thread        | `⌘.` (in chat view)                                |
+| Copy Last Response        | `Ctrl+Shift+C`                                     |
+| Pin / Unpin Thread        | `Ctrl+.` (in chat view)                            |
 | Open Manage Agents        | Search "Manage Agents" → `Enter`                   |
-| New Agent                 | `⌘N` (in Manage Agents view)                       |
-| Edit Agent                | `⌘E` (in Manage Agents view)                       |
-| Delete Agent (confirm)    | `⌃X` (in Manage Agents view)                       |
-| New Thread                | `⌘N` (in chat view)                                |
-| Delete Thread (confirm)   | `⌃X` (in chat view)                                |
-| Cancel a running response | `⌘K` → **Cancel Run**                              |
+| New Agent                 | `Ctrl+N` (in Manage Agents view)                   |
+| Edit Agent                | `Ctrl+E` (in Manage Agents view)                   |
+| Delete Agent (confirm)    | `Ctrl+X` (in Manage Agents view)                   |
+| New Thread                | `Ctrl+N` (in chat view)                            |
+| Delete Thread (confirm)   | `Ctrl+X` (in chat view)                            |
+| Cancel a running response | `Ctrl+K` → **Cancel Run**                          |
 | Navigate threads          | `↑` / `↓`                                          |
 
 ## Tips

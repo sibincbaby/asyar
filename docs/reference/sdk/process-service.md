@@ -4,7 +4,7 @@
 
 **Permission required:** `process:read` for `list()`, `process:kill` for `kill()`. Declare only what you use — read-only monitors should not ask for `process:kill`.
 
-List the machine's running processes — grouped per application, with live CPU and memory usage — and terminate them. This is the first-class, cross-platform replacement for shelling out to `ps` / `tasklist` / `kill`. The host enumerates processes with `sysinfo` on a background thread and re-derives a `protected` flag for OS-critical processes so an extension can't silently kill the kernel, `launchd`, `lsass.exe`, or `systemd`.
+List the machine's running processes — grouped per application, with live CPU and memory usage — and terminate them. This is the first-class replacement for shelling out to `ps` / `tasklist` / `kill`. The host enumerates processes with `sysinfo` on a background thread and re-derives a `protected` flag for OS-critical processes so an extension can't silently kill the kernel, `launchd`, `lsass.exe`, or `systemd`.
 
 ```typescript
 type ProcessSortBy = 'cpu' | 'memory' | 'name';
@@ -113,17 +113,15 @@ await proc.kill({ pids: [criticalPid], force: true, confirmedProtected: true });
 
 **How `list()` works under the hood:**
 
-| Platform                | Enumeration                                                                                                       | Grouping                                                                                               |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| macOS / Linux / Windows | `sysinfo` full process scan with a short CPU-delta sample, run on a blocking thread pool so the UI never freezes. | Processes are coalesced into `AppGroup`s by application; group totals sum each child's CPU and memory. |
+| Platform | Enumeration                                                                                                       | Grouping                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Linux    | `sysinfo` full process scan with a short CPU-delta sample, run on a blocking thread pool so the UI never freezes. | Processes are coalesced into `AppGroup`s by application; group totals sum each child's CPU and memory. |
 
 **How the `protected` classifier works** (`process_manager::protected`):
 
-| Platform | What's flagged protected                                                                                                                                                     |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| macOS    | Core names (`kernel_task`, `launchd`, `WindowServer`, `loginwindow`, `Dock`, `Finder`) **or** root-owned binaries under `/System/`, `/usr/libexec/`, `/sbin/`, `/usr/sbin/`. |
-| Windows  | Core names (`System`, `smss.exe`, `csrss.exe`, `wininit.exe`, `services.exe`, `lsass.exe`, `winlogon.exe`) **or** `SYSTEM`-owned binaries under `\Windows\System32`.         |
-| Linux    | pid 1 (init / systemd), kernel threads (pid 2 `kthreadd` or its children), **or** root-owned binaries under `/sbin/` and `/usr/sbin/`.                                       |
+| Platform | What's flagged protected                                                                                                               |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Linux    | pid 1 (init / systemd), kernel threads (pid 2 `kthreadd` or its children), **or** root-owned binaries under `/sbin/` and `/usr/sbin/`. |
 
 **Permission gate:** `process:read` and `process:kill` are enforced in the Rust host (`commands/process.rs` → `ExtensionPermissionRegistry`), not in JS. An extension with `process:read` but not `process:kill` can list but every `kill()` is rejected at the host.
 

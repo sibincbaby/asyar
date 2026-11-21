@@ -627,11 +627,7 @@ mod tests {
 
         sync_command_index_internal(input_v2, &state).unwrap();
         let items = state.items.read().unwrap();
-        let expected_src = if cfg!(windows) {
-            "http://asyar-extension.localhost/org.asyar.pomo/assets/icon.png?icon"
-        } else {
-            "asyar-extension://org.asyar.pomo/assets/icon.png?icon"
-        };
+        let expected_src = "asyar-extension://org.asyar.pomo/assets/icon.png?icon";
         assert_eq!(
             items[0].resolved_icon(),
             Some(crate::icons::ResolvedIcon::Image {

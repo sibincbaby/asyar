@@ -377,8 +377,8 @@ the same argument-mode pipeline, with one difference: dynamic command
 selections are namespaced under `dynamic:<id>` in storage so dynamic
 ids cannot collide with manifest ids.
 
-For commands whose set is determined by the user's environment (Apple
-Shortcuts, SSH hosts, scripts in directories), see
+For commands whose set is determined by the user's environment (SSH
+hosts, scripts in directories), see
 [Dynamic Commands](./dynamic-commands.md). For shell scripts specifically —
 which declare their argument schema via `# @asyar.argument:N` comment
 directives instead of a manifest entry — see

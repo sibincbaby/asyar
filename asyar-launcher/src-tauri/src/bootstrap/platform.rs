@@ -1,7 +1,6 @@
 //! Platform-specific bootstrap module.
 //!
-//! Handles OS-specific initialization (macOS panel behavior and Dock policy,
-//! Linux D-Bus service, single-instance routing, deep links, diagnostics panic hooks,
+//! Handles OS-specific initialization (Linux D-Bus service, single-instance routing, deep links, diagnostics panic hooks,
 //! crash reporting, and autostart registration).
 
 use std::sync::Arc;
@@ -38,9 +37,6 @@ pub fn init_early(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>
             .request(action)
             .map_err(|error| format!("failed to queue initial launcher action: {error}"))?;
     }
-
-    #[cfg(target_os = "macos")]
-    crate::platform::macos::disable_press_and_hold();
 
     Ok(())
 }
@@ -222,9 +218,6 @@ pub fn init_deeplinks(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Er
             Err(err) => log::warn!("[Deeplink] get_current failed: {err}"),
         }
     }
-
-    #[cfg(target_os = "macos")]
-    crate::platform::macos::sync_activation_policy(app.app_handle());
 
     Ok(())
 }

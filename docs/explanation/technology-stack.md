@@ -6,9 +6,9 @@ order: 8
 
 ### Tauri 2 (Rust + WebView)
 
-Tauri is the foundational application framework. Unlike Electron, which bundles a full Chromium and Node.js runtime, Tauri utilizes the OS's native webview (WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux).
+Tauri is the foundational application framework. Unlike Electron, which bundles a full Chromium and Node.js runtime, Tauri utilizes the OS's native webview (WebKitGTK on Linux).
 
-- **Rust Backend:** Responsible for OS-level integrations: global hotkeys (`tauri_plugin_global_shortcut`), filesystem manipulation, system tray, window vibrancy, clipboard, and the custom protocol implementation.
+- **Rust Backend:** Responsible for OS-level integrations: global hotkeys (`tauri_plugin_global_shortcut`), filesystem manipulation, system tray, clipboard, and the custom protocol implementation.
 - **WebView:** Hosts the entire SvelteKit frontend application.
 
 ### SvelteKit

@@ -1,12 +1,7 @@
 //! Application "where is it / run it elevated" helpers for the ⌘K action panel.
 //!
-//! - **Reveal** works on every platform. On Windows the indexer stores the
-//!   Start-menu `.lnk` rather than the program, so the shortcut is resolved to
-//!   its target before revealing; revealing the `.lnk` itself would only show
-//!   the Start-menu folder. Microsoft Store (`shell:AppsFolder\…`) entries have
-//!   no folder at all and are rejected.
-//! - **Run as administrator** is Windows-only (`runas` verb). macOS and Linux
-//!   have no equivalent that is safe to expose, so those builds return a
+//! - **Reveal** opens the application's location.
+//! - **Run as administrator** has no safe Linux equivalent, so it returns a
 //!   platform error and the frontend hides the action.
 //!
 //! The path validators are plain functions so they are unit-tested on any OS.
@@ -44,169 +39,9 @@ pub(crate) fn validate_reveal_path(path: &str) -> Result<PathBuf, AppError> {
     Ok(raw.to_path_buf())
 }
 
-/// Validates a path before it is launched elevated: an existing, absolute
-/// `.lnk` or `.exe`. Anything else (scripts, documents, Store apps) is refused.
-pub(crate) fn validate_elevatable_path(path: &str) -> Result<PathBuf, AppError> {
-    if is_store_app(path) {
-        return Err(AppError::Platform(
-            "Microsoft Store apps cannot be run as administrator".to_string(),
-        ));
-    }
-    let resolved = validate_reveal_path(path)?;
-    let ext = resolved
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase());
-    match ext.as_deref() {
-        Some("lnk") | Some("exe") => Ok(resolved),
-        _ => Err(AppError::Validation(format!(
-            "only .lnk and .exe can be run as administrator: {path}"
-        ))),
-    }
-}
-
-/// The path to reveal for an application: the shortcut's target on Windows
-/// when it resolves, otherwise the path itself.
+/// The path to reveal for an application: the validated path itself.
 pub(crate) fn reveal_target(path: &str) -> Result<PathBuf, AppError> {
-    let validated = validate_reveal_path(path)?;
-    #[cfg(target_os = "windows")]
-    {
-        let is_lnk = validated
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| e.eq_ignore_ascii_case("lnk"));
-        if is_lnk {
-            if let Some(target) = windows_impl::resolve_shortcut_target(&validated) {
-                if target.exists() {
-                    return Ok(target);
-                }
-            }
-        }
-    }
-    Ok(validated)
-}
-
-/// Launches the application with an elevation prompt (UAC). Windows only.
-///
-/// Returns `Ok(())` when the user dismisses the UAC prompt: that is a choice,
-/// not a failure, and surfacing an error toast for it would be noise.
-pub fn run_as_administrator(path: &str) -> Result<(), AppError> {
-    let validated = validate_elevatable_path(path)?;
-    #[cfg(target_os = "windows")]
-    {
-        windows_impl::shell_execute_runas(&validated)
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = validated;
-        Err(AppError::Platform(
-            "Run as administrator is only available on Windows".to_string(),
-        ))
-    }
-}
-
-#[cfg(target_os = "windows")]
-pub(super) mod windows_impl {
-    use super::*;
-    use windows::core::{Interface, HSTRING, PCWSTR};
-    use windows::Win32::Foundation::RPC_E_CHANGED_MODE;
-    use windows::Win32::System::Com::{
-        CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile, CLSCTX_INPROC_SERVER,
-        COINIT_APARTMENTTHREADED, STGM_READ,
-    };
-    use windows::Win32::UI::Shell::{IShellLinkW, ShellExecuteW, ShellLink};
-    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
-
-    /// `ShellExecuteW` reports failure with a value <= 32. 5 is
-    /// SE_ERR_ACCESSDENIED, which is what a dismissed UAC prompt returns.
-    const SE_ERR_ACCESSDENIED: isize = 5;
-
-    unsafe fn read_lnk_on_current_thread(lnk: &Path) -> windows::core::Result<(PathBuf, String)> {
-        let link: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
-        let file: IPersistFile = link.cast()?;
-        file.Load(&HSTRING::from(lnk.as_os_str()), STGM_READ)?;
-        let mut buf = [0u16; 1024];
-        link.GetPath(&mut buf, std::ptr::null_mut(), 0)?;
-        let len = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
-        let target = PathBuf::from(String::from_utf16_lossy(&buf[..len]));
-
-        let mut arg_buf = [0u16; 1024];
-        let args = if link.GetArguments(&mut arg_buf).is_ok() {
-            let arg_len = arg_buf
-                .iter()
-                .position(|&c| c == 0)
-                .unwrap_or(arg_buf.len());
-            String::from_utf16_lossy(&arg_buf[..arg_len])
-        } else {
-            String::new()
-        };
-
-        Ok((target, args))
-    }
-
-    /// Resolves a `.lnk` to its `(target_path, arguments)` on the current thread,
-    /// spawning a fresh STA thread only if the caller thread already lives in an
-    /// incompatible COM apartment (`RPC_E_CHANGED_MODE`).
-    pub(in crate::application) fn resolve_shortcut_target_and_args(
-        lnk: &Path,
-    ) -> Option<(PathBuf, String)> {
-        unsafe {
-            let hr = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-            if hr.is_ok() {
-                let resolved = read_lnk_on_current_thread(lnk)
-                    .ok()
-                    .filter(|(p, _)| !p.as_os_str().is_empty());
-                CoUninitialize();
-                return resolved;
-            }
-            if hr != RPC_E_CHANGED_MODE {
-                return None;
-            }
-        }
-
-        let lnk = lnk.to_path_buf();
-        std::thread::spawn(move || unsafe {
-            let initialised = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
-            let resolved = read_lnk_on_current_thread(&lnk)
-                .ok()
-                .filter(|(p, _)| !p.as_os_str().is_empty());
-            if initialised {
-                CoUninitialize();
-            }
-            resolved
-        })
-        .join()
-        .ok()
-        .flatten()
-    }
-
-    /// Resolves a `.lnk` to its target path.
-    pub(in crate::application) fn resolve_shortcut_target(lnk: &Path) -> Option<PathBuf> {
-        resolve_shortcut_target_and_args(lnk).map(|(target, _)| target)
-    }
-
-    pub(super) fn shell_execute_runas(path: &Path) -> Result<(), AppError> {
-        let verb = HSTRING::from("runas");
-        let file = HSTRING::from(path.as_os_str());
-        let result = unsafe {
-            ShellExecuteW(
-                None,
-                &verb,
-                &file,
-                PCWSTR::null(),
-                PCWSTR::null(),
-                SW_SHOWNORMAL,
-            )
-        };
-        let code = result.0 as isize;
-        if code > 32 || code == SE_ERR_ACCESSDENIED {
-            return Ok(());
-        }
-        Err(AppError::Platform(format!(
-            "Failed to run '{}' as administrator (code {code})",
-            path.display()
-        )))
-    }
+    validate_reveal_path(path)
 }
 
 #[cfg(test)]
@@ -252,32 +87,6 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let path = touch(&tmp, "Zoom.lnk");
         assert_eq!(validate_reveal_path(&path).unwrap(), PathBuf::from(&path));
-    }
-
-    #[test]
-    fn elevation_accepts_only_lnk_and_exe() {
-        let tmp = TempDir::new().unwrap();
-        assert!(validate_elevatable_path(&touch(&tmp, "Zoom.lnk")).is_ok());
-        assert!(validate_elevatable_path(&touch(&tmp, "Zoom.EXE")).is_ok());
-        for name in ["run.bat", "notes.txt", "Zoom.app"] {
-            let err = validate_elevatable_path(&touch(&tmp, name)).unwrap_err();
-            assert!(matches!(err, AppError::Validation(_)), "{name}: {err:?}");
-        }
-    }
-
-    #[test]
-    fn elevation_rejects_store_apps() {
-        let err = validate_elevatable_path(r"shell:AppsFolder\Microsoft.Foo_8wekyb3d8bbwe!App")
-            .unwrap_err();
-        assert!(matches!(err, AppError::Platform(_)), "got: {err:?}");
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    #[test]
-    fn run_as_administrator_is_unsupported_off_windows() {
-        let tmp = TempDir::new().unwrap();
-        let err = run_as_administrator(&touch(&tmp, "Zoom.exe")).unwrap_err();
-        assert!(matches!(err, AppError::Platform(_)), "got: {err:?}");
     }
 
     #[test]

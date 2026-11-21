@@ -540,7 +540,6 @@ pub async fn list_models(
             {
                 let mut models_cmd = tokio::process::Command::new(&bin);
                 models_cmd.arg("models");
-                crate::ai::cli::hide_console_window(&mut models_cmd);
                 if let Ok(output) = models_cmd.output().await {
                     if output.status.success() {
                         let text = String::from_utf8_lossy(&output.stdout);

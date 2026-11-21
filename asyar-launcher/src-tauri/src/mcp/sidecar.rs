@@ -32,17 +32,9 @@ pub fn system_command_exists(cmd: &str) -> bool {
         Ok(v) => v,
         Err(_) => return false,
     };
-    let extensions: &[&str] = if cfg!(windows) {
-        &[".exe", ".bat", ".cmd", ""]
-    } else {
-        &[""]
-    };
     for dir in std::env::split_paths(&path_var) {
-        for ext in extensions {
-            let candidate = dir.join(format!("{cmd}{ext}"));
-            if candidate.is_file() {
-                return true;
-            }
+        if dir.join(cmd).is_file() {
+            return true;
         }
     }
     false

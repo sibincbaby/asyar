@@ -5,15 +5,10 @@ vi.mock('../../lib/ipc/commands', () => ({
   replaceDynamicCommandsBuiltin: vi.fn(async () => {}),
 }));
 
-vi.mock('@tauri-apps/plugin-os', () => ({
-  platform: vi.fn(() => 'windows'),
-}));
-
 vi.mock('../../services/log/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { platform } from '@tauri-apps/plugin-os';
 import * as commands from '../../lib/ipc/commands';
 import { logService } from '../../services/log/logService';
 import { registerSystemCommands, unregisterSystemCommands } from './manager';
@@ -21,7 +16,6 @@ import { registerSystemCommands, unregisterSystemCommands } from './manager';
 describe('system command registration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(platform).mockReturnValue('windows');
   });
 
   it('registers one dynamic command per supported action, in backend order', async () => {
@@ -59,16 +53,11 @@ describe('system command registration', () => {
     expect(regs.map((r) => r.id)).toEqual(['sleep', 'lockScreen']);
   });
 
-  it('names the session action Sign Out on Windows and Log Out elsewhere', async () => {
+  it('names the session action Log Out', async () => {
     vi.mocked(commands.systemActionsSupported).mockResolvedValue(['logOut']);
 
     await registerSystemCommands();
-    let [, regs] = vi.mocked(commands.replaceDynamicCommandsBuiltin).mock.calls[0];
-    expect(regs[0].name).toBe('Sign Out');
-
-    vi.mocked(platform).mockReturnValue('macos');
-    await registerSystemCommands();
-    [, regs] = vi.mocked(commands.replaceDynamicCommandsBuiltin).mock.calls[1];
+    const [, regs] = vi.mocked(commands.replaceDynamicCommandsBuiltin).mock.calls[0];
     expect(regs[0].name).toBe('Log Out');
   });
 

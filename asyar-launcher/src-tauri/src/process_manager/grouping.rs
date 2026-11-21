@@ -1,30 +1,16 @@
 //! Pure transforms: raw processes → grouped/filtered/sorted AppGroups.
 
-use crate::process_manager::protected::{classify, Os};
+use crate::process_manager::protected::classify;
 use crate::process_manager::types::{AppGroup, ProcessInfo, RawProcess, SortBy};
 use fuzzy_matcher::FuzzyMatcher;
 
-/// Friendly app name for grouping. macOS → the `.app` bundle display name;
-/// elsewhere → the process name (executables of the same app share a name).
-pub fn app_name_for(os: Os, p: &RawProcess) -> String {
-    if os == Os::Macos {
-        if let Some(idx) = p.exe_path.find(".app/") {
-            let before = &p.exe_path[..idx];
-            if let Some(slash) = before.rfind('/') {
-                return before[slash + 1..].to_string();
-            }
-        }
-    }
-    p.name.clone()
-}
-
-/// Group raw processes by app, summing CPU/memory and marking the group
+/// Group raw processes by name (executables of the same app share one), summing CPU/memory and marking the group
 /// protected when any child is protected.
-pub fn group(os: Os, procs: &[RawProcess]) -> Vec<AppGroup> {
+pub fn group(procs: &[RawProcess]) -> Vec<AppGroup> {
     use std::collections::BTreeMap;
     let mut buckets: BTreeMap<String, Vec<&RawProcess>> = BTreeMap::new();
     for p in procs {
-        buckets.entry(app_name_for(os, p)).or_default().push(p);
+        buckets.entry(p.name.clone()).or_default().push(p);
     }
     buckets
         .into_iter()
@@ -38,7 +24,7 @@ pub fn group(os: Os, procs: &[RawProcess]) -> Vec<AppGroup> {
                     memory_bytes: p.memory_bytes,
                     path: p.exe_path.clone(),
                     owner: p.owner.clone(),
-                    protected: classify(os, p),
+                    protected: classify(p),
                 })
                 .collect();
             AppGroup {
@@ -110,51 +96,17 @@ mod tests {
     }
 
     #[test]
-    fn macos_chrome_helpers_collapse_into_one_group() {
-        let base = "/Applications/Google Chrome.app/Contents";
-        let procs = vec![
-            raw(
-                1,
-                "Google Chrome",
-                &format!("{base}/MacOS/Google Chrome"),
-                10.0,
-                100,
-            ),
-            raw(
-                2,
-                "Google Chrome Helper",
-                &format!("{base}/Frameworks/.../Google Chrome Helper"),
-                5.0,
-                50,
-            ),
-            raw(
-                3,
-                "Google Chrome Helper (GPU)",
-                &format!("{base}/Frameworks/.../Helper (GPU)"),
-                2.0,
-                25,
-            ),
-        ];
-        let groups = group(Os::Macos, &procs);
-        assert_eq!(groups.len(), 1);
-        assert_eq!(groups[0].app_name, "Google Chrome");
-        assert_eq!(groups[0].process_count, 3);
-        assert_eq!(groups[0].total_memory_bytes, 175);
-        assert!((groups[0].total_cpu - 17.0).abs() < 0.01);
-    }
-
-    #[test]
     fn standalone_process_stays_single() {
-        let groups = group(Os::Linux, &[raw(9, "vim", "/usr/bin/vim", 1.0, 10)]);
+        let groups = group(&[raw(9, "vim", "/usr/bin/vim", 1.0, 10)]);
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].process_count, 1);
     }
 
     #[test]
     fn group_protected_when_any_child_protected() {
-        let mut p = raw(1, "WindowServer", "/System/Library/x", 1.0, 1);
+        let mut p = raw(1, "systemd", "/usr/lib/systemd/systemd", 1.0, 1);
         p.owner = "root".into();
-        let groups = group(Os::Macos, &[p]);
+        let groups = group(&[p]);
         assert!(groups[0].protected);
     }
 

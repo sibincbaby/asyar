@@ -30,8 +30,7 @@ When the extension is enabled, Asyar materialises **two execution contexts** for
   (automatically generated from `src/view.ts` by `defineExtensionConfig`, or
   provided manually). Hosts UI rendering only.
 
-Both contexts are sandboxed at `asyar-extension://<id>/` (macOS/Linux) or
-`http://asyar-extension.localhost/<id>/` (Windows). They communicate with
+Both contexts are sandboxed at `asyar-extension://<id>/`. They communicate with
 each other through a launcher-brokered state mailbox and an RPC primitive.
 
 For the lifecycle state machine, mailbox semantics, and the view↔worker RPC

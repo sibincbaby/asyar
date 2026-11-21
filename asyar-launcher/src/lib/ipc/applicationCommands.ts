@@ -1,19 +1,6 @@
 import { invokeSafe, invokeSafeVoid } from './invokeSafe';
 import type { FrontmostApplication } from 'asyar-sdk/contracts';
 
-export interface AppDataPath {
-  path: string;
-  sizeBytes: number;
-  category: string;
-}
-
-export interface UninstallScanResult {
-  appPath: string;
-  appSizeBytes: number;
-  dataPaths: AppDataPath[];
-  totalBytes: number;
-}
-
 export async function getFrontmostApplication(): Promise<FrontmostApplication | null> {
   return invokeSafe<FrontmostApplication>('get_frontmost_application', undefined, { silent: true });
 }
@@ -22,29 +9,11 @@ export async function appIsRunning(bundleId: string): Promise<boolean> {
   return invokeSafe<boolean>('app_is_running', { bundleId });
 }
 
-// `uninstall_application`/`set_application_scan_paths` are `Result<(), AppError>`
-// on the Rust side — use invokeSafeVoid's boolean signal, not invokeSafe's null.
-
-export async function uninstallApplication(
-  path: string,
-  dataPaths: string[] = [],
-): Promise<boolean> {
-  return invokeSafeVoid('uninstall_application', { path, dataPaths });
-}
-
-// `reveal_application` / `run_application_as_admin` are `Result<(), AppError>`
-// on the Rust side; failures reject with IpcError.
+// `reveal_application` is `Result<(), AppError>` on the Rust side; failures
+// reject with IpcError.
 
 export async function revealApplication(path: string): Promise<true> {
   return invokeSafeVoid('reveal_application', { path });
-}
-
-export async function runApplicationAsAdmin(path: string): Promise<true> {
-  return invokeSafeVoid('run_application_as_admin', { path });
-}
-
-export async function scanUninstallTargets(path: string): Promise<UninstallScanResult> {
-  return invokeSafe<UninstallScanResult>('scan_uninstall_targets', { path });
 }
 
 export async function applicationIndexSubscribe(
@@ -61,6 +30,8 @@ export async function applicationIndexUnsubscribe(
   return invokeSafeVoid('application_index_unsubscribe', { extensionId, subscriptionId });
 }
 
+// `set_application_scan_paths` is `Result<(), AppError>` on the Rust side — use
+// invokeSafeVoid's boolean signal, not invokeSafe's null.
 export async function setApplicationScanPaths(paths: string[]): Promise<boolean> {
   return invokeSafeVoid('set_application_scan_paths', { paths });
 }

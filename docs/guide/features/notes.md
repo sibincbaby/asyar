@@ -15,7 +15,7 @@ Every note is stored locally in SQLite on your machine, with full Markdown rende
 1. Open Asyar and type `notes` — or select **Notes** from search results.
 2. The notes view opens. The left pane lists your notes (pinned notes first, followed by recent notes).
 3. Use `↑` / `↓` to move through your notes, or start typing in the search bar to filter by title or body.
-4. Press `⌘N` (or choose **New Note** from `⌘K`) to create a new note.
+4. Press `Ctrl+N` (or choose **New Note** from `Ctrl+K`) to create a new note.
 5. Edit your note in the right pane. Title and content save automatically as you type.
 
 ### Quick Note (Instant Capture)
@@ -38,30 +38,30 @@ Keep a daily running journal or scratchpad:
 
 Keep important information visible over your workspace:
 
-1. In the Notes view, select any note and choose **Stick to Desktop** from the action panel (`⌘K`).
+1. In the Notes view, select any note and choose **Stick to Desktop** from the action panel (`Ctrl+K`).
 2. The note detaches into a lightweight, floating desktop sticky window that stays on top of other applications.
 3. Or type `sticky` from the search bar to create a fresh blank sticky note on your desktop.
 
 ## Shortcuts & actions
 
-| Action                | Shortcut |
-| :-------------------- | :------- |
-| Create New Note       | `⌘N`     |
-| Toggle Pin / Unpin    | `⌘.`     |
-| Duplicate Note        | `⌘D`     |
-| Copy as Markdown      | `⌘⇧C`    |
-| Delete Note (confirm) | `⌃X`     |
-| Open Action Panel     | `⌘K`     |
+| Action                | Shortcut       |
+| :-------------------- | :------------- |
+| Create New Note       | `Ctrl+N`       |
+| Toggle Pin / Unpin    | `Ctrl+.`       |
+| Duplicate Note        | `Ctrl+D`       |
+| Copy as Markdown      | `Ctrl+Shift+C` |
+| Delete Note (confirm) | `Ctrl+X`       |
+| Open Action Panel     | `Ctrl+K`       |
 
-**Action panel (⌘K) entries while Notes is open:**
+**Action panel (Ctrl+K) entries while Notes is open:**
 
-- **New Note** (`⌘N`) — creates a blank note and places the cursor in the editor.
-- **Pin Note / Unpin Note** (`⌘.`) — pins or unpins the selected note. Pinned notes always sort to the top.
-- **Duplicate Note** (`⌘D`) — clones the note into a new copy.
-- **Copy as Markdown** (`⌘⇧C`) — copies the note's formatted title and body to your clipboard.
+- **New Note** (`Ctrl+N`) — creates a blank note and places the cursor in the editor.
+- **Pin Note / Unpin Note** (`Ctrl+.`) — pins or unpins the selected note. Pinned notes always sort to the top.
+- **Duplicate Note** (`Ctrl+D`) — clones the note into a new copy.
+- **Copy as Markdown** (`Ctrl+Shift+C`) — copies the note's formatted title and body to your clipboard.
 - **Stick to Desktop** — floats the note as a desktop sticky window.
 - **Export as Markdown…** — exports the note to a standalone `.md` file on your filesystem.
-- **Delete Note** (`⌃X`) — permanently deletes the note (prompts for confirmation).
+- **Delete Note** (`Ctrl+X`) — permanently deletes the note (prompts for confirmation).
 
 ## Tips
 

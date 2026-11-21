@@ -259,36 +259,22 @@ pub(crate) fn prune_finished_entries(
 }
 
 fn kill_pid(pid: u32) {
-    #[cfg(unix)]
-    {
-        // Guardrail: libc::kill treats pid ≤ 0 as broadcast (0 = process
-        // group, -1 = every process the caller can signal). A u32 cast to
-        // i32 becomes negative for pid > i32::MAX, so reject those before
-        // syscalling. Real tokio-spawned PIDs never reach that range on
-        // any supported OS, so a rejection here only fires on fake test
-        // pids or outright bugs.
-        let Ok(signed) = i32::try_from(pid) else {
-            log::warn!("[shell] refusing to signal out-of-range pid {pid}");
-            return;
-        };
-        if signed <= 0 {
-            log::warn!("[shell] refusing to signal non-positive pid {signed}");
-            return;
-        }
-        unsafe {
-            libc::kill(signed, libc::SIGKILL);
-        }
+    // Guardrail: libc::kill treats pid ≤ 0 as broadcast (0 = process
+    // group, -1 = every process the caller can signal). A u32 cast to
+    // i32 becomes negative for pid > i32::MAX, so reject those before
+    // syscalling. Real tokio-spawned PIDs never reach that range on
+    // any supported OS, so a rejection here only fires on fake test
+    // pids or outright bugs.
+    let Ok(signed) = i32::try_from(pid) else {
+        log::warn!("[shell] refusing to signal out-of-range pid {pid}");
+        return;
+    };
+    if signed <= 0 {
+        log::warn!("[shell] refusing to signal non-positive pid {signed}");
+        return;
     }
-    #[cfg(windows)]
-    {
-        use windows::Win32::Foundation::CloseHandle;
-        use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
-        unsafe {
-            if let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) {
-                let _ = TerminateProcess(handle, 1);
-                let _ = CloseHandle(handle);
-            }
-        }
+    unsafe {
+        libc::kill(signed, libc::SIGKILL);
     }
 }
 
@@ -335,17 +321,6 @@ pub fn spawn(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-
-    // CREATE_NO_WINDOW — keep a console-subsystem child (e.g. powershell.exe)
-    // from briefly flashing a black console window when an extension spawns it,
-    // matching the launcher's own PowerShell calls (application/service.rs, #411).
-    // Stdio is piped, so suppressing the console doesn't affect output capture.
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        child_process.creation_flags(CREATE_NO_WINDOW);
-    }
 
     let mut child = Command::from(child_process).spawn()?;
 
@@ -498,17 +473,7 @@ pub async fn resolve_path(program: &str) -> Result<String, AppError> {
         };
     }
 
-    let cmd = if cfg!(windows) { "where" } else { "which" };
-    let mut command = Command::new(cmd);
-
-    // `where` is a console-subsystem binary too — suppress its window flash.
-    #[cfg(target_os = "windows")]
-    {
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
-
-    let output = command.arg(program).output().await?;
+    let output = Command::new("which").arg(program).output().await?;
 
     if output.status.success() {
         let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -759,16 +724,8 @@ mod tests {
     #[tokio::test]
     async fn pipe_stdin_to_child_process_and_read_output() {
         let reg = ShellProcessRegistry::new();
-        let cmd_name = if cfg!(windows) { "findstr" } else { "cat" };
-        let args: Vec<String> = if cfg!(windows) {
-            vec!["^".to_string()]
-        } else {
-            vec![]
-        };
-
-        let mut child_cmd = std::process::Command::new(cmd_name);
+        let mut child_cmd = std::process::Command::new("cat");
         child_cmd
-            .args(&args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -778,7 +735,7 @@ mod tests {
         let stdin = child.stdin.take().expect("take stdin");
         let stdout = child.stdout.take().expect("take stdout");
 
-        reg.register_spawn("spawn-cat", "ext-a", cmd_name, &args, pid)
+        reg.register_spawn("spawn-cat", "ext-a", "cat", &[], pid)
             .unwrap();
         reg.register_stdin("spawn-cat", stdin).await;
 
@@ -844,23 +801,6 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(err, AppError::NotFound(_)), "got {err:?}");
-    }
-
-    // Rust's `Command` runs `.bat`/`.cmd` through `cmd.exe`, which does not
-    // understand the `\\?\` verbatim prefix the scanner's `canonicalize()`
-    // produces — so the resolved path handed to `shell_spawn` must be the
-    // simplified form.
-    #[cfg(windows)]
-    #[tokio::test]
-    async fn resolve_path_strips_verbatim_prefix_on_windows() {
-        let dir = tempfile::tempdir().unwrap();
-        let script = dir.path().join("test.bat");
-        std::fs::write(&script, "echo hi\r\n").unwrap();
-        let verbatim = script.canonicalize().unwrap();
-        assert!(verbatim.to_string_lossy().starts_with(r"\\?\"));
-
-        let resolved = resolve_path(verbatim.to_str().unwrap()).await.unwrap();
-        assert!(!resolved.starts_with(r"\\?\"), "got {resolved}");
     }
 
     #[test]

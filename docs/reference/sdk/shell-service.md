@@ -38,7 +38,7 @@ interface ShellHandle {
   onDone(cb: (exitCode?: number) => void): void;
   /** Called if the process fails to start or the extension calls `abort()`. */
   onError(cb: (error: { code: string; message: string }) => void): void;
-  /** Send SIGKILL (Unix) / TerminateProcess (Windows) to the running process. */
+  /** Send SIGKILL to the running process. */
   abort(): void;
   /** Write string data to the running process's stdin. */
   write(data: string): Promise<void>;
@@ -221,7 +221,7 @@ Extension iframe                         Host (Svelte + Rust)
                                              inject extensionId
                                           5. ShellService.spawn():
                                              a. shell_resolve_path(program)
-                                                → absolute path via `which`/`where`
+                                                → absolute path via `which`
                                              b. shellConsentService.requestConsent()
                                                 → shell_check_trust (SQLite)
                                                 → if not trusted: show consent dialog
@@ -266,7 +266,7 @@ The host never awaits the process — `spawn()` returns `{ streaming: true }` im
 
 #### Aborting a process
 
-Calling `handle.abort()` sends SIGKILL on Unix or `TerminateProcess` on Windows. The process is killed immediately — no graceful shutdown. The `onError` callback fires with `{ code: 'ABORTED', message: 'Process was aborted by the extension' }`.
+Calling `handle.abort()` sends SIGKILL. The process is killed immediately — no graceful shutdown. The `onError` callback fires with `{ code: 'ABORTED', message: 'Process was aborted by the extension' }`.
 
 ```typescript
 const handle = shell.spawn({ program: 'yt-dlp', args: [url] });
@@ -341,7 +341,7 @@ The first time an extension calls `spawn()` for a given binary, the user sees a 
 ```
 YouTube Downloader wants to run a program:
 
-  $ /opt/homebrew/bin/yt-dlp          ← full resolved path, always
+  $ /usr/local/bin/yt-dlp           ← full resolved path, always
 
   Alias: yt-dlp
 
@@ -351,7 +351,7 @@ YouTube Downloader wants to run a program:
   [ Allow Always ]   [ Deny ]
 ```
 
-Clicking **Allow Always** stores the trust permanently in `~/.local/share/asyar/asyar_data.db` (or the platform equivalent). The next call to `spawn()` with the same binary skips the dialog entirely.
+Clicking **Allow Always** stores the trust permanently in `~/.local/share/asyar/asyar_data.db`. The next call to `spawn()` with the same binary skips the dialog entirely.
 
 Trust is scoped per extension: granting trust for `ffmpeg` to the YouTube Downloader extension does not grant `ffmpeg` access to any other extension.
 
@@ -365,23 +365,16 @@ The list shows every extension that has declared `shell:spawn`, grouped with the
 
 #### Security model
 
-- **Absolute path enforcement.** Short names (`ffmpeg`) are resolved to full absolute paths (`/opt/homebrew/bin/ffmpeg`) via `which`/`where` before consent is requested. The absolute path is what is stored in the trust table — PATH manipulation between approval and execution cannot redirect to a different binary.
+- **Absolute path enforcement.** Short names (`ffmpeg`) are resolved to full absolute paths (`/usr/bin/ffmpeg`) via `which` before consent is requested. The absolute path is what is stored in the trust table — PATH manipulation between approval and execution cannot redirect to a different binary.
 - **Defense-in-depth trust check.** The Rust `shell_spawn` command re-checks the trust table independently of the TS consent layer. A compromised TS layer cannot bypass the gate.
-- **Non-standard path warning.** The consent dialog flags binaries outside known safe locations (`/usr/bin`, `/usr/local/bin`, `/opt/homebrew/bin`, `C:\Windows\System32`, etc.).
+- **Non-standard path warning.** The consent dialog flags binaries outside known safe locations (`/usr/bin`, `/usr/local/bin`, etc.).
 - **Extension isolation.** Trust records are keyed by `(extensionId, binaryPath)`. Extensions cannot read or benefit from trust granted to other extensions.
 - **Uninstall cleanup.** When an extension is uninstalled, all its `shell_trusted_binaries` rows are deleted automatically.
 - **Process isolation & streaming.** Extensions can stream standard input into spawned processes and receive real-time stdout/stderr lines. Stdin pipes are scoped to the caller's extension ID and automatically cleaned up on exit or abort.
 
-#### Cross-platform notes
+#### Platform notes
 
-`ShellService` works on macOS, Windows, and Linux. The binary resolution strategy differs:
-
-| Platform      | Resolution command | Binary name example                         |
-| ------------- | ------------------ | ------------------------------------------- |
-| macOS / Linux | `which`            | `ffmpeg` → `/opt/homebrew/bin/ffmpeg`       |
-| Windows       | `where`            | `ffmpeg` → `C:\tools\ffmpeg\bin\ffmpeg.exe` |
-
-Extensions that wrap macOS-only tools (like `osascript` or `brew`) should declare `"platforms": ["mac"]` in their manifest to prevent install on unsupported platforms.
+Binaries are resolved with `which` (`ffmpeg` → `/usr/bin/ffmpeg`). Extensions that wrap tools that do not exist on Linux should constrain `platforms` in their manifest.
 
 #### Privacy & security note for reviewers
 

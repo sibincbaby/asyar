@@ -9,16 +9,9 @@
 
 `ScreenService` provides operating system screen interaction primitives: sampling individual pixel colors with the native eyedropper and extracting text from screen regions with on-device OCR.
 
-The picker chrome is platform-native:
+The picker uses the XDG desktop portal `Screenshot.PickColor` (native loupe) where available, with an X11 crosshair-grab fallback on bare sessions. Pure Wayland without a portal cannot pick colors, and the call rejects.
 
-- **macOS** — `NSColorSampler` (the same magnifier loupe the system color picker uses). No Screen Recording permission is required.
-- **Linux** — the XDG desktop portal `Screenshot.PickColor` (native loupe) where available, with an X11 crosshair-grab fallback on bare sessions.
-- **Windows** — a click-to-pick crosshair backed by `GetPixel`. There is no built-in visual pick-mode indicator, so show a HUD first (see below).
-
-OCR text recognition runs entirely on-device:
-
-- **macOS** — Apple Vision Framework.
-- **Linux & Windows** — Local Tesseract OCR engine.
+**`captureText()` is not yet supported on Linux**: the call rejects with a platform error ("Screen capture OCR is not yet supported on Linux"). The method stays in the API contract.
 
 Extracted text automatically passes through Asyar's secret redaction filter before being returned.
 
@@ -48,7 +41,7 @@ export interface IScreenService {
 
 #### Sampling colors (`pickColor`)
 
-**Hide the launcher first.** The launcher window sits under the cursor when you open the picker, so call `ctx.hideLauncher()` before `pickColor()` — otherwise the user's first pick lands on your own UI. On Windows, also surface a HUD (`FeedbackService.showHUD(...)`) so the user knows the eyedropper is armed, since the OS gives no visual cue.
+**Hide the launcher first.** The launcher window sits under the cursor when you open the picker, so call `ctx.hideLauncher()` before `pickColor()` — otherwise the user's first pick lands on your own UI.
 
 ```typescript
 import type { IScreenService } from 'asyar-sdk/contracts';

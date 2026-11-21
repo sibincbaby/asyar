@@ -22,7 +22,6 @@ import {
   actionShortcutMatchesChord,
   eventToActionChord,
   resolveActionChord,
-  type ActionShortcutPlatform,
 } from '../../lib/keyboard/actionShortcut';
 
 export interface DispatchableAction {
@@ -37,12 +36,11 @@ export interface ActionShortcutDispatcherDeps {
   getCandidates: () => readonly DispatchableAction[];
   /** Runs the matched action (confirm dialog, execute, failure feedback). */
   run: (action: DispatchableAction, opts: { reportSuccess: boolean }) => Promise<void> | void;
-  platform: ActionShortcutPlatform;
   /** True while the ⌘K panel or a modal owns the keyboard. */
   isSuppressed: () => boolean;
   /** Optional gate for bare `Enter` dispatch (defaults to allowing the main search input and non-interactive elements). */
   canDispatchEnter?: (event: KeyboardEvent) => boolean;
-  /** Optional probe for active text selection (used on Windows/Linux so Ctrl+X runs native Cut when text is selected). */
+  /** Optional probe for active text selection (so Ctrl+X runs native Cut when text is selected). */
   hasTextSelection?: () => boolean;
   /** Dev-time diagnostics for colliding declarations. */
   warn: (message: string) => void;
@@ -119,7 +117,7 @@ export function createActionShortcutDispatcher(
 
   function handle(event: KeyboardEvent): boolean {
     if (event.defaultPrevented || event.isComposing) return false;
-    const chord = eventToActionChord(event, deps.platform);
+    const chord = eventToActionChord(event);
     if (!chord) return false;
     if (chord === 'Enter') {
       const allowed = deps.canDispatchEnter
@@ -134,7 +132,7 @@ export function createActionShortcutDispatcher(
           );
       if (!allowed) return false;
     }
-    const allowConditionalCut = deps.platform !== 'macos' && chord === 'Mod+X';
+    const allowConditionalCut = chord === 'Mod+X';
     // Reserved chords belong to the launcher or to the focused text field. They
     // can never be registered, so this only guards against a stale candidate.
     if (RESERVED_ACTION_SHORTCUTS.has(chord) && !allowConditionalCut) return false;
@@ -148,7 +146,7 @@ export function createActionShortcutDispatcher(
 
     const matches = deps
       .getCandidates()
-      .filter((a) => actionShortcutMatchesChord(a.shortcut, chord, deps.platform));
+      .filter((a) => actionShortcutMatchesChord(a.shortcut, chord));
     if (matches.length === 0) return false;
 
     if (matches.length > 1 && !warned.has(chord)) {
@@ -180,15 +178,13 @@ export function createActionShortcutDispatcher(
     const chords = new Set<string>();
     for (const a of deps.getCandidates()) {
       if (!a.shortcut || a.shortcut === 'Enter') continue;
-      chords.add(resolveActionChord(a.shortcut, deps.platform));
+      chords.add(resolveActionChord(a.shortcut));
     }
     return [...chords];
   }
 
   function hasEnterCandidate(): boolean {
-    return deps
-      .getCandidates()
-      .some((a) => actionShortcutMatchesChord(a.shortcut, 'Enter', deps.platform));
+    return deps.getCandidates().some((a) => actionShortcutMatchesChord(a.shortcut, 'Enter'));
   }
 
   return { handle, activeChords, hasEnterCandidate };

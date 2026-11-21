@@ -243,9 +243,9 @@ Before adding any capability, action, IPC route, shortcut, event listener, or st
 **Case study — Duplicate extension configuration actions:**
 
 - **The Mistake**: When adding the built-in `"View Extension Commands"` action to `actionService.svelte.ts`, an agent proactively added a companion `"Configure Extension Settings"` action (`commands.showSettingsWindow('extensions', extensionId)`). The agent did not search the rest of the repository and missed that `ExtensionLoader.ts` was already dynamically auto-registering `"Extension Preferences"` (`act_${extensionId}_open_preferences`) with the exact same execution handler.
-- **The Consequence**: Highlighting any extension with preferences in the launcher produced two duplicate configuration actions in the ⌘K Action Panel.
+- **The Consequence**: Highlighting any extension with preferences in the launcher produced two duplicate configuration actions in the Ctrl+K Action Panel.
 - **The Fix & Guard**:
-  - Host-level platform actions (settings, deeplinks, command lists) belong exclusively in `ActionService` as single sources of truth with standard shortcuts (`⌘ ⇧ ,`).
+  - Host-level platform actions (settings, deeplinks, command lists) belong exclusively in `ActionService` as single sources of truth with standard shortcuts (`Ctrl+Shift+,`).
   - Extensions and built-ins register actions in code (`actionService.registerAction`); there are no manifest-declared actions.
 
 ### Shortcut & Action ID Collision Discipline
@@ -253,9 +253,9 @@ Before adding any capability, action, IPC route, shortcut, event listener, or st
 When introducing or modifying keyboard shortcuts or action identifiers:
 
 1. **Conflict Verification**: Always verify that the proposed key combination (e.g. `Super+Shift+,`, `Super+Shift+E`) is not already bound in `actionService.svelte.ts` or consumed by `launcherKeyboard.ts`.
-2. **Preserve Native Text Editing**: In views where a search bar or text input is active, never bind native text editing shortcuts (`Cmd+Backspace`, `Option+Backspace`, `Cmd+A`, `Cmd+C`, `Cmd+V`, `Cmd+X`, `Cmd+Z`) to list actions or item deletion.
-3. **Destructive Actions in ⌘K**: Destructive item operations (Delete, Move to Trash, Uninstall) belong in the `⌘K` Action Panel with `destructive: true` and appropriate confirmation dialogs, never bound to `Cmd+Backspace` / `Super+Backspace`.
-4. **Platform Neutrality**: Use `Super` for macOS Command and `Ctrl` for Windows/Linux.
+2. **Preserve Native Text Editing**: In views where a search bar or text input is active, never bind native text editing shortcuts (`Ctrl+Backspace`, `Ctrl+A`, `Ctrl+C`, `Ctrl+V`, `Ctrl+X`, `Ctrl+Z`) to list actions or item deletion.
+3. **Destructive Actions in Ctrl+K**: Destructive item operations (Delete, Move to Trash, Uninstall) belong in the `Ctrl+K` Action Panel with `destructive: true` and appropriate confirmation dialogs, never bound to `Ctrl+Backspace` / `Super+Backspace`.
+4. **Linux Modifiers**: `Mod` is `Ctrl` on Linux; `Super` is reserved for the compositor/desktop and is not bound by launcher actions.
 5. **No Unrequested Companion Features ("Propose, Don't Presume")**: If you identify a high-value companion action, command, or shortcut while implementing a task, **mention and propose it to the user with its rationale first** rather than silently adding extra unrequested features.
 
 ### Never Let IPC Boundaries Leak Implementation Details
@@ -287,7 +287,7 @@ Privacy and data security in Asyar are **fail-closed** by default. No private us
 Built-in features in Asyar (such as Calculator, Clipboard History, Snippets, Notes, Aliases, Window Management, and System) are first-class platform primitives, not pseudo-extensions. They do not incur dynamic manifest parsing or IPC closure-stripping side-tables (`inlineActions`). They consist of two distinct layers:
 
 1. **Platform Service Layer**: Rust engine, background SQLite store, system event watchers, and IPC service handlers registered in `buildServiceRegistry.ts`.
-2. **Bundled UI Layer**: Svelte views, command palette entries, search bar interceptors/accessories, ⌘K actions, and deeplink routes.
+2. **Bundled UI Layer**: Svelte views, command palette entries, search bar interceptors/accessories, Ctrl+K actions, and deeplink routes.
 
 ### Invariants for Built-in Features
 
@@ -309,7 +309,7 @@ Built-in features in Asyar (such as Calculator, Clipboard History, Snippets, Not
 A desktop launcher operates on two fundamentally divergent timescales:
 
 1. **The Ephemeral Window Presentation Lifecycle (Milliseconds)**:
-   - Triggered by hotkey (`Cmd+Space` / `Option+Space`).
+   - Triggered by hotkey (a user-configured hotkey, or `asyar-summon` on Wayland).
    - Must achieve sub-16ms first-frame render (60/120 FPS), instantaneous query typing, zero-IPC instant filtering, and sub-10ms dismissal (`hideWindow()`).
 2. **The Durable Extension Daemon Lifecycle (Minutes to Days)**:
    - Background extensions manage long-lived states: WebSocket connections, filesystem watchers, background timers, clipboard history collectors, and sync engines.

@@ -7,14 +7,14 @@ _Figure: the Asyar launcher, opened with the global hotkey._
 
 ## Install
 
-Download the latest release for your operating system from [asyar.org](https://asyar.org) and run the installer.
+Asyar runs on Linux (X11 and Wayland). Pick whichever install method suits you:
 
-- **macOS:** Open the `.dmg`, drag Asyar to your Applications folder, then open it. Because Asyar is not yet on the Mac App Store, macOS may show a security prompt the first time — open **System Settings → Privacy & Security** and click **Open Anyway**.
-- **Windows / Linux:** Run the downloaded installer and follow the on-screen steps.
+- **Install script:** `curl -fsSL https://raw.githubusercontent.com/Xoshbin/asyar/main/install.sh | sh` places the AppImage at `~/.local/bin/asyar` and a summon command at `~/.local/bin/asyar-summon`.
+- **AppImage or `.deb`:** Download the package from [Releases](https://github.com/Xoshbin/asyar/releases), then make the AppImage executable and run it, or install the `.deb` with your package manager.
 
-Once Asyar starts, a small icon appears in the menu bar (macOS) or system tray (Windows/Linux) to confirm it is running. The onboarding flow opens automatically.
+Once Asyar starts, a small icon appears in your system tray to confirm it is running. The onboarding flow opens automatically.
 
-## First-run setup (hotkey, accessibility, theme)
+## First-run setup (hotkey, theme)
 
 ![The first-run onboarding, choosing a global hotkey](../images/getting-started-onboarding.png)
 _Figure: the onboarding step where you pick your global hotkey._
@@ -25,15 +25,13 @@ Asyar walks you through a short onboarding flow the first time you launch it. He
 
 2. **Pick your global hotkey** — Press the key combination you want to use to summon Asyar from anywhere on your computer. Click inside the recorder, press your desired keys (for example, a modifier + letter, or a standalone function key like `F1`–`F24`), then click **Continue**. You can change this at any time in Settings.
 
-3. **Grant accessibility access (macOS only)** — On macOS, Asyar uses the Accessibility API to paste text snippets and capture your selected text. Click **Open System Settings**, find Asyar in the list, and enable the toggle. Windows and Linux users can skip this step — it is not required there. On macOS, text expansion won't work until you grant it.
+3. **Pick a theme** — Browse a selection of community themes and install one in one click, or stick with the built-in Asyar theme. This step is optional; you can change or add themes any time from the extension store.
 
-4. **Pick a theme** — Browse a selection of community themes and install one in one click, or stick with the built-in Asyar theme. This step is optional; you can change or add themes any time from the extension store.
+4. **Try a few extensions** — Asyar shows a curated list of popular extensions. Check the ones you want and click **Install selected**, or create your own with the **Create Extension with AI** tool.
 
-5. **Try a few extensions** — Asyar shows a curated list of popular extensions for your platform. Check the ones you want and click **Install selected**, or create your own with the **Create Extension with AI** tool.
+5. **One-keystroke AI commands & Zero-Key Setup** — Connect to local authenticated CLIs (Google `agy` or OpenAI `codex`) without an API key, or enter an API key, and set up your initial silent AI commands (like the **Grammar Fix** command: select text in any app, press the hotkey, and the selected text is replaced with the corrected version).
 
-6. **One-keystroke AI commands & Zero-Key Setup** — Connect to local authenticated CLIs (Google `agy` or OpenAI `codex`) without an API key, or enter an API key, and set up your initial silent AI commands (like the **Grammar Fix** command: select text in any app, press the hotkey, and the selected text is replaced with the corrected version).
-
-7. **Done & Walkthrough** — Onboarding is complete. Press your new hotkey to open the launcher, or explore the [Walkthrough](./features/walkthrough.md) to turn Asyar features into daily habits as tasks tick themselves off from real use.
+6. **Done & Walkthrough** — Onboarding is complete. Press your new hotkey to open the launcher, or explore the [Walkthrough](./features/walkthrough.md) to turn Asyar features into daily habits as tasks tick themselves off from real use.
 
 You can re-run onboarding at any time from **Settings → General → Re-run onboarding**.
 
@@ -45,12 +43,12 @@ To change your hotkey after setup, open **Settings → General** (or **Settings 
 
 Asyar supports:
 
-- **Modifier combinations**: For example `⌥Space`, `⌘Space`, or `Ctrl+Alt+Space`.
-- **Hyper Key combinations (`✦`)**: Using all four modifiers (`Ctrl + Alt + Shift + Cmd/Super`) displays as the clean `✦` glyph.
-- **Standalone function keys (`F1`–`F24`) & Copilot key**: Function keys (including extended function keys like `F13`–`F24` and the Windows Copilot key `F23`) can be assigned directly without any modifier keys. This allows you to use remapped keys (such as `Caps Lock` mapped to `F16` via Karabiner-Elements or PowerToys), hardware macro pads, or Stream Decks as dedicated one-tap launcher triggers.
+- **Modifier combinations**: For example `Alt+Space`, `Super+Space`, or `Ctrl+Alt+Space`.
+- **Hyper Key combinations (`✦`)**: Using all four modifiers (`Ctrl + Alt + Shift + Super`) displays as the clean `✦` glyph.
+- **Standalone function keys (`F1`–`F24`) & Copilot key**: Function keys (including extended function keys like `F13`–`F24`) can be assigned directly without any modifier keys. This allows you to use remapped keys (such as `Caps Lock` mapped to `F16` via `xmodmap` or `keyd`), hardware macro pads, or Stream Decks as dedicated one-tap launcher triggers.
 - **Typing protection**: Standard alphanumeric characters (`A–Z`, `0–9`, space, punctuation) strictly require at least one modifier key so that normal typing in other applications is never intercepted.
 
-> **Linux (Wayland) Users:** Wayland compositors do not allow background apps to capture global hotkeys directly. Instead, bind a custom shortcut in your desktop settings (GNOME, KDE Plasma, Hyprland, Sway) to run the `asyar` command. Re-running `asyar` automatically toggles the visibility of the running instance. See [Troubleshooting](./troubleshooting.md#the-hotkey-doesnt-open-asyar) for step-by-step instructions.
+> **Wayland users:** Wayland compositors do not allow background apps to capture global hotkeys directly. Instead, bind a custom shortcut in your desktop settings (GNOME, KDE Plasma, Hyprland, Sway) to run the `asyar-summon` command. Running `asyar-summon` toggles the visibility of the running instance. See [Troubleshooting](./troubleshooting.md#the-hotkey-doesnt-open-asyar) for step-by-step instructions.
 
 If the hotkey stops working, see [Troubleshooting](./troubleshooting.md) for common causes.
 
@@ -62,10 +60,10 @@ Start typing anything — an app name, a command, a URL, or a calculation. Resul
 
 A few things to try right away:
 
-- Type an app name (for example, "Safari") and press `Enter` to launch it.
+- Type an app name (for example, "Firefox") and press `Enter` to launch it.
 - Type a URL (for example, "github.com") and press `Enter` to open it in your browser.
 - Type a simple calculation (for example, "12 * 7") and see the answer in the results list.
-- Press `⌘K` with any result selected to open the **action panel** and see what else you can do with that item.
+- Press `Ctrl+K` with any result selected to open the **action panel** and see what else you can do with that item.
 - Press `Esc` to step back: it clears your search, closes anything you've opened, and finally hides Asyar.
 
 Once you are comfortable with the basics, explore [The Basics](./the-basics.md) to learn how results are ranked, how the action panel works, and how to use the AI chip.

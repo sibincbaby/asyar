@@ -6,7 +6,6 @@ import {
   eventToActionChord,
   resolveActionChord,
   RESERVED_ACTION_SHORTCUTS,
-  type ActionShortcutPlatform,
 } from './actionShortcut';
 
 const ev = (init: KeyboardEventInit & { code?: string }) => new KeyboardEvent('keydown', init);
@@ -95,130 +94,89 @@ describe('validateActionShortcut', () => {
 });
 
 describe('eventToActionChord', () => {
-  it('maps ⌘ to Mod on macOS', () => {
-    expect(eventToActionChord(ev({ key: 'n', code: 'KeyN', metaKey: true }), 'macos')).toBe(
-      'Mod+N',
-    );
+  it('maps Ctrl to Mod', () => {
+    expect(eventToActionChord(ev({ key: 'n', code: 'KeyN', ctrlKey: true }))).toBe('Mod+N');
   });
 
-  it('maps Ctrl to Mod on Windows and Linux', () => {
-    for (const p of ['windows', 'other'] as ActionShortcutPlatform[]) {
-      expect(eventToActionChord(ev({ key: 'n', code: 'KeyN', ctrlKey: true }), p)).toBe('Mod+N');
-    }
-  });
-
-  it('never treats macOS Ctrl+N as Mod+N', () => {
-    expect(eventToActionChord(ev({ key: 'n', code: 'KeyN', ctrlKey: true }), 'macos')).toBeNull();
-  });
-
-  it('never treats the Windows/Super key as Mod on Windows and Linux', () => {
-    expect(eventToActionChord(ev({ key: 'n', code: 'KeyN', metaKey: true }), 'windows')).toBeNull();
-    expect(eventToActionChord(ev({ key: 'n', code: 'KeyN', metaKey: true }), 'other')).toBeNull();
-  });
-
-  it('rejects both ⌘ and Ctrl held together for non-Control+Mod+Enter chords', () => {
+  it('never treats the Super key as Mod', () => {
+    expect(eventToActionChord(ev({ key: 'n', code: 'KeyN', metaKey: true }))).toBeNull();
     expect(
-      eventToActionChord(ev({ key: 'n', code: 'KeyN', metaKey: true, ctrlKey: true }), 'macos'),
+      eventToActionChord(ev({ key: 'n', code: 'KeyN', metaKey: true, ctrlKey: true })),
     ).toBeNull();
   });
 
-  it('maps Control+Mod+Enter on macOS and Control+X / Control+Shift+X on macOS', () => {
-    expect(
-      eventToActionChord(
-        ev({ key: 'Enter', code: 'Enter', ctrlKey: true, metaKey: true }),
-        'macos',
-      ),
-    ).toBe('Control+Mod+Enter');
-    expect(eventToActionChord(ev({ key: 'x', code: 'KeyX', ctrlKey: true }), 'macos')).toBe(
-      'Control+X',
+  it('maps Ctrl+X / Ctrl+Shift+X to Mod chords', () => {
+    expect(eventToActionChord(ev({ key: 'x', code: 'KeyX', ctrlKey: true }))).toBe('Mod+X');
+    expect(eventToActionChord(ev({ key: 'X', code: 'KeyX', ctrlKey: true, shiftKey: true }))).toBe(
+      'Mod+Shift+X',
     );
-    expect(
-      eventToActionChord(ev({ key: 'X', code: 'KeyX', ctrlKey: true, shiftKey: true }), 'macos'),
-    ).toBe('Control+Shift+X');
   });
 
-  it('maps Enter and Alt+Enter across platforms', () => {
-    for (const p of ['macos', 'windows', 'other'] as ActionShortcutPlatform[]) {
-      expect(eventToActionChord(ev({ key: 'Enter', code: 'Enter' }), p)).toBe('Enter');
-      expect(eventToActionChord(ev({ key: 'Enter', code: 'Enter', altKey: true }), p)).toBe(
-        'Alt+Enter',
-      );
-      expect(eventToActionChord(ev({ key: 'Enter', code: 'Enter', shiftKey: true }), p)).toBeNull();
-    }
+  it('maps Enter and Alt+Enter', () => {
+    expect(eventToActionChord(ev({ key: 'Enter', code: 'Enter' }))).toBe('Enter');
+    expect(eventToActionChord(ev({ key: 'Enter', code: 'Enter', altKey: true }))).toBe('Alt+Enter');
+    expect(eventToActionChord(ev({ key: 'Enter', code: 'Enter', shiftKey: true }))).toBeNull();
   });
 
   it('orders modifiers canonically', () => {
     expect(
       eventToActionChord(
-        ev({ key: 'C', code: 'KeyC', metaKey: true, shiftKey: true, altKey: true }),
-        'macos',
+        ev({ key: 'C', code: 'KeyC', ctrlKey: true, shiftKey: true, altKey: true }),
       ),
     ).toBe('Mod+Alt+Shift+C');
   });
 
   it('uses the physical key so Shift/Alt do not change it', () => {
-    expect(
-      eventToActionChord(ev({ key: '<', code: 'Comma', metaKey: true, shiftKey: true }), 'macos'),
-    ).toBe('Mod+Shift+,');
+    expect(eventToActionChord(ev({ key: '<', code: 'Comma', ctrlKey: true, shiftKey: true }))).toBe(
+      'Mod+Shift+,',
+    );
   });
 
   it('falls back to event.key when code is absent (synthetic iframe events)', () => {
-    expect(eventToActionChord(ev({ key: 'c', metaKey: true, shiftKey: true }), 'macos')).toBe(
-      'Mod+Shift+C',
-    );
+    expect(eventToActionChord(ev({ key: 'c', ctrlKey: true, shiftKey: true }))).toBe('Mod+Shift+C');
   });
 
   it('returns null for a bare modifier press', () => {
     expect(
-      eventToActionChord(ev({ key: 'Meta', code: 'MetaLeft', metaKey: true }), 'macos'),
+      eventToActionChord(ev({ key: 'Control', code: 'ControlLeft', ctrlKey: true })),
     ).toBeNull();
   });
 
   it('allows bare F-keys', () => {
-    expect(eventToActionChord(ev({ key: 'F5', code: 'F5' }), 'macos')).toBe('F5');
+    expect(eventToActionChord(ev({ key: 'F5', code: 'F5' }))).toBe('F5');
   });
 
   it('returns null for plain keys other than Enter/F-keys', () => {
-    expect(eventToActionChord(ev({ key: 'n', code: 'KeyN' }), 'macos')).toBeNull();
-    expect(eventToActionChord(ev({ key: ' ', code: 'Space' }), 'macos')).toBeNull();
+    expect(eventToActionChord(ev({ key: 'n', code: 'KeyN' }))).toBeNull();
+    expect(eventToActionChord(ev({ key: ' ', code: 'Space' }))).toBeNull();
   });
 });
 
 describe('eventToActionChord: keyboard layouts', () => {
-  it('follows the layout character for letters (Dvorak ⌘C is still copy)', () => {
+  it('follows the layout character for letters (Dvorak Ctrl+C is still copy)', () => {
     // On Dvorak the key that types "c" is the physical KeyI.
-    expect(eventToActionChord(ev({ key: 'c', code: 'KeyI', metaKey: true }), 'macos')).toBe(
-      'Mod+C',
-    );
+    expect(eventToActionChord(ev({ key: 'c', code: 'KeyI', ctrlKey: true }))).toBe('Mod+C');
   });
 
   it('falls back to the physical key when the layout character is not ASCII', () => {
     // Cyrillic layout: the KeyN key types "т".
-    expect(eventToActionChord(ev({ key: 'т', code: 'KeyN', ctrlKey: true }), 'windows')).toBe(
-      'Mod+N',
-    );
-    // macOS ⌥ turns the character into a symbol; the binding stays on N.
-    expect(
-      eventToActionChord(ev({ key: '˜', code: 'KeyN', metaKey: true, altKey: true }), 'macos'),
-    ).toBe('Mod+Alt+N');
+    expect(eventToActionChord(ev({ key: 'т', code: 'KeyN', ctrlKey: true }))).toBe('Mod+N');
   });
 
-  it('never treats AltGr (Ctrl+Alt on Windows) as an action chord', () => {
+  it('never treats AltGr as an action chord', () => {
     const e = ev({ key: 'ć', code: 'KeyC', ctrlKey: true, altKey: true });
     Object.defineProperty(e, 'getModifierState', { value: (k: string) => k === 'AltGraph' });
-    expect(eventToActionChord(e, 'windows')).toBeNull();
+    expect(eventToActionChord(e)).toBeNull();
   });
 });
 
 describe('resolveActionChord', () => {
   it('resolves Mod to the physical modifier the iframe can see', () => {
-    expect(resolveActionChord('Mod+Shift+C', 'macos')).toBe('Super+Shift+C');
-    expect(resolveActionChord('Mod+Shift+C', 'windows')).toBe('Control+Shift+C');
-    expect(resolveActionChord('Mod+Alt+N', 'other')).toBe('Control+Alt+N');
-    expect(resolveActionChord('Control+Mod+Enter', 'macos')).toBe('Control+Super+Enter');
+    expect(resolveActionChord('Mod+Shift+C')).toBe('Control+Shift+C');
+    expect(resolveActionChord('Mod+Alt+N')).toBe('Control+Alt+N');
   });
 
   it('leaves bare F-keys alone', () => {
-    expect(resolveActionChord('F5', 'macos')).toBe('F5');
+    expect(resolveActionChord('F5')).toBe('F5');
   });
 });

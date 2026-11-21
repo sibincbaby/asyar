@@ -11,7 +11,7 @@ Asyar uses your Asyar account for cloud sync and subscription features. Signing 
 
 To sign in:
 
-1. Open **Settings → Account** (`⌘,`, then the Account tab).
+1. Open **Settings → Account** (`Ctrl+,`, then the Account tab).
 2. Click **Sign in with GitHub** or **Sign in with Google**.
 3. A browser window opens for authentication. Complete the login there.
 4. Asyar polls for confirmation. Once your browser finishes, the launcher updates automatically.

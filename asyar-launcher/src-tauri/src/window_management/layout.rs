@@ -179,7 +179,7 @@ pub fn calculate_preset_action(
         _ => {
             return Err(AppError::Validation(format!(
                 "Unknown preset ID: {preset_id}"
-            )))
+            )));
         }
     };
 

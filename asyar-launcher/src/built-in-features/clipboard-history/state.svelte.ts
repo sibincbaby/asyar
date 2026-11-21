@@ -16,7 +16,6 @@ import * as commands from '../../lib/ipc/commands';
 import { parseClipboardSearchQuery } from './queryFilterParser';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { openerService } from '../../services/opener/openerService';
-import { getHostPlatform } from '../../lib/keyboard/hostPlatform';
 import { IMAGE_EXT_RE, parseFilePaths } from './filePreview';
 
 export function getItemTitle(item: {
@@ -566,11 +565,9 @@ export class ClipboardViewStateClass {
     }
   }
 
-  async openPreviewFile(path: string, withPreview: boolean): Promise<void> {
+  async openPreviewFile(path: string): Promise<void> {
     try {
-      const options =
-        withPreview && getHostPlatform() === 'macos' ? { with: 'Preview' } : undefined;
-      await openerService.openPath(null, path, options);
+      await openerService.openPath(null, path);
     } catch (error) {
       (this.logService ?? globalLogService).error(`Failed to open file ${path}: ${String(error)}`);
       void feedbackService.report({
@@ -612,7 +609,7 @@ export class ClipboardViewStateClass {
   async openSelectedItem(): Promise<void> {
     const target = await this.getPreviewTarget();
     if (target) {
-      await this.openPreviewFile(target.path, target.isImage);
+      await this.openPreviewFile(target.path);
     }
   }
 

@@ -93,7 +93,7 @@ A constant evaluated at import time is computed **once**, before the system loca
 ```typescript
 export const LAUNCHER_SHORTCUTS = [
   {
-    keys: ['⌘', ','],
+    keys: ['Ctrl', ','],
     get label() {
       return t('shortcuts_help.open_settings');
     },

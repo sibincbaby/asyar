@@ -20,8 +20,6 @@ impl BrowserScanner {
         let mut out = Vec::new();
         self.scan_chromium(&mut out);
         self.scan_firefox(&mut out);
-        #[cfg(target_os = "macos")]
-        self.scan_safari(&mut out);
         out
     }
 
@@ -84,17 +82,6 @@ impl BrowserScanner {
             }
         }
     }
-
-    #[cfg(target_os = "macos")]
-    fn scan_safari(&self, out: &mut Vec<BrowserId>) {
-        if paths::safari_root(&self.home).exists() {
-            out.push(BrowserId {
-                family: BrowserFamily::Safari,
-                variant: "safari".to_string(),
-                profile_id: "Default".to_string(),
-            });
-        }
-    }
 }
 
 impl Default for BrowserScanner {
@@ -155,16 +142,6 @@ mod tests {
         assert!(browsers
             .iter()
             .any(|b| b.family == BrowserFamily::Firefox && b.variant == "firefox"));
-    }
-
-    #[test]
-    #[cfg(target_os = "macos")]
-    fn detects_safari_when_root_exists() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(paths::safari_root(dir.path())).unwrap();
-        let scanner = BrowserScanner::with_home(dir.path().to_path_buf());
-        let browsers = scanner.scan();
-        assert!(browsers.iter().any(|b| b.family == BrowserFamily::Safari));
     }
 
     #[test]

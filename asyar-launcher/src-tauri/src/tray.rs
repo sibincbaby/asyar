@@ -7,25 +7,8 @@ use tauri::{
 
 pub const TRAY_ID: &str = "asyar-tray";
 
-/// Watchdog for the macOS flash-free settings reveal. The webview is warm
-/// (predeclared window, close hides it), so this matches the HUD's bound.
-#[cfg(target_os = "macos")]
-const SETTINGS_REVEAL_FALLBACK_MS: u64 = 250;
-
-/// Show + focus the settings window. On macOS a hidden window's webview is
-/// throttled, so its last composite predates the hidden spell; a plain
-/// `show()` paints that stale frame before WebKit catches up. Reveal on the
-/// next presented frame instead (same treatment as onboarding; see
-/// `reveal_window_after_first_paint`). Already-visible windows just refocus.
+/// Show + focus the settings window.
 fn show_settings_window(window: &tauri::WebviewWindow) {
-    #[cfg(target_os = "macos")]
-    if !window.is_visible().unwrap_or(false) {
-        crate::platform::macos::reveal_window_after_first_paint(
-            window,
-            SETTINGS_REVEAL_FALLBACK_MS,
-        );
-        return;
-    }
     let _ = window.show();
     let _ = window.set_focus();
 }
@@ -65,13 +48,6 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let menu = Menu::with_items(app, &[&settings_i, &check_updates_i, &quit_i])?;
 
     let show_tray = crate::read_show_tray_icon(app.app_handle());
-    // macOS: menu bar template image so the menu bar tints it for
-    // light/dark mode. Elsewhere: the full-colour app icon.
-    #[cfg(target_os = "macos")]
-    let builder = TrayIconBuilder::with_id(TRAY_ID)
-        .icon(tauri::include_image!("icons/MenuBarIconTemplate36x36.png"))
-        .icon_as_template(true);
-    #[cfg(not(target_os = "macos"))]
     let builder = TrayIconBuilder::with_id(TRAY_ID).icon(
         app.default_window_icon()
             .ok_or("Default window icon not configured")?

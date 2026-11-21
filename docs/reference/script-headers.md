@@ -225,7 +225,7 @@ it.
 date '+%H:%M:%S'
 ```
 
-### Inline battery (macOS)
+### Inline battery
 
 ```bash
 #!/bin/bash
@@ -234,7 +234,7 @@ date '+%H:%M:%S'
 # @asyar.mode inline
 # @asyar.refreshTime 60s
 
-pmset -g batt | grep -Eo '[0-9]+%'
+cat /sys/class/power_supply/BAT0/capacity
 ```
 
 ### Search command with arguments

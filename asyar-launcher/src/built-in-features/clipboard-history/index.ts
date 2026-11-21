@@ -1,5 +1,4 @@
 import { t } from '../../services/i18n';
-import { getHostPlatform } from '../../lib/keyboard/hostPlatform';
 import { clipboardViewState, fetchFullItemForId, getItemTitle } from './state.svelte';
 import DefaultView from './DefaultView.svelte'; // Import renamed component
 import { actionService } from '../../services/action/actionService.svelte';
@@ -351,7 +350,7 @@ class ClipboardHistoryExtension implements Extension {
       label: t('features.clipboard.act.paste_plain'),
       description: t('features.clipboard.act.paste_plain_desc'),
       icon: 'icon:type',
-      shortcut: getHostPlatform() === 'macos' ? 'Control+Mod+Enter' : 'Mod+Shift+Enter',
+      shortcut: 'Mod+Shift+Enter',
       extensionId: 'clipboard-history',
       context: ActionContext.EXTENSION_VIEW,
       category: 'clipboard-action',
@@ -383,14 +382,8 @@ class ClipboardHistoryExtension implements Extension {
 
     actionService.registerAction({
       id: 'clipboard-history:open-preview',
-      title:
-        getHostPlatform() === 'macos'
-          ? t('features.clipboard.ui.open_in_preview')
-          : t('features.clipboard.ui.open_image'),
-      label:
-        getHostPlatform() === 'macos'
-          ? t('features.clipboard.ui.open_in_preview')
-          : t('features.clipboard.ui.open_image'),
+      title: t('features.clipboard.ui.open_image'),
+      label: t('features.clipboard.ui.open_image'),
       description: t('features.clipboard.act.open_preview_desc'),
       icon: 'icon:image',
       shortcut: 'Mod+O',
@@ -405,18 +398,8 @@ class ClipboardHistoryExtension implements Extension {
 
     actionService.registerAction({
       id: 'clipboard-history:reveal',
-      title:
-        getHostPlatform() === 'macos'
-          ? t('features.clipboard.ui.reveal_title')
-          : getHostPlatform() === 'windows'
-            ? t('core_actions.reveal_app_win')
-            : t('core_actions.reveal_app'),
-      label:
-        getHostPlatform() === 'macos'
-          ? t('features.clipboard.ui.reveal_title')
-          : getHostPlatform() === 'windows'
-            ? t('core_actions.reveal_app_win')
-            : t('core_actions.reveal_app'),
+      title: t('core_actions.reveal_app'),
+      label: t('core_actions.reveal_app'),
       description: t('features.clipboard.act.reveal_desc'),
       icon: 'icon:folder',
       shortcut: 'Mod+R',

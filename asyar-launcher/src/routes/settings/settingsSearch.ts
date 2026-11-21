@@ -58,9 +58,6 @@ export const SETTINGS_ROW_CATALOG: CatalogEntry[] = [
   { labelKey: 'settings.advanced.developer_mode', tab: 'advanced', keywords: ['developer'] },
   { labelKey: 'settings.runtimes.title', tab: 'advanced', keywords: ['node', 'bun', 'python'] },
   { labelKey: 'settings.tasks.title', tab: 'advanced', keywords: ['background', 'schedule'] },
-  { labelKey: 'settings.privacy.accessibility_access', tab: 'privacy' },
-  { labelKey: 'settings.privacy.calendar_access', tab: 'privacy' },
-  { labelKey: 'settings.privacy.reminders_access', tab: 'privacy' },
   {
     labelKey: 'settings.privacy.active_detectors',
     tab: 'privacy',

@@ -30,7 +30,7 @@ Worker; iframes are reserved for visual canvases (see the architecture rules in
 **How the worker starts.** The launcher creates a module `Worker` from a small
 Blob bootstrap that sets `self.__ASYAR_ROLE__ = 'worker'`, the extension id and
 the mount token, then `import()`s the extension's `background.main` module from
-`asyar-extension://<id>/` (`http://asyar-extension.localhost/<id>/` on Windows).
+`asyar-extension://<id>/`.
 See [`workerHost.svelte.ts`](../../asyar-launcher/src/services/extension/workerHost.svelte.ts).
 Because there is no `document` in that context, the worker's whole module graph
 must evaluate without it — which is why extension builds must set

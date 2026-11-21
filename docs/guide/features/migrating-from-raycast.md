@@ -14,13 +14,13 @@ Thousands of developers are switching to Asyar for a simpler, faster, and more p
 - **Free Bring Your Own Key (BYOK) AI:** Connect your own API keys for Claude, OpenAI, Google Gemini, Ollama, OpenRouter, or any OpenAI-compatible provider. No $8–$10/month Pro paywalls, no artificial credit caps, and full autonomous tool calling out of the box.
 - **Instant Native Performance:** Built with **Tauri v2 + Rust** and a fine-grained **Svelte 5** frontend. Summons in 12–15 ms without the memory overhead of bundled Chromium or sluggish hybrid webviews.
 - **Double-Gated Security:** Raycast runs extensions with unsandboxed Node.js child processes. Asyar runs extensions in isolated iframes guarded by two independent security gates: a frontend IPC filter and a Rust kernel permission verifier.
-- **Encrypted at Rest:** Your snippets, clipboard history, and credentials are encrypted with AES-256-GCM using keys stored directly in your OS Keychain (macOS Keychain Services, Windows Credential Manager, or Linux Secret Service).
+- **Encrypted at Rest:** Your snippets, clipboard history, and credentials are encrypted with AES-256-GCM using keys stored directly in your OS Keychain (Linux Secret Service).
 
 ---
 
 ## Step 1: Export Your Data from Raycast
 
-1. Open Raycast (`⌥Space` or your configured hotkey).
+1. Open Raycast (`Alt+Space` or your configured hotkey).
 2. Type **Export Settings & Data** and press `Enter`.
 3. Choose a destination folder. Raycast will save a `.rayconfig` archive containing your snippets, quicklinks, hotkeys, and aliases.
 4. _(Optional)_ If you specify an export password in Raycast, make sure to keep it handy — Asyar's importer supports password-protected archives.
@@ -35,7 +35,7 @@ Thousands of developers are switching to Asyar for a simpler, faster, and more p
 You can trigger the import through any of these entry points:
 
 1. **On First Launch (Welcome Tour):** If you are opening Asyar for the first time, click **Import from Raycast…** directly on the Welcome screen.
-2. **From Command Search:** Summon Asyar (`⌘K` or `Ctrl+K`), type `Import from Raycast`, and press `Enter`.
+2. **From Command Search:** Summon Asyar (`Ctrl+K`), type `Import from Raycast`, and press `Enter`.
 3. **From Settings:** Open **Settings → Backup** and click **Import from Raycast…**.
 
 ### In the Import Screen:
@@ -66,11 +66,10 @@ Here is how Raycast commands and concepts translate to Asyar:
 | **Raycast AI (Pro)**    | [AI & Agents](./ai-and-agents.md)           | 100% free BYOK across 6 providers (Claude, OpenAI, Gemini, Ollama, OpenRouter). Full autonomous tool calling with MCP support and zero monthly subscriptions. |
 | **AI Text Replacement** | [Silent AI Commands](./ai-and-agents.md)    | Run prompts silently against selected text or clipboard; responses replace text in-place across any app without opening a launcher window.                    |
 | **Switch Windows**      | Switch Windows                              | Fast fuzzy search across all active application windows with instant focus switching and no telemetry.                                                        |
-| **Screen OCR**          | Screen OCR                                  | Native offline text recognition powered by Apple Vision on macOS. Copies extracted text straight to your clipboard with automatic secret redaction.           |
 | **Window Management**   | [Window Management](./window-management.md) | 17 built-in layout presets, multi-display cycling, custom layout saving, and instant keyboard undo ("Restore Previous").                                      |
 | **Scripts**             | [Scripts](./scripts.md)                     | Watched folder execution with rich `@asyar.*` metadata headers and live progress tracking dots.                                                               |
 | **Clipboard History**   | [Clipboard History](./clipboard-history.md) | Local encrypted database, configurable password manager denylist, and automatic credit card/API key redaction before storage.                                 |
-| **File Search**         | [File Search](./file-search.md)             | Bounded per-keystroke cost with a Rust arena index; Quick Look-style previews without loading heavy file payloads into memory.                                |
+| **File Search**         | [File Search](./file-search.md)             | Bounded per-keystroke cost with a Rust arena index; Image thumbnails and text previews without loading heavy file payloads into memory.                       |
 | **Extensions Store**    | [Extensions](./extensions.md)               | Double-gated security model. Extensions run in sandboxed iframes with explicit permissions enforced at both the IPC router and Rust kernel levels.            |
 | **System Commands**     | System Commands                             | Instant native controls for Sleep, Lock Screen, Restart, Shutdown, Empty Trash, and Volume.                                                                   |
 

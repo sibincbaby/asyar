@@ -6,7 +6,7 @@
 
 File Search indexes your home folder in the background and lets you find any file by name — instantly, no matter how large your home folder is. It excludes caches, dependency folders (`node_modules`, `.git`, build output, …), and system/VM directories by default, so results are files you actually care about.
 
-The detail pane on the right shows a real preview: images render as thumbnails, text and code files show their content, and (on macOS) other file types — PDFs, videos, archives — get a Quick Look-style preview too. The list itself shows small thumbnails for images so you can spot the file you want without opening the preview.
+The detail pane on the right shows a real preview: images render as thumbnails, and text and code files show their content. The list itself shows small thumbnails for images so you can spot the file you want without opening the preview.
 
 ### Inline results in Root Search
 
@@ -14,7 +14,7 @@ You don't always need to enter File Search to find a document. As you type queri
 
 - Up to 4 relevant file results are displayed with native OS file icons and parent-folder paths (e.g., `~/Documents/Projects`).
 - When more matches exist, a **Search files for “…”…** row appears at the bottom of the file block. Press `Enter` on it to jump straight into the full File Search view with your query preserved.
-- On file rows in root search, press `⌘Y` to open Quick Look preview (leaving `Space` free for typing multi-word search queries), or press `⌘K` to open the full file Action Panel.
+- On file rows in root search, press `Ctrl+Y` to open the file in its default app (leaving `Space` free for typing multi-word search queries), or press `Ctrl+K` to open the full file Action Panel.
 - If you prefer root search to only show apps, commands, and extensions, you can disable inline file results anytime in **Settings → File Search → Show in Root Search**.
 
 ## How to use it
@@ -22,46 +22,46 @@ You don't always need to enter File Search to find a document. As you type queri
 1. Open Asyar and type `files` — or select **Search Files** from search results.
 2. Start typing a filename. Results narrow as you type; the more specific your query, the faster it narrows.
 3. Use `↑` / `↓` to move through results. The preview pane on the right updates as you move.
-4. To narrow by file type, click the dropdown in the search bar (or press `⌘P`) and choose Documents, Images, Code, Audio & Video, Archives, or Folders.
+4. To narrow by file type, click the dropdown in the search bar (or press `Ctrl+P`) and choose Documents, Images, Code, Audio & Video, Archives, or Folders.
 5. Press `Enter` to open the selected file with its default app.
 6. Double-click a row to open it directly.
 
 ## Shortcuts & actions
 
-| Action                          | How                                                    |
-| ------------------------------- | ------------------------------------------------------ |
-| Open file                       | `Enter` or double-click                                |
-| Quick Look preview              | `Space` (in File Search view) or `⌘Y` (in root search) |
-| Reveal in Finder                | `⌘R`                                                   |
-| Copy Path                       | `⌘⇧C`                                                  |
-| Copy Name                       | `⌘⌥C`                                                  |
-| Open in Terminal                | `⌘T`                                                   |
-| Toggle Pin                      | `⌘.`                                                   |
-| Send to Asyar AI                | `Tab` or `⌘I`                                          |
-| Search Everywhere (Deep Search) | `⌘⇧F`                                                  |
-| Move to Trash (with confirm)    | `⌃X`                                                   |
-| Clear Search History (confirm)  | `⌃⇧X` (in File Search view)                            |
-| Open action panel               | `⌘K`                                                   |
+| Action                             | How                                  |
+| ---------------------------------- | ------------------------------------ |
+| Open file                          | `Enter` or double-click              |
+| Open in default app ("Quick Look") | `Ctrl+Y` (in root search)            |
+| Reveal in File Manager             | `Ctrl+R`                             |
+| Copy Path                          | `Ctrl+Shift+C`                       |
+| Copy Name                          | `Ctrl+Alt+C`                         |
+| Open in Terminal                   | `Ctrl+T`                             |
+| Toggle Pin                         | `Ctrl+.`                             |
+| Send to Asyar AI                   | `Tab` or `Ctrl+I`                    |
+| Search Everywhere (Deep Search)    | `Ctrl+Shift+F`                       |
+| Move to Trash (with confirm)       | `Ctrl+X`                             |
+| Clear Search History (confirm)     | `Ctrl+Shift+X` (in File Search view) |
+| Open action panel                  | `Ctrl+K`                             |
 
-**Action panel (⌘K) entries while the list is open:**
+**Action panel (Ctrl+K) entries while the list is open:**
 
-- **Open** (`↵`) — opens the selected file with its default app (in File Search view).
-- **Reveal in Finder** (`⌘R`) — shows the file in your system file manager.
-- **Copy Path / Copy Name** (`⌘⇧C` / `⌘⌥C`) — copies the absolute path or just the filename to your clipboard.
-- **Open in Terminal** (`⌘T`) — opens the file's containing folder in your default terminal app.
-- **Toggle Pin** (`⌘.`) — pins the file so it shows up first when you open File Search with no query yet, or unpins it.
-- **Move to Trash** (`⌃X`) — moves the file to the system trash. This is destructive — Asyar asks for confirmation.
-- **Quick Look** (`Space` in view / `⌘Y` in root search) — a full preview without opening the file.
-- **Send to Asyar AI** (`⌘I`) — opens AI Chat with the file's path (and, for text/code files under the size cap, its contents) pre-filled so you can ask a question about it.
-- **Search Everywhere** (`⌘⇧F`) — escalates your current query to your OS's native search (Spotlight on macOS, Everything on Windows if installed, `plocate` on Linux if installed). Useful for finding something outside your indexed folders, or by content rather than name. This runs once, on demand — never automatically as you type.
-- **Clear Search History** (`⌃⇧X`) — forgets which files you've selected before (used to rank frequently-opened files higher). Also available from the root search bar without opening the view.
+- **Open** (`Enter`) — opens the selected file with its default app (in File Search view).
+- **Reveal in File Manager** (`Ctrl+R`) — shows the file in your system file manager.
+- **Copy Path / Copy Name** (`Ctrl+Shift+C` / `Ctrl+Alt+C`) — copies the absolute path or just the filename to your clipboard.
+- **Open in Terminal** (`Ctrl+T`) — opens the file's containing folder in your default terminal app.
+- **Toggle Pin** (`Ctrl+.`) — pins the file so it shows up first when you open File Search with no query yet, or unpins it.
+- **Move to Trash** (`Ctrl+X`) — moves the file to the system trash. This is destructive — Asyar asks for confirmation.
+- **Quick Look** (`Ctrl+Y`) — there is no separate Quick Look preview on Linux; this action opens the file in its default app.
+- **Send to Asyar AI** (`Ctrl+I`) — opens AI Chat with the file's path (and, for text/code files under the size cap, its contents) pre-filled so you can ask a question about it.
+- **Search Everywhere** (`Ctrl+Shift+F`) — escalates your current query to `plocate`, if it is installed. Useful for finding something outside your indexed folders, or by content rather than name. This runs once, on demand — never automatically as you type.
+- **Clear Search History** (`Ctrl+Shift+X`) — forgets which files you've selected before (used to rank frequently-opened files higher). Also available from the root search bar without opening the view.
 
 ## Tips
 
 - **Pin your most-used files.** With no search query typed, the list shows your pinned files instead of being empty — a quick way to jump to a handful of files you open constantly.
 - **The fallback row saves a step.** If you're already typing in the main search bar and it's not matching many apps or commands, look for "Search files for…" and press `Enter` instead of retyping into File Search.
-- **Search Everywhere is a deliberate extra step**, not something that runs on every keystroke — it shells out to a real OS search tool, which is slower than Asyar's own index but reaches files outside your indexed roots.
-- **Large files are never fully loaded just to preview them.** Text previews are capped, and images/other previews are generated as small cached thumbnails — so even a huge video file or a multi-gigabyte archive previews quickly instead of stalling the app.
+- **Search Everywhere is a deliberate extra step**, not something that runs on every keystroke — it shells out to `plocate`, which is slower than Asyar's own index but reaches files outside your indexed roots.
+- **Large files are never fully loaded just to preview them.** Text previews are capped, and image previews are generated as small cached thumbnails — so even a huge file previews quickly instead of stalling the app.
 - **Configure what gets indexed** in **Settings → File Search** — narrow to specific folders, add exclude patterns, or turn indexing off entirely. See [Settings](../settings.md#file-search).
 - **Indexing your whole home folder uses more resources than the rest of Asyar.** Keeping a live, searchable index of a large home folder means some ongoing background CPU/memory use beyond Asyar's usual light footprint — normally brief scans plus small background updates as files change. If you'd rather keep Asyar as lean as possible and don't need file search, turn it off (or narrow **Search Roots** to just the folders you actually search) in **Settings → File Search**.
 - **Disabling the File Search UI** — You can disable the bundled File Search feature in **Settings → Extensions**. Disabling removes the `Search Files` command, the root search fallback row, and direct views. The underlying file index and watcher platform service remain intact and accessible to permission-authorized Tier 2 extensions via `IFilesService`.

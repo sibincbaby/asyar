@@ -20,7 +20,6 @@ const initialState = {
   current: 'welcome',
   total: 7,
   position: 1,
-  isMacos: true,
 };
 
 describe('onboardingService', () => {
@@ -89,8 +88,8 @@ describe('skipAiSetup', () => {
   });
 
   it('advances past the single aiSetup step to done', async () => {
-    const aiSetupState = { current: 'aiSetup', total: 7, position: 6, isMacos: false };
-    const doneState = { current: 'done', total: 7, position: 7, isMacos: false };
+    const aiSetupState = { current: 'aiSetup', total: 7, position: 6 };
+    const doneState = { current: 'done', total: 7, position: 7 };
     // seed current state as aiSetup
     onboardingService.state = aiSetupState as any;
     // advance returns done

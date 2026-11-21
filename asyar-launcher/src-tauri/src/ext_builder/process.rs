@@ -93,20 +93,16 @@ pub struct ExtBuilderState {
 /// unlike a `bun --compile` binary, this allows the Agent SDK to spawn subprocess
 /// `claude` and host its in-process MCP server.
 fn resolve_bun(app: &AppHandle) -> Option<std::path::PathBuf> {
-    let name = if cfg!(windows) { "bun.exe" } else { "bun" };
+    let name = "bun";
     let exe_dir = std::env::current_exe()
         .ok()
         .and_then(|e| e.parent().map(|p| p.to_path_buf()));
     let resource_dir = app.path().resource_dir().ok();
     // Dev fallback (`tauri dev`): sidecars live at
-    // `<manifest>/binaries/bun-<triple>` (with `.exe` on Windows).
+    // `<manifest>/binaries/bun-<triple>`.
     let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("binaries")
-        .join(format!(
-            "bun-{}{}",
-            env!("TARGET_TRIPLE"),
-            if cfg!(windows) { ".exe" } else { "" }
-        ));
+        .join(format!("bun-{}", env!("TARGET_TRIPLE")));
     let candidates = binary_candidates(exe_dir.as_deref(), resource_dir.as_deref(), dev, name);
     resolve_first_or_runtime(
         &candidates,
@@ -138,26 +134,18 @@ fn resolve_sidecar_js(app: &AppHandle) -> Option<std::path::PathBuf> {
 /// Locate the bundled `claude` runtime binary next to the exe, in the
 /// resource dir, or (last resort) via the on-demand `RuntimeManager`
 /// download tier. Mirrors `resolve_bun` — same search order, bare name
-/// `claude` (or `claude.exe` on Windows).
+/// `claude`.
 fn resolve_claude(app: &AppHandle) -> Option<std::path::PathBuf> {
-    let name = if cfg!(windows) {
-        "claude.exe"
-    } else {
-        "claude"
-    };
+    let name = "claude";
     let exe_dir = std::env::current_exe()
         .ok()
         .and_then(|e| e.parent().map(|p| p.to_path_buf()));
     let resource_dir = app.path().resource_dir().ok();
     // Dev fallback (`tauri dev`): sidecars live at
-    // `<manifest>/binaries/claude-<triple>` (with `.exe` on Windows).
+    // `<manifest>/binaries/claude-<triple>`.
     let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("binaries")
-        .join(format!(
-            "claude-{}{}",
-            env!("TARGET_TRIPLE"),
-            if cfg!(windows) { ".exe" } else { "" }
-        ));
+        .join(format!("claude-{}", env!("TARGET_TRIPLE")));
     let candidates = binary_candidates(exe_dir.as_deref(), resource_dir.as_deref(), dev, name);
     resolve_first_or_runtime(
         &candidates,
@@ -231,7 +219,9 @@ pub async fn spawn_build(
 
     let claude_path = resolve_claude(&app);
     if claude_path.is_none() {
-        log::warn!("resolve_claude: bundled claude runtime not found; the build will fail at SDK binary resolution");
+        log::warn!(
+            "resolve_claude: bundled claude runtime not found; the build will fail at SDK binary resolution"
+        );
     }
 
     let mut cmd = Command::new(&bun);

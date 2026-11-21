@@ -1,4 +1,3 @@
-import { getHostPlatform } from '../../lib/keyboard/hostPlatform';
 import { extensionIframeManager } from '../extension/extensionIframeManager.svelte';
 import { logService } from '../log/logService';
 import { actionService } from './actionService.svelte';
@@ -18,7 +17,6 @@ import { invokeAction } from './invokeAction';
 export const actionShortcuts = createActionShortcutDispatcher({
   getCandidates: () => actionService.getShortcutCandidates(),
   run: invokeAction,
-  platform: getHostPlatform(),
   isSuppressed: () => typeof document !== 'undefined' && isActionOverlayOpen(document),
   hasTextSelection: () =>
     extensionIframeManager.hasInputFocus ||

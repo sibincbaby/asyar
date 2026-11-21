@@ -1,7 +1,6 @@
 pub mod index_watcher;
 pub mod location;
 pub mod service;
-pub mod uninstall;
 
 pub use index_watcher::IndexWatcher;
 pub use service::display_parent_dir;

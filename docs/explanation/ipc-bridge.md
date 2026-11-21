@@ -220,7 +220,7 @@ User edits
                                              │ view iframe.contentWindow.postMessage(
                                              │   { type: 'asyar:event:preferences:set-all',
                                              │     payload: { extension, commands } },
-                                             │   '*'  // WKWebView custom-scheme origin fix
+                                             │   '*'  // WebKitGTK custom-scheme origin fix
                                              │ )
                                              └──────────────────────────────►
                                                                            │
@@ -274,16 +274,14 @@ There's a race between the iframe posting `asyar:extension:loaded` (async) and t
 
 The Tier 1 code path (`ExtensionBridge.initializeExtensions()`) also goes through `setExtensionId`, so both tiers converge on the same self-registration logic.
 
-### `targetOrigin` is `'*'` for host → iframe on macOS/Linux
+### `targetOrigin` is `'*'` for host → iframe
 
-WKWebView (macOS) and WebKitGTK (Linux) treat the `asyar-extension://` custom scheme as an **opaque origin**, which serializes as the literal string `"null"`. A strict `postMessage(msg, 'asyar-extension://…')` call would compare the target origin to `"null"` and silently drop the message with "Recipient has origin null."
+WebKitGTK treats the `asyar-extension://` custom scheme as an **opaque origin**, which serializes as the literal string `"null"`. A strict `postMessage(msg, 'asyar-extension://…')` call would compare the target origin to `"null"` and silently drop the message with "Recipient has origin null."
 
 The host uses `'*'` for host → iframe messages instead. This is safe because:
 
 - `targetOrigin` is not the security boundary — the iframe `sandbox="allow-scripts allow-same-origin ..."` attribute, the custom scheme isolation, and the `ExtensionIpcRouter` permission gate are.
 - The iframe → host direction already uses `'*'` via `MessageBroker.send` — host → iframe being symmetric is the consistent choice.
-
-On Windows, Tauri serves every extension iframe from a shared `http://asyar-extension.localhost` origin (standard `http://` — not opaque), so the strict origin check is kept there as defense-in-depth.
 
 See `src/lib/ipc/extensionOrigin.ts` in the launcher for the implementation.
 

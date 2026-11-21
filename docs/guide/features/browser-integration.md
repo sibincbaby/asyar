@@ -11,7 +11,7 @@ The Browser extension brings your browser into the Asyar search bar. Once you in
 
 Browser integration is built around an explicit pairing model: each browser instance must be approved by you in Settings → Browsers before Asyar can read from it. You can revoke access for any browser at any time.
 
-The companion extension currently supports Chromium-based browsers (Chrome, Brave, Arc, Edge, Vivaldi). Firefox and Safari companions are planned.
+The companion extension currently supports Chromium-based browsers (Chrome, Brave, Edge, Vivaldi). A Firefox companion is planned.
 
 ## How to use it
 
@@ -21,7 +21,7 @@ Install the Asyar companion browser extension in your browser. The companion cre
 
 ### Step 2 — approve the pairing
 
-1. Open Asyar's Settings (`⌘,`) and go to the **Browsers** tab.
+1. Open Asyar's Settings (`Ctrl+,`) and go to the **Browsers** tab.
 2. When the companion connects for the first time, a **Pending pairing request** appears showing the browser family and variant.
 3. Click **Allow** to approve it, or **Deny** to reject it.
 

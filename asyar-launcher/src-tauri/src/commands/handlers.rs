@@ -42,7 +42,6 @@ macro_rules! app_commands {
                 $crate::commands::confirm_launcher_paint,
                 $crate::commands::cancel_launcher_resize,
                 $crate::commands::set_panel_appearance,
-                $crate::commands::set_dock_icon_visible,
                 $crate::commands::set_tray_icon_visible,
                 $crate::commands::quit_app,
                 $crate::commands::factory_reset,
@@ -251,7 +250,6 @@ macro_rules! search_commands {
                 $crate::file_index::commands::deep_search_availability,
                 $crate::file_index::commands::deep_search,
                 $crate::thumbnail::commands::get_file_thumbnail,
-                $crate::thumbnail::commands::get_file_icon,
             )
         )
     };
@@ -351,9 +349,6 @@ macro_rules! system_commands {
                 $crate::commands::check_path_exists,
                 $crate::commands::open_application_path,
                 $crate::commands::reveal_application,
-                $crate::commands::run_application_as_admin,
-                $crate::commands::uninstall_application,
-                $crate::commands::scan_uninstall_targets,
                 $crate::commands::set_application_scan_paths,
                 $crate::commands::application_index_subscribe,
                 $crate::commands::application_index_unsubscribe,
@@ -395,8 +390,6 @@ macro_rules! system_commands {
                 $crate::commands::media_get_now_playing,
                 $crate::commands::media_list_sessions,
                 $crate::commands::media_control,
-                $crate::commands::calendar_access_status,
-                $crate::commands::calendar_request_access,
                 $crate::commands::calendar_list_calendars,
                 $crate::commands::calendar_list_events,
                 $crate::commands::calendar_create_event,
@@ -411,7 +404,6 @@ macro_rules! system_commands {
                 $crate::commands::power_list,
                 $crate::commands::system_actions_supported,
                 $crate::commands::system_action_run,
-                $crate::commands::open_settings_pane,
                 $crate::commands::system_events_subscribe,
                 $crate::commands::system_events_unsubscribe,
                 $crate::commands::app_events_subscribe,

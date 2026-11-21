@@ -72,11 +72,10 @@ interface IStatusBarService {
 
 - `asyar-extension://{extensionId}/path/to/icon.png` — resolved against
   your extension's bundle.
-- Absolute filesystem path (`/Users/…/icon.png`, `C:\…\icon.png`) — used
+- Absolute filesystem path (`/home/…/icon.png`) — used
   verbatim.
 - **Anything else** (http(s), file, relative paths) is rejected.
-- Recommended size: **16×16 PNG** (macOS template-renders monochrome
-  automatically when matching template conventions).
+- Recommended size: **16×16 PNG**.
 - Traversal (`..`) inside the `asyar-extension://` path is rejected.
 
 ## Example — Spotify-style "Now Playing"
@@ -167,17 +166,17 @@ path, the click is a no-op.
 
 ## Platform matrix
 
-| Capability                      | macOS                  | Windows                 | Linux (GTK)         |
-| ------------------------------- | ---------------------- | ----------------------- | ------------------- |
-| `iconPath` image in menu bar    | ✅                     | ✅                      | ✅                  |
-| `icon` emoji with no `iconPath` | ✅ text label          | ⚠ 1×1 stub¹             | ⚠ 1×1 stub¹         |
-| `title`                         | ✅ text right of icon³ | Tooltip: `title — text` | AppIndicator label⁴ |
-| Submenus (click opens dropdown) | ✅                     | ✅                      | ⚠ Varies by DE²     |
-| `checked` rendering             | ✅                     | ✅                      | ⚠ Varies by DE²     |
-| `separator` rendering           | ✅                     | ✅                      | ✅                  |
-| `enabled: false` greying        | ✅                     | ✅                      | ✅                  |
+| Capability                      | Linux (GTK)         |
+| ------------------------------- | ------------------- |
+| `iconPath` image in menu bar    | ✅                  |
+| `icon` emoji with no `iconPath` | ⚠ 1×1 stub¹         |
+| `title`                         | AppIndicator label⁴ |
+| Submenus (click opens dropdown) | ⚠ Varies by DE²     |
+| `checked` rendering             | ⚠ Varies by DE²     |
+| `separator` rendering           | ✅                  |
+| `enabled: false` greying        | ✅                  |
 
-¹ Windows/Linux trays need a bitmap. When the extension supplies only an
+¹ Linux trays need a bitmap. When the extension supplies only an
 emoji via `icon`, Asyar attaches a 1×1 transparent PNG so the tray still
 registers — the user sees a blank icon with the tooltip. Provide `iconPath`
 to avoid this.
@@ -185,9 +184,6 @@ to avoid this.
 ² Linux tray fidelity depends on the desktop environment's GTK / libayatana
 implementation. Submenu images are frequently stripped; checkbox items may
 render as plain rows.
-
-³ With an image from `iconPath`, only the title is rendered alongside it.
-Emoji-only `icon` renders as `icon title`, or just the emoji when title is absent.
 
 ⁴ Linux labels may be hidden by the desktop environment; GNOME generally needs
 a tray/AppIndicator extension. Emoji is not included in the Linux title label.

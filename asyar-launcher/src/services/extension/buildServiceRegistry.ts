@@ -234,11 +234,6 @@ export function buildServiceRegistry(deps: {
     environment: {
       getEnvironment: async (extensionId: string) => {
         const parsed = await getSystemLocale();
-        const isWindows =
-          typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('windows');
-        const isMac =
-          typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('mac');
-        const platform = isMac ? 'macos' : isWindows ? 'windows' : 'linux';
         const locale =
           parsed?.raw ?? (typeof navigator !== 'undefined' ? navigator.language : 'en-US');
         const language = parsed?.language ?? locale.split(/[-_]/)[0] ?? 'en';
@@ -256,7 +251,7 @@ export function buildServiceRegistry(deps: {
           region,
           script,
           numberFormat: 'point',
-          platform,
+          platform: 'linux',
           theme,
           isDevelopment,
           extensionId: extensionId ?? '',

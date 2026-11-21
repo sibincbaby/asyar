@@ -66,7 +66,6 @@ export { default as SettingsCard } from './settings/SettingsCard.svelte';
 export { default as SettingsSidebar } from './settings/SettingsSidebar.svelte';
 export { default as SettingsDrillHeader } from './settings/SettingsDrillHeader.svelte';
 export { default as SnippetsTextExpansionCard } from './settings/SnippetsTextExpansionCard.svelte';
-export { default as OsPermissionRows } from './settings/OsPermissionRows.svelte';
 export { default as SettingsRadioGroup } from './settings/SettingsRadioGroup.svelte';
 export { default as SettingsRangeSlider } from './settings/SettingsRangeSlider.svelte';
 export { default as SettingsForm } from './settings/SettingsForm.svelte';
@@ -134,8 +133,6 @@ export { default as IncomingPairingRequests } from './settings/IncomingPairingRe
 export { default as RuntimesSection } from './settings/RuntimesSection.svelte';
 export { default as ScheduledTasksSection } from './settings/ScheduledTasksSection.svelte';
 export { default as SecretRedactionSection } from './settings/SecretRedactionSection.svelte';
-export { default as CalendarAccessRows } from './settings/CalendarAccessRows.svelte';
-export { default as SystemAccessSection } from './settings/SystemAccessSection.svelte';
 export { default as UsageShareSection } from './settings/UsageShareSection.svelte';
 
 // Settings — controls and lists

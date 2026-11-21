@@ -420,15 +420,6 @@ body {
   font-size: var(--font-size-base);
 }
 
-/* macOS launcher: WKWebView is pinned at 480, NSWindow is cropped around it
-   (platform/macos.rs). Freezing the height chain keeps the DOM static — using
-   100vh would force WebKit to re-lay out on every setFrame. */
-html[data-platform='macos'],
-html[data-platform='macos'] body,
-html[data-platform='macos'] .app-root {
-  height: 480px;
-}
-
 /* ── Theme ────────────────────────────────────────────────
    Two palettes, each defined twice: under `prefers-color-scheme` (scoped
    with `:not([data-theme])`) for OS-tracking, and under `[data-theme]` for
@@ -987,15 +978,8 @@ html[data-platform='macos'] .app-root {
     @apply overflow-y-auto;
   }
 
-  /*
-   * Non-macOS: visible styled scrollbar (6px).
-   * macOS: no ::-webkit-scrollbar rule — letting WebKit fall back to
-   * the native NSScroller overlay scrollbar (the one that fades in
-   * on scroll, governed by System Settings → "Show scroll bars").
-   * Defining any ::-webkit-scrollbar rule on macOS would demote the
-   * scroller to legacy obtrusive mode.
-   */
-  html:not([data-platform='macos']) .custom-scrollbar {
+  /* Visible styled scrollbar (6px). */
+  .custom-scrollbar {
     &::-webkit-scrollbar {
       width: 6px;
     }
@@ -1199,88 +1183,6 @@ html[data-platform='macos'] .app-root {
       color: var(--accent-primary);
     }
   }
-}
-
-/* ── Platform: Windows ──────────────────────────────────── */
-
-html[data-platform='win32'] .macos-panel,
-html[data-platform='windows'] .macos-panel {
-  backdrop-filter: none;
-  background-color: transparent;
-}
-
-@media (prefers-color-scheme: light) {
-  html[data-platform='win32']:not([data-theme]),
-  html[data-platform='windows']:not([data-theme]) {
-    background-color: transparent;
-    --bg-primary: rgba(247, 249, 251, 0.25);
-    --bg-secondary: rgba(238, 242, 246, 0.2);
-    --bg-tertiary: rgba(243, 246, 249, 0.2);
-    --bg-hover: rgba(228, 233, 238, 0.3);
-    --bg-selected: rgba(140, 140, 148, 0.22);
-    /* Themed translucent overlay over the DWM Acrylic backdrop. ~85% opaque
-       so the theme reads regardless of the desktop wallpaper behind, while a
-       hint of system blur still shows through. */
-    --win-acrylic-tint: rgba(240, 240, 245, 0.85);
-  }
-}
-
-html[data-platform='win32'][data-theme='light'],
-html[data-platform='windows'][data-theme='light'] {
-  background-color: transparent;
-  --bg-primary: rgba(247, 249, 251, 0.25);
-  --bg-secondary: rgba(238, 242, 246, 0.2);
-  --bg-tertiary: rgba(243, 246, 249, 0.2);
-  --bg-hover: rgba(228, 233, 238, 0.3);
-  --bg-selected: rgba(140, 140, 148, 0.22);
-  --win-acrylic-tint: rgba(240, 240, 245, 0.85);
-}
-
-@media (prefers-color-scheme: dark) {
-  html[data-platform='win32']:not([data-theme]),
-  html[data-platform='windows']:not([data-theme]) {
-    background-color: transparent;
-    --bg-primary: rgba(14, 17, 20, 0.25);
-    --bg-secondary: rgba(20, 24, 28, 0.2);
-    --bg-tertiary: rgba(28, 33, 38, 0.2);
-    --bg-hover: rgba(36, 42, 48, 0.3);
-    --bg-selected: rgba(74, 74, 78, 0.65);
-    --win-acrylic-tint: rgba(28, 28, 32, 0.85);
-  }
-}
-
-html[data-platform='win32'][data-theme='dark'],
-html[data-platform='windows'][data-theme='dark'] {
-  background-color: transparent;
-  --bg-primary: rgba(14, 17, 20, 0.25);
-  --bg-secondary: rgba(20, 24, 28, 0.2);
-  --bg-tertiary: rgba(28, 33, 38, 0.2);
-  --bg-hover: rgba(36, 42, 48, 0.3);
-  --bg-selected: rgba(74, 74, 78, 0.65);
-  --win-acrylic-tint: rgba(28, 28, 32, 0.85);
-}
-
-/* DWM (the Windows compositor) paints the system backdrop — Mica or Acrylic
- * applied via window-vibrancy in Rust — and rounds the visible window
- * corners (DWMWA_WINDOW_CORNER_PREFERENCE = ROUND). The webview itself stays
- * transparent so that backdrop reads through; CSS doesn't try to round or
- * blur on top, which would leave a halo where the CSS radius and DWM radius
- * disagree at the edge. The `--win-acrylic-tint` overlay sits on the
- * backdrop so the launcher reads as dark/light regardless of the desktop
- * wallpaper Acrylic is blurring underneath (Acrylic's tint defaults to
- * transparent so the desktop's color otherwise dominates the result). */
-html[data-platform='win32'] .app-root,
-html[data-platform='windows'] .app-root {
-  height: 100vh;
-  width: 100vw;
-  background-color: var(--win-acrylic-tint);
-}
-
-html[data-platform='win32'],
-html[data-platform='windows'],
-html[data-platform='win32'] body,
-html[data-platform='windows'] body {
-  background-color: transparent;
 }
 
 /* ── Platform: Linux ────────────────────────────────────── */

@@ -56,7 +56,7 @@ vi.mock('@tauri-apps/api/path', () => ({
   homeDir: vi.fn().mockResolvedValue('/home/u'),
   join: vi.fn(async (...p: string[]) => p.join('/')),
 }));
-vi.mock('@tauri-apps/plugin-os', () => ({ platform: vi.fn().mockReturnValue('macos') }));
+vi.mock('@tauri-apps/plugin-os', () => ({ platform: vi.fn().mockReturnValue('linux') }));
 vi.mock('@tauri-apps/plugin-shell', () => ({
   Command: { create: vi.fn(() => ({ execute: vi.fn().mockResolvedValue(undefined) })) },
 }));

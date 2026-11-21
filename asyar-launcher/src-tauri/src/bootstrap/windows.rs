@@ -1,12 +1,10 @@
 //! Window management, presentation, and tray bootstrap module.
 //!
-//! Configures the main launcher window (NSPanel on macOS, frameless window on Windows/Linux),
+//! Configures the main launcher window (frameless window),
 //! initial geometry and appearance seeding from `settings.dat`, HUD window, window drag/snap handlers,
 //! tray icon setup, and window event listeners (focus/blur, resign, and launch-view-change resize).
 
 use std::sync::atomic::Ordering;
-#[cfg(target_os = "macos")]
-use std::sync::Mutex;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 
@@ -35,15 +33,6 @@ pub fn parse_appearance_theme(settings_root: Option<&serde_json::Value>) -> Them
     }
 }
 
-#[cfg(target_os = "macos")]
-pub fn read_appearance_theme(app: &tauri::AppHandle) -> ThemePreference {
-    use tauri_plugin_store::StoreExt;
-    let Ok(store) = app.store("settings.dat") else {
-        return ThemePreference::System;
-    };
-    parse_appearance_theme(store.get("settings").as_ref())
-}
-
 pub fn parse_show_tray_icon(settings_root: Option<&serde_json::Value>) -> bool {
     settings_root
         .and_then(|s| s.get("general"))
@@ -58,22 +47,6 @@ pub fn read_show_tray_icon(app: &tauri::AppHandle) -> bool {
         return true;
     };
     parse_show_tray_icon(store.get("settings").as_ref())
-}
-
-pub fn parse_show_dock_icon(settings_root: Option<&serde_json::Value>) -> bool {
-    settings_root
-        .and_then(|s| s.get("general"))
-        .and_then(|g| g.get("showDockIcon"))
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
-}
-
-pub fn read_show_dock_icon(app: &tauri::AppHandle) -> bool {
-    use tauri_plugin_store::StoreExt;
-    let Ok(store) = app.store("settings.dat") else {
-        return false;
-    };
-    parse_show_dock_icon(store.get("settings").as_ref())
 }
 
 pub fn parse_launch_view(settings_root: Option<&serde_json::Value>) -> &'static str {
@@ -189,18 +162,13 @@ mod ui_scale_tests {
     }
 }
 
-#[cfg(target_os = "macos")]
-pub fn should_collapse_on_resign(compact_mode: bool, keep_expanded: bool) -> bool {
-    compact_mode && !keep_expanded
-}
-
 /// Initializes system tray menu.
 pub fn init_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     crate::tray::setup_tray(app)?;
     Ok(())
 }
 
-/// Configures native windows, vibrancy, placement, and prewarms geometry.
+/// Configures native windows, placement, and prewarms geometry.
 pub fn init_windows(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let handle = app.app_handle();
     let window = handle
@@ -210,29 +178,10 @@ pub fn init_windows(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     let scale = read_ui_scale(handle);
     handle.state::<AppState>().set_ui_scale(scale);
 
-    #[cfg(target_os = "macos")]
-    {
-        use crate::platform::macos::LAUNCHER_MAX_HEIGHT;
-        asyar_platform::macos::set_active_max_height(LAUNCHER_MAX_HEIGHT * scale);
-
-        if let Some(mut frame) = crate::platform::macos::get_window_frame(&window) {
-            let top = frame.origin.y + frame.size.height;
-            frame.size.width *= scale;
-            frame.size.height = if compact {
-                read_compact_height(handle) * scale
-            } else {
-                LAUNCHER_MAX_HEIGHT * scale
-            };
-            frame.origin.y = top - frame.size.height;
-            crate::platform::macos::set_window_frame(&window, frame);
-        }
-    }
-
     if let Err(error) = window.set_zoom(scale) {
         log::warn!("[launcher] failed to apply startup UI scale: {error}");
     }
 
-    #[cfg(not(target_os = "macos"))]
     {
         use tauri::{LogicalSize, Size};
         if let Ok(size) = window.inner_size() {
@@ -252,29 +201,6 @@ pub fn init_windows(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         }
     }
 
-    #[cfg(target_os = "macos")]
-    let initial_theme_pref = read_appearance_theme(handle);
-
-    #[cfg(target_os = "macos")]
-    app.manage(Mutex::new(initial_theme_pref));
-
-    #[cfg(target_os = "macos")]
-    let panel =
-        crate::platform::macos::setup_spotlight_window(&window, handle, initial_theme_pref)?;
-
-    // Convert HUD window into NSPanel on macOS
-    #[cfg(target_os = "macos")]
-    if let Some(hud_window) =
-        handle.get_webview_window(crate::hud_window::service::HUD_WINDOW_LABEL)
-    {
-        if let Err(e) = crate::platform::macos::setup_hud_window(&hud_window) {
-            log::warn!("[hud] setup_hud_window failed: {e}");
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    crate::platform::macos::install_appearance_observer(handle);
-
     // Register window drag handlers
     {
         let handle_for_drop = handle.clone();
@@ -288,34 +214,10 @@ pub fn init_windows(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         });
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        use crate::platform::macos::LAUNCHER_MAX_HEIGHT;
-        crate::platform::macos::pin_launcher_webview(&window);
-        crate::platform::macos::configure_launcher_webkit_features(&window);
-        let height = if compact {
-            read_compact_height(handle) * scale
-        } else {
-            LAUNCHER_MAX_HEIGHT * scale
-        };
-        crate::platform::macos::set_launcher_window_height(
-            &window,
-            height,
-            crate::platform::macos::ResizeMode::Immediate,
-        );
-        crate::platform::macos::prewarm_launcher_panel(&window, &panel);
-    }
-
     // Onboarding: open the window if needed
     if let Err(e) = crate::onboarding::window::open_if_needed(handle) {
         log::warn!("Onboarding window failed to open: {}", e);
     }
-
-    #[cfg(target_os = "macos")]
-    crate::platform::macos::register_cmdq_monitor(handle.clone());
-
-    #[cfg(target_os = "windows")]
-    let _ = crate::platform::windows::setup_spotlight_window(&window);
 
     #[cfg(target_os = "linux")]
     let _ = crate::platform::linux::setup_spotlight_window(&window);
@@ -323,66 +225,14 @@ pub fn init_windows(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     Ok(())
 }
 
-/// Sets up lifecycle event listeners (resign on macOS, blur on other OSs,
-/// launchView change resize, Windows vibrancy, settings hide prevention,
-/// and global shortcuts).
+/// Sets up lifecycle event listeners (blur, launchView change resize,
+/// settings hide prevention, and global shortcuts).
 pub fn init_window_listeners(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let handle = app;
-    #[allow(unused_variables)]
     let window = handle
         .get_webview_window(SPOTLIGHT_LABEL)
         .ok_or("Main launcher window not found")?;
 
-    #[cfg(target_os = "macos")]
-    {
-        use tauri_nspanel::ManagerExt;
-        let panel = handle
-            .get_webview_panel(SPOTLIGHT_LABEL)
-            .map_err(|e| format!("Main launcher panel not found: {e:?}"))?;
-        let handle_clone = handle.clone();
-        use tauri::Listener;
-        handle.listen(
-            format!("{}_panel_did_resign_key", SPOTLIGHT_LABEL),
-            move |_| {
-                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    let state = handle_clone.state::<AppState>();
-                    if state.focus_locked.load(Ordering::Relaxed) {
-                        return;
-                    }
-                    state.asyar_visible.store(false, Ordering::Relaxed);
-                    crate::launcher::pop_to_root::on_launcher_hidden(&handle_clone);
-
-                    let compact_mode = read_launch_view(&handle_clone) == "compact";
-                    let keep_expanded = state.launcher_keep_expanded.load(Ordering::Relaxed);
-                    let scale = state.ui_scale();
-                    let handle_for_main = handle_clone.clone();
-                    let panel = panel.clone();
-                    let _ = handle_clone.run_on_main_thread(move || {
-                        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                            let Some(window) = handle_for_main.get_webview_window(SPOTLIGHT_LABEL)
-                            else {
-                                let _ =
-                                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                        panel.order_out(None);
-                                    }));
-                                return;
-                            };
-                            crate::platform::macos::park_launcher_panel(&window, &panel);
-                            if should_collapse_on_resign(compact_mode, keep_expanded) {
-                                crate::platform::macos::set_launcher_window_height(
-                                    &window,
-                                    read_compact_height(&handle_for_main) * scale,
-                                    crate::platform::macos::ResizeMode::Immediate,
-                                );
-                            }
-                        }));
-                    });
-                }));
-            },
-        );
-    }
-
-    #[cfg(not(target_os = "macos"))]
     {
         let handle_clone = handle.clone();
         let window_clone = window.clone();
@@ -438,22 +288,6 @@ pub fn init_window_listeners(app: &tauri::AppHandle) -> Result<(), Box<dyn std::
                     };
                     let scale = handle_for_main.state::<AppState>().ui_scale();
 
-                    #[cfg(target_os = "macos")]
-                    {
-                        use crate::platform::macos::{ResizeMode, LAUNCHER_MAX_HEIGHT};
-                        let height = if compact {
-                            read_compact_height(&handle_for_main) * scale
-                        } else {
-                            LAUNCHER_MAX_HEIGHT * scale
-                        };
-                        crate::platform::macos::set_launcher_window_height(
-                            &window,
-                            height,
-                            ResizeMode::Immediate,
-                        );
-                    }
-
-                    #[cfg(not(target_os = "macos"))]
                     {
                         use tauri::{LogicalSize, Size};
                         let height = if compact {
@@ -475,14 +309,6 @@ pub fn init_window_listeners(app: &tauri::AppHandle) -> Result<(), Box<dyn std::
         });
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        use window_vibrancy::{apply_acrylic, apply_mica};
-        if apply_acrylic(&window, Some((0, 0, 0, 0))).is_err() {
-            let _ = apply_mica(&window, None);
-        }
-    }
-
     // Prevent settings window from being destroyed on close
     if let Some(settings_window) = handle.get_webview_window("settings") {
         let sw = settings_window.clone();
@@ -490,12 +316,8 @@ pub fn init_window_listeners(app: &tauri::AppHandle) -> Result<(), Box<dyn std::
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = sw.hide();
-                #[cfg(target_os = "macos")]
-                crate::platform::macos::sync_activation_policy(sw.app_handle());
             }
         });
-        #[cfg(target_os = "macos")]
-        crate::platform::macos::track_app_window(&settings_window);
     }
 
     setup_global_shortcut(handle);
@@ -531,31 +353,6 @@ pub fn setup_global_shortcut(app_handle: &tauri::AppHandle) {
     let shortcut = Shortcut::new(mod_key, code);
     if let Err(e) = shortcut_manager.register(shortcut) {
         log::error!("Failed to register shortcut: {}", e);
-    }
-}
-
-#[cfg(all(test, target_os = "macos"))]
-mod resign_collapse_tests {
-    use super::should_collapse_on_resign;
-
-    #[test]
-    fn collapses_when_compact_and_not_keep_expanded() {
-        assert!(should_collapse_on_resign(true, false));
-    }
-
-    #[test]
-    fn does_not_collapse_when_keep_expanded_is_set() {
-        assert!(!should_collapse_on_resign(true, true));
-    }
-
-    #[test]
-    fn does_not_collapse_when_launch_view_is_default() {
-        assert!(!should_collapse_on_resign(false, false));
-    }
-
-    #[test]
-    fn does_not_collapse_when_default_mode_and_keep_expanded() {
-        assert!(!should_collapse_on_resign(false, true));
     }
 }
 
@@ -714,41 +511,6 @@ mod tray_icon_preference_tests {
     fn returns_true_when_explicitly_set_to_true() {
         let v = json!({ "general": { "showTrayIcon": true } });
         assert!(parse_show_tray_icon(Some(&v)));
-    }
-}
-
-#[cfg(test)]
-mod dock_icon_preference_tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn returns_false_by_default_when_settings_root_is_none() {
-        assert!(!parse_show_dock_icon(None));
-    }
-
-    #[test]
-    fn returns_false_by_default_when_general_key_missing() {
-        let v = json!({ "appearance": { "theme": "dark" } });
-        assert!(!parse_show_dock_icon(Some(&v)));
-    }
-
-    #[test]
-    fn returns_false_by_default_when_show_dock_icon_key_missing() {
-        let v = json!({ "general": { "startAtLogin": true } });
-        assert!(!parse_show_dock_icon(Some(&v)));
-    }
-
-    #[test]
-    fn returns_true_when_explicitly_set_to_true() {
-        let v = json!({ "general": { "showDockIcon": true } });
-        assert!(parse_show_dock_icon(Some(&v)));
-    }
-
-    #[test]
-    fn returns_false_when_explicitly_set_to_false() {
-        let v = json!({ "general": { "showDockIcon": false } });
-        assert!(!parse_show_dock_icon(Some(&v)));
     }
 }
 

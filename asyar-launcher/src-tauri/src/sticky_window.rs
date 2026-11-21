@@ -18,9 +18,6 @@ const DEFAULT_HEIGHT: f64 = 260.0;
 const CASCADE_ORIGIN: f64 = 120.0;
 const CASCADE_STEP: f64 = 28.0;
 
-#[cfg(target_os = "macos")]
-const REVEAL_FALLBACK_MS: u64 = 400;
-
 /// Deterministic window label so an already-open sticky can be found, focused,
 /// and closed by note id alone. It is also what the frontend passes to
 /// [`crate::window_drag`] to drag a note by its title bar — the per-note
@@ -134,14 +131,10 @@ fn schedule_geometry_save(app: &AppHandle, note_id: &str) {
 
 /// Build the webview window for an already-persisted sticky row.
 ///
-/// `focus` distinguishes the two callers. A user-opened sticky wants focus and
-/// the macOS flash-free reveal (built hidden, shown on WebKit's first painted
-/// frame). Restored stickies want neither: they're built visible and unfocused,
-/// because N windows each running the reveal handshake and grabbing focus at
-/// startup race each other — which left all but one invisible.
+/// `focus` distinguishes the two callers. A user-opened sticky wants focus.
+/// Restored stickies don't: they're built visible and unfocused, because N
+/// windows grabbing focus at startup race each other.
 fn build_window(app: &AppHandle, sticky: &StickyNote, focus: bool) -> Result<(), AppError> {
-    // Only the focused (user-initiated) path does the hidden-then-reveal dance.
-    let deferred_reveal = cfg!(target_os = "macos") && focus;
     let label = window_label(&sticky.note_id);
     let url = format!("{WINDOW_URL_BASE}?id={}", sticky.note_id);
 
@@ -163,7 +156,7 @@ fn build_window(app: &AppHandle, sticky: &StickyNote, focus: bool) -> Result<(),
         _ => (sticky.x, sticky.y),
     };
 
-    let _window = tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App(url.into()))
+    let window = tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App(url.into()))
         .title(crate::locale::app_native_text(
             app,
             crate::locale::NativeText::StickyNoteTitle,
@@ -176,29 +169,18 @@ fn build_window(app: &AppHandle, sticky: &StickyNote, focus: bool) -> Result<(),
         .transparent(true)
         .shadow(false)
         .skip_taskbar(true)
-        .visible(!deferred_reveal)
-        .focused(focus && !deferred_reveal)
+        .visible(true)
+        .focused(focus)
         .build()
         .map_err(|e| AppError::Other(format!("create sticky window: {e}")))?;
-
-    #[cfg(target_os = "macos")]
-    {
-        // Float over fullscreen Spaces while still being able to take focus
-        // for typing (unlike the HUD, which is deliberately non-activating).
-        let _ = crate::platform::macos::setup_sticky_window(&_window);
-        if deferred_reveal {
-            crate::platform::macos::reveal_window_after_first_paint(&_window, REVEAL_FALLBACK_MS);
-        }
-    }
 
     {
         let app_handle = app.clone();
         let note_id = sticky.note_id.clone();
-        _window.on_window_event(move |event| match event {
+        window.on_window_event(move |event| match event {
             // Mirrors the settings window: never let a window actually be
             // destroyed — intercept every OS-initiated close and unstick
-            // instead. Destroying an NSPanel-converted window aborts the
-            // process (see `close`), so this closes off that path entirely.
+            // instead (see `close`).
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
                 let _ = close(&app_handle, &note_id);
@@ -252,12 +234,8 @@ pub fn open(app: &AppHandle, note_id: &str) -> Result<(), AppError> {
 
 /// Unpin: take the sticky off the desktop and drop the row.
 ///
-/// The window is *hidden*, not destroyed. Destroying an `NSPanel`-converted
-/// window aborts the whole process: AppKit tears the window down and then
-/// reshuffles which window is key, and that delegate callback lands on
-/// freed state, raising an Obj-C exception Rust cannot unwind ("Rust cannot
-/// catch foreign exceptions, aborting"). Hiding is visually identical, and
-/// [`open`] reuses the window if the note is stuck again.
+/// The window is *hidden*, not destroyed; [`open`] reuses it if the note is
+/// stuck again.
 ///
 /// Cost: a hidden webview is retained per note unstuck this session (reclaimed
 /// on quit). Bounded by distinct notes stuck, and re-sticking reuses rather

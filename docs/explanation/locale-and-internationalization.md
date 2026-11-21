@@ -15,22 +15,22 @@ In accordance with Asyar's **Rust-First Principle**, all locale parsing, candida
 ```
 ┌────────────────────────────────────────────────────────┐
 │                   Operating System                     │
-│         (macOS defaults / POSIX locale / XDG)          │
+│               (POSIX locale / XDG)                     │
 └───────────────────────────┬────────────────────────────┘
                             │ sys_locale::get_locale()
 ┌───────────────────────────▼────────────────────────────┐
 │              Locale Subsystem (crate::locale)          │
 │                                                        │
 │  - ParsedLocale (BCP-47 / POSIX parser & normalizer)   │
-│  - Candidate Resolvers (UI Text, macOS, Linux XDG)     │
+│  - Candidate Resolvers (UI Text, Linux XDG)            │
 │  - CLDR Number Notation (Point vs Comma, canonicalize) │
 │  - LocaleService (Tauri state manager & OS refresh)    │
-└───────────┬─────────────────┬──────────────────┬───────┘
-            │                 │                  │
-┌───────────▼───────┐ ┌───────▼────────┐ ┌───────▼───────┐
-│ macOS loctables   │ │ Linux .desktop │ │  Calculator   │
-│ (display_name.rs) │ │ (desktop_entry)│ │  (locale.rs)  │
-└───────────────────┘ └────────────────┘ └───────────────┘
+└───────────────┬──────────────────────┬─────────────────┘
+                │                      │
+┌───────▼────────┐    ┌──────▼────────┐
+│ Linux .desktop │    │  Calculator   │
+│ (desktop_entry)│    │  (locale.rs)  │
+└────────────────┘    └───────────────┘
 ```
 
 The frontend and extension layers remain thin presenters that query or receive structured locale types (`ParsedLocale`, `NumberFormat`) over typed IPC bindings.
@@ -53,7 +53,7 @@ pub struct ParsedLocale {
 
 ### Normalization Guarantees
 
-- **Separator Neutrality**: Handles both `-` (BCP-47) and `_` (POSIX / Apple).
+- **Separator Neutrality**: Handles both `-` (BCP-47) and `_` (POSIX).
 - **POSIX Cleaning**: Strips `.codeset` (e.g. `.UTF-8`) and maps POSIX modifiers (`sr_RS@latin` → language `sr`, script `Latn`, region `RS`).
 - **Extension Isolation**: Ignores BCP-47 singleton extensions (`-u-`, `-t-`, `-x-`) so that tags like `zh-Hans-CN-u-ca-chinese` resolve cleanly to `zh-Hans-CN`.
 
@@ -69,10 +69,6 @@ When choosing which translation or localized asset to present, the spoken langua
 
 - **Generic Fallback Chain** (`text_candidates()`):
   `zh-Hans-CN` → `zh-CN` → `zh-Hans` → `zh`
-- **macOS Bundle Resolution** (`macos_bundle_candidates()`):
-  - Emits both hyphenated and underscored keys (`zh-Hans-CN`, `zh_Hans_CN`, `zh-CN`, `zh_CN`).
-  - Drops script subtags to match Apple's underscore-keyed regional tables (`zh_CN`, `pt_PT`, `en_GB`, `es_419`).
-  - Maps Chinese script to regional tables (`zh-Hans` → `zh_CN`, `zh-Hant` → `zh_TW`/`zh_HK`).
 - **Linux XDG Desktop Entry Resolution** (`desktop_entry_candidates()`):
   - Resolves `Name[locale]` entries against full raw tags, POSIX tags (`de_DE`), BCP-47 tags (`de-DE`), and base language (`de`).
 
@@ -156,7 +152,7 @@ To catch untranslated text before it ships, Asyar implements an automated AST st
 2. **Template Sensitive Props**: Scans all Svelte component invocations and HTML tags to prevent literal strings on sensitive props (`label`, `description`, `placeholder`, `message`, `emptyMessage`, `kicker`, `hint`, `subtitle`, `error`).
 3. **Interactive Elements**: Asserts that all text inside interactive elements (`<button>`, `<Button>`, `<option>`, `<label>`) is wrapped with `{t('...')}`.
 4. **Script Block Literals**: Walks AST property nodes in `<script>` blocks to catch unlocalized action definitions, default prop assignments, and notification payloads.
-5. **Technical Whitelisting**: Employs an exact heuristic (`isTechnicalOrSymbol`) to permit symbols (⌘K, +), numbers/units (12px, 100%), paths/URLs, and recognized system identifiers (e.g. `github`, `tauri`, `json`).
+5. **Technical Whitelisting**: Employs an exact heuristic (`isTechnicalOrSymbol`) to permit symbols (Ctrl+K, +), numbers/units (12px, 100%), paths/URLs, and recognized system identifiers (e.g. `github`, `tauri`, `json`).
 6. **Catalog Parity** (in `catalogs.test.ts`): Every locale file must contain exactly the keys of `en.json` and preserve every `{placeholder}`.
 
 ### What the Suite Does Not Cover

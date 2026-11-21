@@ -3,20 +3,18 @@
   import { Card, Button, ShortcutRecorder, TestBox } from '../../../components';
   import { advanceStep } from '../stepLogic';
   import { DEFAULT_GRAMMAR_FIX_HOTKEY } from '../../../built-in-features/agents/defaultAgent';
-  import AccessibilityGate from './AccessibilityGate.svelte';
   import { agentService } from '../../../built-in-features/agents/agentService.svelte';
   import { setUpHiddenCommand } from './hiddenCommandsSetup';
   import { onboardingNav } from '../onboardingNav.svelte';
 
   let modifier = $state(DEFAULT_GRAMMAR_FIX_HOTKEY.modifier);
   let key = $state(DEFAULT_GRAMMAR_FIX_HOTKEY.key);
-  let axGranted = $state(false);
   let configured = $state(false);
   let working = $state(false);
   let error = $state('');
 
   const aiReady = $derived(!!agentService.getDefaultAgent());
-  const ready = $derived(configured && axGranted);
+  const ready = $derived(configured);
 
   async function recordHotkey(detail: { modifier: string; key: string }): Promise<true> {
     modifier = detail.modifier;
@@ -76,7 +74,6 @@
         <span class="step__label"
           >{t('onboarding.step_num', { n: 2, label: t('onboarding.permission') })}</span
         >
-        <AccessibilityGate bind:granted={axGranted} />
         <Button onclick={setUp} disabled={working || configured}>
           {configured
             ? t('onboarding.hidden_ready')

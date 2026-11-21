@@ -716,26 +716,6 @@ mod tests {
 
     #[tokio::test]
     async fn zip_rejects_windows_drive_and_stream_paths() {
-        // All potential writes stay in temporary directories, even on the
-        // vulnerable implementation. The absolute entry targets a sibling.
-        let outside = TempDir::new().unwrap();
-        let target = outside.path().join("outside.txt");
-        #[cfg(windows)]
-        {
-            let name = target.to_string_lossy();
-            for name in [
-                name.to_string(),
-                name.replace('\\', "/"),
-                format!("/{name}"),
-            ] {
-                let result = make_zip_and_extract(&[(&name, b"outside")]).await;
-                assert!(!target.exists(), "archive wrote outside its destination");
-                assert!(matches!(result, Err(AppError::Validation(_))));
-            }
-        }
-        #[cfg(not(windows))]
-        let _ = target;
-
         for name in ["C:relative.txt", "nested/C:relative.txt", "file.txt:stream"] {
             let result = make_zip_and_extract(&[(name, b"payload")]).await;
             assert!(

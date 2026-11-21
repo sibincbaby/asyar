@@ -396,26 +396,12 @@ pub(crate) async fn detect_existing_configs_with_home(
     result
 }
 
-/// Returns the list of (source_label, path) pairs for the current OS.
+/// Returns the list of (source_label, path) pairs to scan.
 fn config_paths_for_platform(home: &std::path::Path) -> Vec<(String, PathBuf)> {
     let mut paths: Vec<(String, PathBuf)> = Vec::new();
 
-    // Claude Code uses ~/.claude.json cross-platform.
+    // Claude Code uses ~/.claude.json.
     paths.push(("claude_code".to_string(), home.join(".claude.json")));
-
-    #[cfg(target_os = "macos")]
-    {
-        paths.push((
-            "claude_desktop".to_string(),
-            home.join("Library/Application Support/Claude/claude_desktop_config.json"),
-        ));
-        paths.push(("cursor".to_string(), home.join(".cursor/mcp.json")));
-        paths.push((
-            "windsurf".to_string(),
-            home.join(".codeium/windsurf/mcp_config.json"),
-        ));
-        paths.push(("cline".to_string(), home.join(".cline/mcp_settings.json")));
-    }
 
     #[cfg(target_os = "linux")]
     {
@@ -423,23 +409,6 @@ fn config_paths_for_platform(home: &std::path::Path) -> Vec<(String, PathBuf)> {
             "claude_desktop".to_string(),
             home.join(".config/Claude/claude_desktop_config.json"),
         ));
-        paths.push(("cursor".to_string(), home.join(".cursor/mcp.json")));
-        paths.push((
-            "windsurf".to_string(),
-            home.join(".codeium/windsurf/mcp_config.json"),
-        ));
-        paths.push(("cline".to_string(), home.join(".cline/mcp_settings.json")));
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let appdata = std::env::var("APPDATA").unwrap_or_default();
-        if !appdata.is_empty() {
-            paths.push((
-                "claude_desktop".to_string(),
-                PathBuf::from(&appdata).join("Claude/claude_desktop_config.json"),
-            ));
-        }
         paths.push(("cursor".to_string(), home.join(".cursor/mcp.json")));
         paths.push((
             "windsurf".to_string(),

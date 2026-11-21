@@ -28,7 +28,6 @@
   import { portalStore } from '../../built-in-features/portals/portalStore.svelte';
   import { initValidKeys } from '../../built-in-features/shortcuts/shortcutFormatter';
   import { listen } from '@tauri-apps/api/event';
-  import { platform } from '@tauri-apps/plugin-os';
   import { i18nService, t } from '../../services/i18n';
   import {
     initAppUpdateStore,
@@ -145,12 +144,7 @@
   let unlistenNavTab: (() => void) | undefined;
 
   onMount(async () => {
-    // Drives the overlay-titlebar inset and macOS overlay scrollbars.
-    try {
-      document.documentElement.dataset.platform = platform();
-    } catch {
-      document.documentElement.dataset.platform = 'macos';
-    }
+    document.documentElement.dataset.platform = 'linux';
     void i18nService.init();
     handler.init();
     preloadApplications(handler.settings.search?.additionalScanPaths ?? []);

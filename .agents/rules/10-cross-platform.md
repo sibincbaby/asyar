@@ -1,25 +1,24 @@
-# Cross-Platform Compatibility (macOS, Windows, Linux)
+# Linux-Only Platform Rule (X11 and Wayland)
 
-Asyar targets macOS, Windows, and Linux (X11 and Wayland). Local builds and `pnpm check:ci` only compile `#[cfg]` branches for the host OS; CI (`.github/workflows/test-and-lint.yml`) compiles and runs Rust tests on all three, and runs Clippy on Linux and macOS. The Windows test job skips one layout-dependent test.
+Asyar targets **Linux only**, on both X11 and Wayland. There are no macOS or Windows code paths, `cfg` branches, CI jobs, or bundle configs in this repository. CI (`.github/workflows/test-and-lint.yml`) builds, lints, and tests on `ubuntu-latest`.
 
 ## 1. Platform Boundaries & Compilation
 
-- **Crate & Module Split**: Put framework-free OS primitives in `src-tauri/crates/asyar-platform/` (`macos/`, `windows/`, `linux/`). Put Tauri-coupled OS code in `src-tauri/src/platform/` or trait-backed sibling modules (`power`, `system_actions`, `window_management`, `selection/platform`).
-- **Keep All Targets Compiling**: When changing a shared trait, `AppState` field, `bootstrap` call, or `asyar-platform` re-export, update every `#[cfg(target_os = ...)]` implementation and provide a `#[cfg(not(...))]` stub where needed.
-- **Test Pure Logic Everywhere**: Keep parsers, classifiers, and policy helpers un-gated (or `#[cfg(any(target_os = "...", test))]`) so Windows/Linux logic is unit-tested on macOS dev machines.
+- **Crate & Module Split**: Put framework-free OS primitives in `src-tauri/crates/asyar-platform/` (`linux/`). Put Tauri-coupled OS code in `src-tauri/src/platform/` or trait-backed sibling modules (`power`, `system_actions`, `window_management`, `selection/platform`).
+- **Linux Modules, Not Branches**: Platform code lives in Linux modules or behind `#[cfg(target_os = "linux")]`. Do not add `macos`, `windows`, or `#[cfg(not(target_os = "linux"))]` stubs, and do not reintroduce `cfg!(target_os = "macos" | "windows")` booleans.
+- **Test Pure Logic Without a Desktop**: Keep parsers, classifiers, and policy helpers (`.desktop` parsing, AppImage environment sanitizing, MPRIS parsing) free of D-Bus, X11, and GTK calls so `cargo test --workspace` runs headless in CI.
 
-## 2. Paths, Filesystems & Schemes
+## 2. Paths & Schemes
 
-- **No Verbatim `\\?\` Paths**: Use `dunce::canonicalize` or `dunce::simplified` instead of `std::fs::canonicalize`. Windows verbatim prefixes break `Path::starts_with` and `cmd.exe` / `.bat` / `.cmd` execution.
-- **Case-Aware Security Checks**: Windows and macOS filesystems are often case-insensitive but can be case-sensitive. Use `files_scope::starts_with_case_aware` for deny-list checks; it folds case on both OSes (`CASE_INSENSITIVE_FS`). For allow-list containment, verify the resolved path's relationship to the allowed root using filesystem-aware semantics; do not rely on this helper alone, since case folding can admit a distinct path. Check both `/` and `\` as path separators.
-- **Windows Custom-Scheme Origin**: WebView2 serves custom schemes as `http://{scheme}.localhost/`. Rust URI handlers must strip `{scheme}://localhost/`, `{scheme}://`, and `http://{scheme}.localhost/`; extension CSPs and `getExtensionFrameOrigin()` must account for `http://asyar-extension.localhost`.
+- **Paths**: Linux filesystems are case-sensitive; use `files_scope::starts_with_case_aware` for deny-list checks anyway so the shared helper stays the single owner of that logic. Reject `..` traversal in URI handlers.
+- **Custom Schemes**: WebKitGTK serializes `asyar-extension://`, `asyar-icon://`, and `asyar-thumb://` as opaque `"null"` origins. Extension iframe `postMessage` therefore uses `'*'` as target origin (`getExtensionFrameOrigin()`); the security boundary is the iframe sandbox, the scheme handler, and the IPC permission gate.
 
 ## 3. Subprocesses, Webviews & Display Servers
 
-- **Suppress Windows Console Flash**: Set `CREATE_NO_WINDOW` (`0x0800_0000`) via `CommandExt::creation_flags` on `#[cfg(target_os = "windows")]` whenever spawning console-subsystem binaries (`powershell`, `where`, extension shell commands).
-- **Sanitize Linux AppImage Children**: Call `crate::platform::linux::sanitize_command(&mut cmd)` before spawning external apps or `xdg-open` so AppImage `LD_LIBRARY_PATH` / `XDG_DATA_DIRS` overrides do not crash host binaries.
-- **Use `tauri-plugin-http` from JS**: Webview/extension HTTP must go through `network:fetch` (`tauri-plugin-http`), never raw WebView `fetch()`, which fails CORS on Windows `tauri://` origins.
-- **Per-Webview `data-platform` & Surfaces**: Every separate webview (`main`, `settings`, `onboarding`, `hud`) must set `document.documentElement.dataset.platform`. Match both `'win32'` and `'windows'` in Windows CSS selectors, and never set opaque root backgrounds.
-- **Wayland Awareness**: Do not assume global hotkey grabs (`XGrabKey`), synchronous focus-on-show, or synthetic input/selection capture work on Wayland.
+- **Sanitize AppImage Children**: Call `crate::platform::linux::sanitize_command(&mut cmd)` before spawning external apps or `xdg-open` so AppImage `LD_LIBRARY_PATH` / `XDG_DATA_DIRS` overrides do not crash host binaries.
+- **Use `tauri-plugin-http` from JS**: Webview/extension HTTP must go through `network:fetch` (`tauri-plugin-http`), never raw WebView `fetch()`.
+- **Per-Webview `data-platform`**: Every separate webview (`main`, `settings`, `onboarding`, `hud`) sets `document.documentElement.dataset.platform = 'linux'`. Never set an opaque root background in component CSS.
+- **Wayland Awareness**: Do not assume global hotkey grabs (`XGrabKey`), synchronous focus-on-show, window enumeration/positioning, or synthetic input/selection capture work on Wayland. Gate or degrade those paths explicitly.
+- **Unsupported Features**: Where Linux cannot do something (for example screen-capture OCR), return a clear `AppError::Platform("... not supported on Linux")` rather than faking a result.
 
 For full patterns, examples, and checklists, see `.agents/skills/cross-platform/SKILL.md`.

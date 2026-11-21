@@ -8,20 +8,9 @@ use std::process::Stdio;
 use tokio::process::Command;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
-/// Keep console-subsystem CLI children (and `.cmd` shims run via cmd.exe)
-/// from opening a visible console window when spawned from the GUI process.
-pub(crate) fn hide_console_window(cmd: &mut Command) -> &mut Command {
-    #[cfg(windows)]
-    {
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
-    }
-    cmd
-}
-
 /// Resolves the home directory safely without panic.
 pub(crate) fn resolve_home_dir() -> Option<PathBuf> {
-    // `HOME` is unset on Windows by default; fall back to the platform home dir (USERPROFILE).
+    // Fall back to the platform home dir when `HOME` is unset or empty.
     std::env::var_os("HOME")
         .filter(|h| !h.is_empty())
         .map(PathBuf::from)
@@ -50,11 +39,6 @@ pub fn cli_candidates(engine: &str) -> Vec<PathBuf> {
         "google" => {
             if let Some(ref h) = home {
                 candidates.push(h.join(".local/bin/agy"));
-                #[cfg(windows)]
-                {
-                    candidates.push(h.join(".local/bin/agy.exe"));
-                    candidates.push(h.join("AppData/Local/Programs/agy/agy.exe"));
-                }
             }
             candidates.push(PathBuf::from("/opt/homebrew/bin/agy"));
             candidates.push(PathBuf::from("/usr/local/bin/agy"));
@@ -65,23 +49,12 @@ pub fn cli_candidates(engine: &str) -> Vec<PathBuf> {
             if let Some(ref h) = home {
                 candidates.push(h.join(".local/bin/codex"));
                 candidates.push(h.join(".cargo/bin/codex"));
-                #[cfg(windows)]
-                {
-                    candidates.push(h.join(".local/bin/codex.exe"));
-                    candidates.push(h.join(".cargo/bin/codex.exe"));
-                    candidates.push(h.join("AppData/Roaming/npm/codex.cmd"));
-                }
             }
         }
         "claude" => {
             if let Some(ref h) = home {
                 candidates.push(h.join(".local/bin/claude"));
                 candidates.push(h.join(".npm-global/bin/claude"));
-                #[cfg(windows)]
-                {
-                    candidates.push(h.join(".local/bin/claude.exe"));
-                    candidates.push(h.join("AppData/Roaming/npm/claude.cmd"));
-                }
             }
             candidates.push(PathBuf::from("/opt/homebrew/bin/claude"));
             candidates.push(PathBuf::from("/usr/local/bin/claude"));
@@ -119,7 +92,7 @@ pub fn resolve_cli_binary(engine: &str, custom_path: Option<&str>) -> Option<Pat
         }
     }
 
-    // Fallback: search system PATH via `which <binary>` on Unix or `where <binary>` on Windows
+    // Fallback: search system PATH via `which <binary>`
     let binary_name = match normalize_engine(engine) {
         "google" => "agy",
         "openai" => "codex",
@@ -127,16 +100,8 @@ pub fn resolve_cli_binary(engine: &str, custom_path: Option<&str>) -> Option<Pat
         other => other,
     };
 
-    let which_cmd = if cfg!(windows) { "where" } else { "which" };
-
-    let mut which = std::process::Command::new(which_cmd);
+    let mut which = std::process::Command::new("which");
     which.arg(binary_name);
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        which.creation_flags(CREATE_NO_WINDOW);
-    }
     if let Ok(output) = which.output() {
         if output.status.success() {
             let stdout_str = String::from_utf8_lossy(&output.stdout);
@@ -202,7 +167,6 @@ pub async fn check_cli_status_in(
     // Query version with a short timeout
     let mut version_cmd = Command::new(&bin_path);
     version_cmd.arg("--version");
-    hide_console_window(&mut version_cmd);
     let version_cmd = version_cmd.output();
 
     match tokio::time::timeout(std::time::Duration::from_secs(4), version_cmd).await {
@@ -951,8 +915,6 @@ where
         .stderr(Stdio::piped())
         .kill_on_drop(true);
 
-    hide_console_window(&mut cmd);
-
     let mut child = cmd.spawn().map_err(|e| {
         let err_msg = format!("Failed to spawn CLI process '{bin_path:?}': {e}");
         on_event(ChatStreamEventPayload::Error {
@@ -1035,7 +997,7 @@ mod tests {
 
     #[test]
     fn test_resolve_home_dir_is_some() {
-        // Falls back to the platform home dir when HOME is unset (Windows).
+        // Falls back to the platform home dir when HOME is unset.
         assert!(super::resolve_home_dir().is_some());
     }
 
@@ -1114,10 +1076,6 @@ mod tests {
     fn test_cli_candidates_include_claude_install_locations() {
         let candidates = cli_candidates("anthropic_16782567");
         assert!(candidates.iter().any(|p| p.ends_with(".local/bin/claude")));
-        #[cfg(windows)]
-        assert!(candidates
-            .iter()
-            .any(|p| p.ends_with(".local/bin/claude.exe")));
     }
 
     fn token_text(events: &[ChatStreamEventPayload]) -> String {

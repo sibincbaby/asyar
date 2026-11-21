@@ -175,7 +175,6 @@ impl TransportFactory for StdioTransportFactory {
                 // On Windows, `npx`/`uvx`-style servers are console-subsystem
                 // programs or `.cmd` shims run via cmd.exe; without this each
                 // server opens a visible console window.
-                crate::ai::cli::hide_console_window(&mut cmd);
                 let mut child = cmd
                     .spawn()
                     .map_err(|e| McpClientError::Transport(e.to_string()))?;

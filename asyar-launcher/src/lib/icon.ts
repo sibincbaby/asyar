@@ -1,5 +1,4 @@
 import type { ResolvedIcon } from '../bindings';
-import { getHostPlatform, type HostPlatform } from './keyboard/hostPlatform';
 
 /**
  * An icon as callers hold it: a `ResolvedIcon` resolved in Rust
@@ -12,34 +11,15 @@ const HOST_SCHEMES = ['asyar-extension', 'asyar-icon', 'asyar-thumb'] as const;
 
 /**
  * Normalizes a host scheme or data image URL for the current webview.
- * On Windows, WebView2 loads custom schemes from `http://<scheme>.localhost/`;
- * on macOS and Linux, `http://asyar-*.localhost/` URLs are rejected so plain
- * HTTP loopback URLs can never reach an `<img>`.
+ * `http://asyar-*.localhost/` URLs are rejected so plain HTTP loopback URLs can
+ * never reach an `<img>`.
  */
-export function normalizeHostImageUrl(
-  raw: string,
-  platform: HostPlatform = getHostPlatform(),
-): string | null {
+export function normalizeHostImageUrl(raw: string): string | null {
   if (raw.startsWith('data:image/')) return raw;
 
-  const isWindows = platform === 'windows';
   for (const scheme of HOST_SCHEMES) {
-    const localhostPrefix = `${scheme}://localhost/`;
-    const barePrefix = `${scheme}://`;
-    const windowsPrefix = `http://${scheme}.localhost/`;
-
-    if (raw.startsWith(localhostPrefix)) {
-      const rest = raw.slice(localhostPrefix.length);
-      if (!rest) return null;
-      return isWindows ? `${windowsPrefix}${rest}` : raw;
-    }
-    if (raw.startsWith(barePrefix)) {
-      const rest = raw.slice(barePrefix.length);
-      if (!rest) return null;
-      return isWindows ? `${windowsPrefix}${rest}` : raw;
-    }
-    if (isWindows && raw.startsWith(windowsPrefix)) {
-      return raw.length > windowsPrefix.length ? raw : null;
+    for (const prefix of [`${scheme}://localhost/`, `${scheme}://`]) {
+      if (raw.startsWith(prefix)) return raw.length > prefix.length ? raw : null;
     }
   }
 
@@ -51,16 +31,13 @@ export function normalizeHostImageUrl(
  * (built-in literals, runtime actions). Same rules as `resolve_icon` with no
  * owning extension: relative paths and unknown schemes resolve to `null`.
  */
-export function toResolvedIcon(
-  icon: IconSource,
-  platform: HostPlatform = getHostPlatform(),
-): ResolvedIcon | null {
+export function toResolvedIcon(icon: IconSource): ResolvedIcon | null {
   if (!icon) return null;
   if (typeof icon !== 'string') {
     if (icon.kind !== 'image') return icon;
-    const src = normalizeHostImageUrl(icon.src, platform);
+    const src = normalizeHostImageUrl(icon.src);
     if (!src) return null;
-    const dark = icon.dark ? normalizeHostImageUrl(icon.dark, platform) : null;
+    const dark = icon.dark ? normalizeHostImageUrl(icon.dark) : null;
     if (src === icon.src && (dark ?? undefined) === (icon.dark ?? undefined)) return icon;
     return {
       ...icon,
@@ -70,7 +47,7 @@ export function toResolvedIcon(
   }
   const raw = icon.trim();
   if (raw.startsWith('icon:')) return raw.length > 5 ? { kind: 'glyph', name: raw.slice(5) } : null;
-  const hostImage = normalizeHostImageUrl(raw, platform);
+  const hostImage = normalizeHostImageUrl(raw);
   if (hostImage) return { kind: 'image', src: hostImage };
   if (raw.startsWith('https://')) return { kind: 'remote', url: raw };
   if (!raw || /[:./\\]/.test(raw)) return null;

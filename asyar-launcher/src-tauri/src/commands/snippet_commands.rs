@@ -1,7 +1,7 @@
 //! Text snippet expansion commands.
 //!
 //! Syncs snippet definitions to the Rust listener, enables/disables
-//! expansion, and checks macOS Accessibility permissions.
+//! expansion, and checks the snippet permission.
 
 use crate::error::AppError;
 use crate::AppState;
@@ -44,27 +44,16 @@ pub fn set_snippets_enabled(
     Ok(())
 }
 
-/// Returns `true` if the Accessibility permission required for snippets is granted (macOS only).
+/// Returns `true` if the permission required for snippets is granted. Always
+/// `true` on Linux, where no such gate exists.
 #[tauri::command]
 pub fn check_snippet_permission() -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        crate::platform::macos::is_accessibility_trusted()
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        true
-    }
+    true
 }
 
-/// Opens the macOS Accessibility preferences pane so the user can grant permission.
+/// No-op on Linux (there is no Accessibility preferences pane to open).
 #[tauri::command]
-pub fn open_accessibility_preferences() {
-    #[cfg(target_os = "macos")]
-    {
-        crate::platform::macos::open_accessibility_prefs();
-    }
-}
+pub fn open_accessibility_preferences() {}
 
 /// Registers or replaces an extension's shortcode → expansion map.
 ///
@@ -144,8 +133,6 @@ mod contribute_tests {
             contributed_snippets: Mutex::new(HashMap::new()),
             shortcode_triggers: Mutex::new(vec![]),
             listener_started: AtomicBool::new(false),
-            #[cfg(target_os = "windows")]
-            previous_hwnd: Mutex::new(0),
             #[cfg(target_os = "linux")]
             linux_prev_window_id: Mutex::new(0),
             is_expanding: AtomicBool::new(false),

@@ -9,22 +9,12 @@ pub mod protected;
 pub mod types;
 
 use crate::process_manager::grouping::{filter_groups, group, sort_groups};
-use crate::process_manager::protected::{classify, Os};
+use crate::process_manager::protected::classify;
 use crate::process_manager::types::{AppGroup, KillFailure, KillResult, RawProcess, SortBy};
 
-#[cfg(target_os = "macos")]
-const CURRENT_OS: Os = Os::Macos;
-#[cfg(target_os = "windows")]
-const CURRENT_OS: Os = Os::Windows;
-#[cfg(any(
-    target_os = "linux",
-    not(any(target_os = "macos", target_os = "windows"))
-))]
-const CURRENT_OS: Os = Os::Linux;
-
 /// Pure pipeline: group → filter → sort. Unit-tested without a live system.
-pub fn list_from_raw(raw: Vec<RawProcess>, os: Os, query: &str, sort: SortBy) -> Vec<AppGroup> {
-    let mut groups = filter_groups(group(os, &raw), query);
+pub fn list_from_raw(raw: Vec<RawProcess>, query: &str, sort: SortBy) -> Vec<AppGroup> {
+    let mut groups = filter_groups(group(&raw), query);
     sort_groups(&mut groups, sort);
     groups
 }
@@ -32,7 +22,7 @@ pub fn list_from_raw(raw: Vec<RawProcess>, os: Os, query: &str, sort: SortBy) ->
 /// Live enumeration via `sysinfo`, then the pure pipeline.
 pub fn list(query: &str, sort: SortBy) -> Vec<AppGroup> {
     let raw = enumerate();
-    list_from_raw(raw, CURRENT_OS, query, sort)
+    list_from_raw(raw, query, sort)
 }
 
 /// Map a refreshed `System` into our internal `RawProcess` snapshot. Shared by
@@ -166,15 +156,14 @@ pub fn kill_all(
 
 /// Pure: build kill targets from a single snapshot, deriving each pid's
 /// `protected` flag server-side (a pid absent from the snapshot is already
-/// gone → not protected). Takes an explicit `os` so it's unit-testable on any
-/// host.
-fn targets_from_snapshot(pids: Vec<u32>, snapshot: &[RawProcess], os: Os) -> Vec<KillTarget> {
+/// gone → not protected).
+fn targets_from_snapshot(pids: Vec<u32>, snapshot: &[RawProcess]) -> Vec<KillTarget> {
     pids.into_iter()
         .map(|pid| {
             let protected = snapshot
                 .iter()
                 .find(|p| p.pid == pid)
-                .map(|p| classify(os, p))
+                .map(classify)
                 .unwrap_or(false);
             KillTarget { pid, protected }
         })
@@ -185,14 +174,13 @@ fn targets_from_snapshot(pids: Vec<u32>, snapshot: &[RawProcess], os: Os) -> Vec
 /// (never trust the client), then enforce + kill.
 pub fn kill(pids: Vec<u32>, force: bool, confirmed_protected: bool) -> KillResult {
     let snapshot = enumerate_snapshot();
-    let targets = targets_from_snapshot(pids, &snapshot, CURRENT_OS);
+    let targets = targets_from_snapshot(pids, &snapshot);
     kill_all(&SysinfoKiller, &targets, force, confirmed_protected)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::process_manager::protected::Os;
     use crate::process_manager::types::{RawProcess, SortBy};
     use std::cell::RefCell;
 
@@ -215,7 +203,7 @@ mod tests {
             raw(2, "beta", 9.0),
             raw(3, "alps", 5.0),
         ];
-        let groups = list_from_raw(procs, Os::Linux, "alp", SortBy::Cpu);
+        let groups = list_from_raw(procs, "alp", SortBy::Cpu);
         // "beta" filtered out; "alps" (5.0) before "alpha" (2.0)
         assert_eq!(
             groups
@@ -341,7 +329,7 @@ mod tests {
         let user = raw(1234, "code", 0.0);
         let snapshot = vec![init, user];
 
-        let targets = targets_from_snapshot(vec![1, 1234, 9999], &snapshot, Os::Linux);
+        let targets = targets_from_snapshot(vec![1, 1234, 9999], &snapshot);
 
         assert_eq!(targets.len(), 3);
         assert_eq!((targets[0].pid, targets[0].protected), (1, true));

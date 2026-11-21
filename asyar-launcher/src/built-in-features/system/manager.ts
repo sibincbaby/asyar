@@ -1,4 +1,3 @@
-import { platform } from '@tauri-apps/plugin-os';
 import { replaceDynamicCommandsBuiltin, systemActionsSupported } from '../../lib/ipc/commands';
 import { logService } from '../../services/log/logService';
 import { systemActionSpecs } from './actions';
@@ -14,7 +13,7 @@ export const SYSTEM_EXTENSION_ID = 'system';
  */
 export async function registerSystemCommands(): Promise<void> {
   const supported = await systemActionsSupported();
-  const specs = systemActionSpecs(platform());
+  const specs = systemActionSpecs();
   const regs = supported
     .map((id) => specs[id])
     .filter((spec) => spec !== undefined)

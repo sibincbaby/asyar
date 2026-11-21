@@ -20,37 +20,8 @@ thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 uuid = { version = "1", features = ["v4"] }
 
-[target.'cfg(target_os = "macos")'.dependencies]
-icns = "0.3"
-block2 = "0.5"
-objc2 = { version = "0.5", features = ["exception"] }
-objc2-foundation = { version = "0.2", features = ["all"] }
-objc2-app-kit = { version = "0.2", features = ["all"] }
-core-foundation = "0.10"
-core-foundation-sys = "0.8"
-plist = "1.7"
-window-vibrancy = "0.6"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-png = "0.17"
-windows = { version = "0.62", features = [
-    "Win32_Foundation",
-    "Win32_Graphics_Dwm",
-    "Win32_Graphics_Gdi",
-    "Win32_UI_Shell",
-    "Win32_UI_WindowsAndMessaging",
-    "Win32_UI_Input_KeyboardAndMouse",
-    "Win32_Storage_FileSystem",
-    "Win32_System_Com",
-    "Win32_System_Environment",
-    "Win32_System_Threading",
-    "Media_Control",
-    "ApplicationModel_Appointments",
-    "Foundation",
-    "Foundation_Collections",
-] }
-
 [target.'cfg(target_os = "linux")'.dependencies]
+rdev = "0.5"
 xkbcommon = "0.7"
 gtk = "0.18"
 gdk = "0.18"
@@ -58,9 +29,6 @@ gio = "0.18"
 gdkx11 = "0.18"
 x11rb = "0.13"
 zbus = { version = "4", features = ["blocking"] }
-
-[target.'cfg(not(target_os = "macos"))'.dependencies]
-rdev = "0.5"
 
 [dev-dependencies]
 tempfile = "3.10"

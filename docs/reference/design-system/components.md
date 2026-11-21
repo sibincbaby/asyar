@@ -117,7 +117,7 @@ to mount your own.
 | `BottomActionBar`        | The launcher's fixed bottom bar              |
 | `ShowMoreBarHuds`        | The compact-mode "show more" seam            |
 | `MetadataList`           | Key-value metadata inspector in detail panes |
-| `ActionListPopup`        | A ⌘K-style action menu                       |
+| `ActionListPopup`        | A Ctrl+K-style action menu                   |
 | `Card`                   | A card surface                               |
 | `InformationPanel`       | A labelled information panel                 |
 | `PrimaryActionDisplay`   | The highlighted primary action               |

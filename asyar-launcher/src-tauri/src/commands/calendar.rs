@@ -8,8 +8,8 @@
 use crate::error::AppError;
 use crate::permissions::ExtensionPermissionRegistry;
 use asyar_platform::{
-    AccessKind, AccessState, CalendarEvent, CalendarSource, CreateEventInput, CreateReminderInput,
-    ReminderItem, ReminderList,
+    CalendarEvent, CalendarSource, CreateEventInput, CreateReminderInput, ReminderItem,
+    ReminderList,
 };
 use tauri::State;
 
@@ -90,19 +90,6 @@ pub fn calendar_set_reminder_completed(
     completed: bool,
 ) -> Result<ReminderItem, AppError> {
     calendar_set_reminder_completed_inner(&permissions, extension_id, id, completed)
-}
-
-/// Host-only (not in the `asyar:api:*` permission table): drives the
-/// Settings → Privacy permissions card, so extensions cannot reach it.
-#[tauri::command(async)]
-pub fn calendar_access_status(kind: AccessKind) -> Result<AccessState, AppError> {
-    asyar_platform::access_status(kind).map_err(platform_err)
-}
-
-/// Host-only: shows the macOS prompt when the decision is still open.
-#[tauri::command(async)]
-pub fn calendar_request_access(kind: AccessKind) -> Result<AccessState, AppError> {
-    asyar_platform::request_access(kind).map_err(platform_err)
 }
 
 pub(crate) fn calendar_list_calendars_inner(

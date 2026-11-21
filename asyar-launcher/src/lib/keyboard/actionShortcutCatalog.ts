@@ -1,5 +1,4 @@
 import { toDisplayKeys } from '../../built-in-features/shortcuts/shortcutFormatter';
-import type { HostPlatform } from './hostPlatform';
 import type { ShortcutEntry } from './shortcutCatalog';
 
 /**
@@ -12,7 +11,6 @@ import type { ShortcutEntry } from './shortcutCatalog';
  */
 export function actionShortcutEntries(
   actions: readonly { label: string; shortcut?: string }[],
-  platform?: HostPlatform,
 ): ShortcutEntry[] {
   const seen = new Set<string>();
   const entries: ShortcutEntry[] = [];
@@ -21,7 +19,7 @@ export function actionShortcutEntries(
     const key = `${a.shortcut}|${a.label}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    entries.push({ keys: toDisplayKeys(a.shortcut, platform), label: a.label, scope: 'view' });
+    entries.push({ keys: toDisplayKeys(a.shortcut), label: a.label, scope: 'view' });
   }
   return entries;
 }

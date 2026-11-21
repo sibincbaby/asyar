@@ -19,7 +19,7 @@ Asyar divides extension UI into two deliberate layers:
    - **Extension & command preferences** ([`preferences`](../reference/sdk/preferences.md) in `manifest.json`, rendered automatically in Settings)
    - **Command arguments** ([`arguments`](../reference/command-arguments.md) in `manifest.json`, rendered as inline chips in the search bar)
    - **Searchbar accessory dropdowns** ([`searchBarAccessory`](../reference/searchbar-accessory.md) in `asyar-sdk/view`)
-   - **Bottom Action Bar & `⌘K` Action Panel** ([`context.registerAction(...)`](../reference/actions.md))
+   - **Bottom Action Bar & `Ctrl+K` Action Panel** ([`context.registerAction(...)`](../reference/actions.md))
 
 2. **Open Webviews (`mode: "view"`)** — when a command opens its own panel, it runs in a sandboxed `<iframe>` (`asyar-extension://<id>/view.html`). You own 100% of the DOM and can use Svelte, React, Vue, or plain TypeScript/HTML, styled with [`asyar-sdk/tokens.css`](../reference/design-system/tokens.md) and [`<asyar-icon>`](../reference/design-system/icons.md).
 
@@ -62,7 +62,7 @@ Beyond the cost of building and maintaining a second UI reconciler over IPC, a l
 
 ## Making Simple Lists Fast: Typed Helpers + Copy-Owned Templates
 
-Choosing open webviews does **not** mean every developer should have to reinvent search filtering, arrow-key navigation, and `Enter` / `⌘K` wiring from scratch just to display a list of items.
+Choosing open webviews does **not** mean every developer should have to reinvent search filtering, arrow-key navigation, and `Enter` / `Ctrl+K` wiring from scratch just to display a list of items.
 
 Instead of hiding list UI behind an opaque SDK widget kit, Asyar takes the **shadcn/ui approach**:
 

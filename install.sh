@@ -1,14 +1,11 @@
 #!/bin/sh
-# Installs the latest Asyar launcher release for macOS or Linux.
+# Installs the latest Asyar launcher release for Linux.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/Xoshbin/asyar/main/install.sh | sh
 #
 # Install a specific version instead of the newest one:
 #   ASYAR_VERSION=0.1.1-38 curl -fsSL https://raw.githubusercontent.com/Xoshbin/asyar/main/install.sh | sh
-#
-# Windows: use `winget install Xoshbin.Asyar` (once a stable release ships) or
-# grab the MSI directly from https://github.com/Xoshbin/asyar/releases.
 set -eu
 
 REPO="Xoshbin/asyar"
@@ -25,26 +22,17 @@ os=$(uname -s)
 arch=$(uname -m)
 
 case "$os" in
-  Darwin) platform=macos ;;
   Linux) platform=linux ;;
-  MINGW* | MSYS* | CYGWIN*)
-    err "Windows isn't supported by this script. Use 'winget install Xoshbin.Asyar' (once a stable release ships) or download the MSI from https://github.com/${REPO}/releases."
-    ;;
   *)
     err "Unsupported OS: $os"
     ;;
 esac
 
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/asyar-install.XXXXXX")
-MOUNTED=0
-mount_point="$TMP_DIR/mnt"
 linux_app_tmp=""
 linux_helper_tmp=""
 
 cleanup() {
-  if [ "$MOUNTED" = "1" ]; then
-    hdiutil detach "$mount_point" -quiet >/dev/null 2>&1 || true
-  fi
   [ -z "$linux_app_tmp" ] || rm -f "$linux_app_tmp"
   [ -z "$linux_helper_tmp" ] || rm -f "$linux_helper_tmp"
   rm -rf "$TMP_DIR"
@@ -73,13 +61,6 @@ find_asset_url() {
 }
 
 case "$platform" in
-  macos)
-    case "$arch" in
-      arm64) asset_url=$(find_asset_url '_aarch64\.dmg"') ;;
-      x86_64) asset_url=$(find_asset_url '_x64\.dmg"') ;;
-      *) err "Unsupported macOS architecture: $arch" ;;
-    esac
-    ;;
   linux)
     case "$arch" in
       aarch64)
@@ -106,31 +87,6 @@ version=$(printf '%s' "$asset_file" | sed -E 's/^asyar_([^_]+)_.*/\1/')
 log "Installing Asyar ${version} for ${platform}/${arch}..."
 
 case "$platform" in
-  macos)
-    if [ -d /Applications/asyar.app ]; then
-      current=$(defaults read /Applications/asyar.app/Contents/Info.plist CFBundleShortVersionString 2>/dev/null || echo "unknown")
-      log "Found an existing install (version ${current}) — it will be replaced. Asyar's own updater keeps it current after this; re-run this script any time to reinstall from scratch."
-    fi
-
-    dmg_path="$TMP_DIR/$asset_file"
-    curl -fsSL -o "$dmg_path" "$asset_url"
-
-    mkdir -p "$mount_point"
-    hdiutil attach "$dmg_path" -nobrowse -quiet -mountpoint "$mount_point"
-    MOUNTED=1
-
-    app_path=$(find "$mount_point" -maxdepth 1 -name '*.app' | head -n1)
-    [ -n "$app_path" ] || err "No .app bundle found in the downloaded disk image"
-
-    rm -rf /Applications/asyar.app
-    cp -R "$app_path" /Applications/
-
-    hdiutil detach "$mount_point" -quiet
-    MOUNTED=0
-
-    log "Installed to /Applications/asyar.app"
-    log "Launch it from Spotlight or Applications, then set your hotkey in Asyar's preferences."
-    ;;
   linux)
     target="$INSTALL_DIR/asyar"
     helper_target="$INSTALL_DIR/asyar-summon"

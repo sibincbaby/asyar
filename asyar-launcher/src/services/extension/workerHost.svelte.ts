@@ -20,7 +20,6 @@ export function createWorkerBootstrap(
   extensionId: string,
   mountToken: number,
   entry: string,
-  isWindows: boolean,
 ): string {
   if (
     !entry ||
@@ -33,9 +32,7 @@ export function createWorkerBootstrap(
   ) {
     throw new Error('Invalid background.main module path');
   }
-  const workerUrl = isWindows
-    ? `http://asyar-extension.localhost/${extensionId}/${entry}`
-    : `asyar-extension://${extensionId}/${entry}`;
+  const workerUrl = `asyar-extension://${extensionId}/${entry}`;
   return `
     self.__ASYAR_ROLE__ = 'worker';
     self.__ASYAR_EXTENSION_ID__ = ${JSON.stringify(extensionId)};
@@ -253,10 +250,9 @@ export class WorkerHost {
     // Check if standard Web Worker is supported in the environment
     if (typeof Worker !== 'undefined' && typeof window !== 'undefined') {
       try {
-        const isWindows = navigator.userAgent.toLowerCase().includes('windows');
         let bootstrapCode: string;
         try {
-          bootstrapCode = createWorkerBootstrap(extensionId, mountToken, entry ?? '', isWindows);
+          bootstrapCode = createWorkerBootstrap(extensionId, mountToken, entry ?? '');
         } catch (error) {
           this.failWorker(extensionId, mountToken, error);
           return null;

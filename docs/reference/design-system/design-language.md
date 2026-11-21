@@ -36,8 +36,8 @@ what the thesis below is a response to:
   wallpaper. Nobody had measured it.
 - Shadows cast **down and to the left** (`-28px 20px 80px`) while everything
   else in the file cast straight down.
-- On macOS the type reverted to San Francisco, so the app had no typographic
-  identity at all on the platform most of its users are on.
+- On some platforms the type reverted to the system face, so the app had no
+  typographic identity there.
 - **The content area held exactly nine result rows with zero pixels left
   over** — the single most consequential property in the product — and this was
   true entirely by accident. The row was a bare `min-height: 40px`, the
@@ -209,7 +209,7 @@ _accent_ is still bound by the rule; only its _mark_ is free.
 Asyar is a keyboard instrument. The mouse is supported the way a piano supports
 being played standing up. This is not asceticism: the entire value proposition
 of a launcher is that it is faster than the thing it replaces, and a control the
-user has to hunt for with a pointer has already lost to the Dock.
+user has to hunt for with a pointer has already lost to the keyboard.
 
 Every action shows its key, in a `KeyboardHint` chip, at the moment it applies.
 Not in a help screen. Not on hover. The chip is how the app teaches itself, and
@@ -318,12 +318,12 @@ alignment.
 There are exactly **four** elevations. Not a scale you extend — a list you
 choose from.
 
-| Level | Name       | What it is                                | Transmission        | Shadow                    |
-| ----- | ---------- | ----------------------------------------- | ------------------- | ------------------------- |
-| 0     | The Ground | The user's desktop. Asyar never draws it. | —                   | —                         |
-| 1     | The Shell  | The launcher window itself                | `--bg-primary`, 72% | `--shadow-launcher-popup` |
-| 2     | The Raised | Cards, sidebars, panels within the shell  | `--bg-secondary`    | `--shadow-sm` … `-md`     |
-| 3     | The Near   | Popups, menus, the ⌘K palette, dialogs    | `--bg-popup`, ~80%  | `--shadow-launcher-popup` |
+| Level | Name       | What it is                                 | Transmission        | Shadow                    |
+| ----- | ---------- | ------------------------------------------ | ------------------- | ------------------------- |
+| 0     | The Ground | The user's desktop. Asyar never draws it.  | —                   | —                         |
+| 1     | The Shell  | The launcher window itself                 | `--bg-primary`, 72% | `--shadow-launcher-popup` |
+| 2     | The Raised | Cards, sidebars, panels within the shell   | `--bg-secondary`    | `--shadow-sm` … `-md`     |
+| 3     | The Near   | Popups, menus, the Ctrl+K palette, dialogs | `--bg-popup`, ~80%  | `--shadow-launcher-popup` |
 
 Two rules govern the whole model:
 
@@ -374,15 +374,14 @@ surface reads as separate. Alignment is (Signature 2).
 | Everything the user reads as language | Satoshi        | `--font-ui`   |
 | Everything the user reads as data     | JetBrains Mono | `--font-mono` |
 
-**Satoshi, on every platform, including macOS.** This reverses a long-standing
-decision to fall back to San Francisco on macOS. The reasoning is simple: a
-design language and "use the OS default font" are mutually exclusive claims. San
-Francisco is a superb typeface and it makes Asyar look exactly like every other
-Mac app, on the platform where most of its users are. Satoshi is geometric,
+**Satoshi, everywhere.** Asyar never falls back to the system face. The reasoning
+is simple: a design language and "use the OS default font" are mutually
+exclusive claims. A system face makes Asyar look exactly like every other app on
+the desktop. Satoshi is geometric,
 slightly warm, and has an unusually confident lowercase `a` and `g` — it reads
 as _drawn_ rather than _specified_.
 
-The cost is real and is paid explicitly: Satoshi has lighter stems than SF at
+The cost is real and is paid explicitly: Satoshi has lighter stems than most system faces at
 11–13px, so the app sets `-webkit-font-smoothing: antialiased` and
 `text-rendering: optimizeLegibility` globally, and never uses weight 400 below
 `--font-size-sm` on a translucent ground.
@@ -462,15 +461,15 @@ downstream of that answer.
 
 Everything in the launcher is a subdivision of this:
 
-| Measure                      | Value     | Where it comes from                                                                                     |
-| ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------- |
-| Window                       | 750×480   | `tauri.conf.json`. On macOS the height is pinned in CSS too, so the DOM never re-lays out on `setFrame` |
-| Header (`--shell-header-h`)  | 56px      | The command line at 20px plus breathing room                                                            |
-| Footer (`--shell-footer-h`)  | 40px      | One row of chips                                                                                        |
-| **Content**                  | **384px** | 480 − 56 − 40. The entire product                                                                       |
-| List inset                   | 8px       | `--space-3`, top and bottom                                                                             |
-| Result row (`--shell-row-h`) | 40px      | The row box                                                                                             |
-| Row separation               | 1px       | A hairline, deliberately not `--space-0-5`                                                              |
+| Measure                      | Value     | Where it comes from                                                                        |
+| ---------------------------- | --------- | ------------------------------------------------------------------------------------------ |
+| Window                       | 750×480   | `tauri.conf.json`. The height is pinned in CSS too, so the DOM never re-lays out on resize |
+| Header (`--shell-header-h`)  | 56px      | The command line at 20px plus breathing room                                               |
+| Footer (`--shell-footer-h`)  | 40px      | One row of chips                                                                           |
+| **Content**                  | **384px** | 480 − 56 − 40. The entire product                                                          |
+| List inset                   | 8px       | `--space-3`, top and bottom                                                                |
+| Result row (`--shell-row-h`) | 40px      | The row box                                                                                |
+| Row separation               | 1px       | A hairline, deliberately not `--space-0-5`                                                 |
 
 Those numbers produce an exact fit, and it is worth doing the arithmetic in full
 because nothing else in the system is this tight:
@@ -844,7 +843,7 @@ place scale is used for feedback rather than for arrival, and it is deliberately
 small enough to be felt more than seen.
 
 **Native desktop controls.** Sidebar navigation and desktop `<Button>` controls
-follow native macOS AppKit / Raycast behaviour rather than web conventions.
+follow native desktop / Raycast behaviour rather than web conventions.
 Sidebar selection snaps immediately (`transition: none`) and inactive items have
 no hover highlight. A `<Button>` changes surface colour on `:active`
 (`--bg-selected`) without scale-shrinking. Every desktop control uses
@@ -955,7 +954,7 @@ pinned there six months ago.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ [glance chip]              [feedback slot]   Open ⏎  Actions ⌘K  │
+│ [glance chip]           [feedback slot]   Open ⏎  Actions Ctrl+K │
 └──────────────────────────────────────────────────────────────────┘
       ↑                            ↑              ↑         ↑
    where you are             transient state   primary   everything
@@ -967,7 +966,7 @@ pinned there six months ago.
 - **The primary action is stated, not guessed at.** The right slot always names
   what `⏎` will do to the current selection — "Open", "Paste", "Run". A launcher
   whose Enter key is a mystery is a launcher people stop trusting.
-- **`⌘K` is the escape valve, and it is always present.** Every secondary action
+- **`Ctrl+K` is the escape valve, and it is always present.** Every secondary action
   lives behind it. This is what allows the rail to stay at two items: it never
   needs to grow, because it has somewhere to grow into.
 - **Fixed height, `--shell-footer-h`.** The rail never reflows. Content changes;
@@ -981,7 +980,7 @@ pinned there six months ago.
 
 **Rejected alternatives.** User-pinned favourites (a launcher's job is to make
 pinning unnecessary). Icons without labels (unlabelled icons are a memory test).
-A rail that grows with available actions (`⌘K` exists).
+A rail that grows with available actions (`Ctrl+K` exists).
 
 ---
 

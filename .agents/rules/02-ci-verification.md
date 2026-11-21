@@ -41,6 +41,6 @@ Asyar uses a **Two-Loop Verification Model** to balance developer/agent velocity
 > **Always pass `--workspace` to `cargo test` and `cargo clippy`.** The Cargo workspace sets
 > `default-members = ["."]`, so the bare commands silently skip the ~610 tests in
 > `src-tauri/crates/*` (asyar-storage, asyar-search, asyar-platform, asyar-calculator) and
-> report ~3,190 instead of the full ~3,816. `scripts/check-ci.mjs` already does this.
+> report ~3,200 instead of the full ~3,800. `scripts/check-ci.mjs` already does this.
 
 _(If TypeScript/Rust bindings were touched, also verify: `cargo test export_bindings -- --ignored` and check `git diff --exit-code -- asyar-launcher/src/bindings.ts`)_

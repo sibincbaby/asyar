@@ -31,7 +31,6 @@ asyar/                       ← monorepo root (this IS the GitHub repo)
 │   └── scripts/release.mjs  ← SDK release helper
 ├── asyar-ext-builder/       ← Bun-compiled sidecar binary for the AI extension builder (Claude Agent SDK)
 ├── browser-companions/      ← browser extensions for the browser bridge
-├── benchmarks/              ← Raycast-vs-Asyar benchmark harness
 └── extensions/              ← gitignored; setup.mjs clones the dogfood extensions here
 ```
 

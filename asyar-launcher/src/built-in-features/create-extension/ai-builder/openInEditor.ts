@@ -1,14 +1,11 @@
 import { t } from '../../../services/i18n';
 import { Command } from '@tauri-apps/plugin-shell';
 import { openPath } from '@tauri-apps/plugin-opener';
-import { platform } from '@tauri-apps/plugin-os';
 import { feedbackService } from '../../../services/feedback/feedbackService.svelte';
 
 export async function openInEditor(path: string): Promise<void> {
-  // Resolve at call-time, not module load — mirrors openTerminal.ts.
-  const codeCommand = platform() === 'windows' ? 'code-cmd' : 'code';
   try {
-    const cmd = Command.create(codeCommand, ['.'], { cwd: path });
+    const cmd = Command.create('code', ['.'], { cwd: path });
     await cmd.execute();
   } catch {
     try {

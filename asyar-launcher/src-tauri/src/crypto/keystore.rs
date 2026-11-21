@@ -1,8 +1,7 @@
 //! Master-key lifecycle for at-rest encryption.
 //!
 //! The master key is 32 random bytes generated on first launch and
-//! stored in the OS keychain (Keychain Services on macOS, Credential
-//! Manager on Windows, Secret Service on Linux). On subsequent launches
+//! stored in the OS keychain (Secret Service). On subsequent launches
 //! it's loaded from the same place. The key is held in memory wrapped
 //! in `Zeroizing<[u8; 32]>` so it is zeroed when the process exits or
 //! the state is dropped.
@@ -131,9 +130,8 @@ impl KeyStore for InMemoryKeyStore {
     }
 }
 
-/// OS keychain–backed keystore via the `keyring` crate. On macOS this
-/// wraps Keychain Services, on Windows it wraps Credential Manager, on
-/// Linux it wraps the freedesktop Secret Service.
+/// OS keychain–backed keystore via the `keyring` crate, wrapping the
+/// freedesktop Secret Service.
 pub struct OsKeyStore {
     service: &'static str,
     account: &'static str,
@@ -319,7 +317,6 @@ impl KeyStore for FileKeyStore {
     }
 }
 
-#[cfg(unix)]
 fn write_with_restrictive_permissions(path: &Path, contents: &str) -> Result<(), AppError> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
@@ -334,14 +331,6 @@ fn write_with_restrictive_permissions(path: &Path, contents: &str) -> Result<(),
     f.write_all(contents.as_bytes())
         .map_err(|e| AppError::Encryption(format!("keystore file write: {e}")))?;
     Ok(())
-}
-
-#[cfg(not(unix))]
-fn write_with_restrictive_permissions(path: &Path, contents: &str) -> Result<(), AppError> {
-    // On Windows the file inherits the user-profile ACL which is already
-    // user-private; no extra mode bits to set.
-    std::fs::write(path, contents)
-        .map_err(|e| AppError::Encryption(format!("keystore file write: {e}")))
 }
 
 fn encode_key(key: &[u8; 32]) -> String {
@@ -387,18 +376,11 @@ impl KeystoreState {
     }
 }
 
-/// Decide which keystore to use on the current platform. macOS and
-/// Windows always use the OS-backed primary. Linux tries the OS-backed
-/// keystore first; on a `NoStorageAccess` / `PlatformFailure` error it
-/// falls back to the file-backed keystore inside `app_data_dir`.
+/// Decide which keystore to use. Tries the OS-backed keystore first; on a
+/// `NoStorageAccess` / `PlatformFailure` error it falls back to the
+/// file-backed keystore inside `app_data_dir`.
 pub fn select_keystore(app_data_dir: &Path) -> Box<dyn KeyStore> {
     let os_store = OsKeyStore::new();
-
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    {
-        let _ = app_data_dir; // unused on macOS/Windows
-        Box::new(os_store)
-    }
 
     #[cfg(target_os = "linux")]
     {
@@ -425,12 +407,6 @@ pub fn select_keystore(app_data_dir: &Path) -> Box<dyn KeyStore> {
             }
             Err(_) => Box::new(os_store),
         }
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    {
-        let _ = app_data_dir;
-        Box::new(os_store)
     }
 }
 
@@ -470,7 +446,6 @@ mod tests {
         assert_eq!(*k1, *k2);
     }
 
-    #[cfg(unix)]
     #[test]
     fn file_keystore_writes_with_0600_permissions() {
         use std::os::unix::fs::PermissionsExt;
@@ -646,7 +621,6 @@ mod tests {
         store.delete_slot("e2ee").unwrap();
     }
 
-    #[cfg(unix)]
     #[test]
     fn file_keystore_slot_file_has_0600_perms() {
         use std::os::unix::fs::PermissionsExt;

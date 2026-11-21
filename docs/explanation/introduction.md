@@ -4,7 +4,7 @@ order: 1
 
 ## 1. Introduction — The Asyar Ecosystem
 
-Asyar is a cross-platform launcher and productivity platform (macOS, Linux, and Windows). The extension system turns it from a built-in tool into a platform — any developer can add commands, search results, and rich UI panels that feel native to the app.
+Asyar is a launcher and productivity platform for Linux (X11 and Wayland). The extension system turns it from a built-in tool into a platform — any developer can add commands, search results, and rich UI panels that feel native to the app.
 
 ### What an extension can do
 
@@ -15,7 +15,7 @@ Asyar is a cross-platform launcher and productivity platform (macOS, Linux, and 
 - **Read and write the clipboard**, including the full history managed by Asyar.
 - **Read the user's current selection** — selected text in the frontmost app, or selected items in the frontmost file manager — to power "act on selection" workflows like translate, summarize, upload, or compress.
 - **Make outbound HTTP requests** through the host process (bypassing iframe CSP restrictions).
-- **Register keyboard-accessible actions** in the ⌘K Action Drawer — contextual secondary operations.
+- **Register keyboard-accessible actions** in the Ctrl+K Action Drawer — contextual secondary operations.
 - **Display live status items** in the system tray while a background task is running.
 - **Read and write app settings** scoped to your extension's namespace.
 - **Navigate between multiple views** within a single extension.

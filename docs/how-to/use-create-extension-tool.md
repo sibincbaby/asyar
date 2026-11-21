@@ -91,12 +91,12 @@ Open Asyar → type **"My Extensions"** → browse everything in `~/AsyarExtensi
 
 - Type to filter by name, ID, or description.
 - **Enter** opens the selected extension in your editor.
-- **⌘K** (the action panel) offers **Open in editor** and **Publish to Asyar Store**.
+- **Ctrl+K** (the action panel) offers **Open in editor** and **Publish to Asyar Store**.
 
 ### Publish to the Asyar Store
 
 From the AI builder's done screen _or_ from **My Extensions**, the action panel
-(**⌘K**) has **Publish to Asyar Store**. It confirms first (publishing creates a
+(**Ctrl+K**) has **Publish to Asyar Store**. It confirms first (publishing creates a
 **public GitHub repo** under your account and submits for review), then opens a
 terminal running [`asyar publish`](./publishing.md) in the extension's directory.
 The CLI handles the rest — GitHub sign-in (in your browser, first time only),

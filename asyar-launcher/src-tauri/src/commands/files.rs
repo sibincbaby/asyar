@@ -1458,12 +1458,9 @@ pub async fn files_thumbnail<R: tauri::Runtime>(
         Some(ext) => {
             let (home, extra_deny) = extension_scope_env(&app_handle)?;
             let source = validate_scoped_path(&permissions, &ext, &path_str, &home, &extra_deny)?;
-            // Extension thumbnails are image-only on EVERY platform: the
-            // per-OS strategies differ (macOS falls back to a `qlmanage`
-            // subprocess, Windows/Linux have no non-image provider yet),
-            // and neither platform-dependent results nor an
-            // extension-triggerable subprocess belongs behind files:read.
-            // Same "no strategy" signal as an unsupported type.
+            // Extension thumbnails are image-only: an extension-triggerable
+            // subprocess or non-image provider doesn't belong behind
+            // files:read. Same "no strategy" signal as an unsupported type.
             if !crate::thumbnail::image_thumb::is_supported_image(&source) {
                 return Ok(None);
             }
@@ -1488,8 +1485,8 @@ pub async fn files_thumbnail<R: tauri::Runtime>(
 /// Permission-gated native OS icon extraction for extensions (`asyar:api:files:icon`).
 /// Same declared-glob scope, deny-list, and symlink checks as `files:read`, but
 /// permits directories (e.g. folders and `.app` bundles) in addition to regular
-/// files. Returns an `asyar-thumb://` URL (or `http://asyar-thumb.localhost/` on
-/// Windows), or `None` when the platform has no icon source.
+/// files. Returns an `asyar-thumb://` URL, or `None` when the platform has no
+/// icon source.
 #[tauri::command]
 pub async fn files_icon<R: tauri::Runtime>(
     app_handle: tauri::AppHandle<R>,
@@ -1507,22 +1504,7 @@ pub async fn files_icon<R: tauri::Runtime>(
         };
         let (home, extra_deny) = extension_scope_env(&validate_handle)?;
         let perms: tauri::State<'_, ExtensionPermissionRegistry> = validate_handle.state();
-        let canonical = validate_scoped_entry(&perms, &ext, &path_str, &home, &extra_deny)?;
-        #[cfg(target_os = "windows")]
-        if canonical
-            .extension()
-            .is_some_and(|e| e.eq_ignore_ascii_case("lnk"))
-        {
-            if let Some(icon_target) = asyar_platform::windows_shortcut_icon_source(&canonical) {
-                let target_str = icon_target.to_str().ok_or_else(|| {
-                    AppError::Validation(
-                        "files:read shortcut icon source path is not valid UTF-8".to_string(),
-                    )
-                })?;
-                validate_scoped_entry(&perms, &ext, target_str, &home, &extra_deny)?;
-            }
-        }
-        Ok(canonical)
+        validate_scoped_entry(&perms, &ext, &path_str, &home, &extra_deny)
     })
     .await
     .map_err(|e| AppError::Other(format!("File icon validation task failed: {e}")))??;
@@ -2958,7 +2940,7 @@ mod tests {
     async fn files_thumbnail_extension_non_image_resolves_none() {
         // Image-only for extensions on every platform — a covered text
         // file yields the "no strategy" None, never a platform-dependent
-        // result or a qlmanage subprocess on macOS.
+        // result or a subprocess.
         let tmp = TempDir::new().unwrap();
         let (perms, root) = files_read_setup(&tmp);
         let app = mock_app_with_thumb_state();
@@ -3034,17 +3016,6 @@ mod tests {
         .await
         .unwrap();
 
-        #[cfg(not(target_os = "linux"))]
-        {
-            assert!(
-                file_url.as_deref().is_some_and(|u| u.ends_with(".png")),
-                "expected .png icon URL for file, got: {file_url:?}"
-            );
-            assert!(
-                dir_url.as_deref().is_some_and(|u| u.ends_with(".png")),
-                "expected .png icon URL for folder, got: {dir_url:?}"
-            );
-        }
         #[cfg(target_os = "linux")]
         {
             assert!(file_url.is_none());

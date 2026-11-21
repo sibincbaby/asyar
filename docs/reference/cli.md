@@ -104,7 +104,7 @@ asyar link
 ```
 
 1. Runs `vite build` (skipped for themes).
-2. Creates a symlink from `$APPDATA/extensions/<id>/` pointing to your project root (or copies files on Windows if symlinks are unavailable).
+2. Creates a symlink from `$APPDATA/extensions/<id>/` pointing to your project root.
 3. Atomically registers the extension's absolute source path in `$APPDATA/dev_extensions.json`. This ensures Asyar's custom scheme handler (`asyar-extension://`) permits serving extension assets without `403 Access Denied` errors on production release builds.
 
 With a symlink in place, subsequent `vite build` runs are immediately reflected. You do not need to run `asyar link` again after each rebuild.

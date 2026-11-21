@@ -223,11 +223,6 @@
     overflow: hidden;
   }
 
-  /* Overlay titlebar: keep the search field clear of the traffic lights. */
-  :global(html[data-platform='macos']) .settings-sidebar {
-    padding-top: calc(var(--space-10) + var(--space-1));
-  }
-
   /* Soft recessed field, like System Settings and Raycast. */
   .search-box {
     display: flex;

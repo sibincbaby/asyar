@@ -41,7 +41,7 @@ vi.mock('tauri-plugin-clipboard-x-api', () => ({
 }));
 
 vi.mock('@tauri-apps/plugin-os', () => ({
-  platform: () => 'macos',
+  platform: () => 'linux',
 }));
 
 vi.mock('../../settings/developerSettingsService.svelte', () => ({

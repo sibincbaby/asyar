@@ -1,4 +1,4 @@
-### 8.8 `ActionService` — ⌘K action registration
+### 8.8 `ActionService` — Ctrl+K action registration
 
 **Runs in:** both worker and view. `registerActionHandler(id, fn)` is
 role-neutral — register handlers that must fire while the view is
@@ -28,4 +28,4 @@ interface IActionService {
 
 ---
 
-An `ExtensionAction` may declare a `shortcut` (canonical form `Mod+Shift+C`, where `Mod` is ⌘ on macOS and Ctrl elsewhere). It is shown in the ⌘K panel and **bound**: pressing it runs the action while the action is visible, even when your view iframe has focus. See [Action shortcuts](../actions.md#action-shortcuts) for the format, reserved chords, confirmation requirements, and collision rules. An unconfirmed `destructive` action or a non-canonical/reserved shortcut keeps registering with its shortcut ignored, and the launcher logs a warning.
+An `ExtensionAction` may declare a `shortcut` (canonical form `Mod+Shift+C`, where `Mod` is Ctrl on Linux). It is shown in the Ctrl+K panel and **bound**: pressing it runs the action while the action is visible, even when your view iframe has focus. See [Action shortcuts](../actions.md#action-shortcuts) for the format, reserved chords, confirmation requirements, and collision rules. An unconfirmed `destructive` action or a non-canonical/reserved shortcut keeps registering with its shortcut ignored, and the launcher logs a warning.

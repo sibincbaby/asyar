@@ -25,9 +25,6 @@
  * keeps loading with the shortcut dropped (see `ActionService.admitShortcut`).
  */
 import { MODIFIER_KEYS, keyFromEvent } from '../../built-in-features/shortcuts/shortcutFormatter';
-import type { HostPlatform } from './hostPlatform';
-
-export type ActionShortcutPlatform = HostPlatform;
 
 const F_KEY = /^F([1-9]|1[0-9]|2[0-4])$/;
 const PUNCTUATION = new Set([',', '.', '/', ';', "'", '[', ']', '\\', '-', '=', '`']);
@@ -123,40 +120,20 @@ function actionKeyFromEvent(e: KeyboardEvent): string {
 }
 
 /**
- * The canonical chord a keydown event represents on `platform`, or `null` when
- * the event cannot be an action shortcut (a lone modifier, a plain key, or the
- * non-primary modifier held: macOS Ctrl+N and Windows-key chords are never
- * `Mod+N`, so they keep their native meaning).
+ * The canonical chord a keydown event represents, or `null` when the event
+ * cannot be an action shortcut (a lone modifier, a plain key, or a Super-key
+ * chord, which keeps its native meaning).
  */
-export function eventToActionChord(
-  e: KeyboardEvent,
-  platform: ActionShortcutPlatform,
-): string | null {
+export function eventToActionChord(e: KeyboardEvent): string | null {
   if (MODIFIER_KEYS.includes(e.key)) return null;
-  // AltGr arrives as Ctrl+Alt on Windows (and sets AltGraph elsewhere); it types
-  // characters, so it is never an action chord.
+  // AltGr sets AltGraph; it types characters, so it is never an action chord.
   if (e.getModifierState?.('AltGraph')) return null;
-  const mac = platform === 'macos';
   const key = actionKeyFromEvent(e);
 
-  if (mac) {
-    if (e.ctrlKey && e.metaKey) {
-      return !e.altKey && !e.shiftKey && key === 'Enter' ? 'Control+Mod+Enter' : null;
-    }
-    if (e.ctrlKey && !e.metaKey) {
-      if (e.altKey || key !== 'X') return null;
-      return e.shiftKey ? 'Control+Shift+X' : 'Control+X';
-    }
-    if (!e.metaKey) {
-      if (key === 'Enter' && !e.shiftKey) return e.altKey ? 'Alt+Enter' : 'Enter';
-      return F_KEY.test(key) && !e.altKey && !e.shiftKey ? key : null;
-    }
-  } else {
-    if (e.metaKey) return null;
-    if (!e.ctrlKey) {
-      if (key === 'Enter' && !e.shiftKey) return e.altKey ? 'Alt+Enter' : 'Enter';
-      return F_KEY.test(key) && !e.altKey && !e.shiftKey ? key : null;
-    }
+  if (e.metaKey) return null;
+  if (!e.ctrlKey) {
+    if (key === 'Enter' && !e.shiftKey) return e.altKey ? 'Alt+Enter' : 'Enter';
+    return F_KEY.test(key) && !e.altKey && !e.shiftKey ? key : null;
   }
 
   const parts = ['Mod'];
@@ -168,29 +145,25 @@ export function eventToActionChord(
 
 /**
  * The same chord spelled with the physical modifier, for consumers that only
- * see raw modifier flags (the Tier 2 iframe forwarder): `Super` on macOS,
- * `Control` elsewhere, then Alt, Shift.
+ * see raw modifier flags (the Tier 2 iframe forwarder): `Control`, then Alt, Shift.
  */
-export function resolveActionChord(shortcut: string, platform: ActionShortcutPlatform): string {
-  return shortcut.replace(/\bMod\b/, platform === 'macos' ? 'Super' : 'Control');
+export function resolveActionChord(shortcut: string): string {
+  return shortcut.replace(/\bMod\b/, 'Control');
 }
 
 /**
- * Whether an action's declared `shortcut` matches the chord from `eventToActionChord`
- * on `platform`. On Windows/Linux, `Control+X` and `Control+Shift+X` map to the same
- * physical `Ctrl+X` / `Ctrl+Shift+X` key press as `Mod+X` / `Mod+Shift+X`, while still
- * never allowing a literal `Mod+X` declaration to match.
+ * Whether an action's declared `shortcut` matches the chord from `eventToActionChord`.
+ * `Control+X` and `Control+Shift+X` map to the same physical `Ctrl+X` /
+ * `Ctrl+Shift+X` key press as `Mod+X` / `Mod+Shift+X`, while still never
+ * allowing a literal `Mod+X` declaration to match.
  */
 export function actionShortcutMatchesChord(
   actionShortcut: string | undefined,
   chord: string,
-  platform: ActionShortcutPlatform,
 ): boolean {
   if (!actionShortcut || RESERVED_ACTION_SHORTCUTS.has(actionShortcut)) return false;
   if (actionShortcut === chord) return true;
-  if (platform !== 'macos') {
-    if (actionShortcut === 'Control+X' && chord === 'Mod+X') return true;
-    if (actionShortcut === 'Control+Shift+X' && chord === 'Mod+Shift+X') return true;
-  }
+  if (actionShortcut === 'Control+X' && chord === 'Mod+X') return true;
+  if (actionShortcut === 'Control+Shift+X' && chord === 'Mod+Shift+X') return true;
   return false;
 }

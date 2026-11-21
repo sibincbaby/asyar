@@ -12,18 +12,15 @@ Asyar automatically indexes applications from standard OS locations. If you have
 
 #### Default Scan Paths
 
-| Platform    | Locations                                                                                                                      |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **macOS**   | `/Applications`, `/System/Applications`, `~/Applications`                                                                      |
-| **Windows** | Start Menu (`C:\ProgramData\Microsoft\Windows\Start Menu\Programs`, `~\AppData\Roaming\Microsoft\Windows\Start Menu\Programs`) |
-| **Linux**   | `/usr/share/applications`, `~/.local/share/applications`                                                                       |
+| Platform  | Locations                                                |
+| --------- | -------------------------------------------------------- |
+| **Linux** | `/usr/share/applications`, `~/.local/share/applications` |
 
 #### Additional Scan Paths
 
 You can add custom directories to the application scanner in **Settings > Extensions > Applications -> Additional Scan Paths**.
 
-- **Recursive Search**: Asyar will recursively scan these directories for executable bundles (like `.app` on macOS) or `.desktop` files (on Linux).
-- **Standalone Binaries**: On Windows, it will also index `.exe` files found in these paths.
+- **Recursive Search**: Asyar will recursively scan these directories for `.desktop` files.
 - **Index Sync**: Changes to these paths trigger an immediate background re-index of the application store.
 
 > [!TIP]
@@ -39,9 +36,9 @@ Asyar indexes filenames across your home folder in the background (**Settings > 
 
 Applied by both the initial scan and the live filesystem watcher (a single shared pattern list, so a file the scanner skips can never wake the watcher either):
 
-`node_modules`, `.git`, `.cache`, `Library` (macOS app support/caches), `.Trash`, `.cargo/registry`, `.rustup`, `AppData/Local`, `target`, `__pycache__`, `dist`, `build`, `.venv`, `.next`, `.terraform`, `vendor`, `bower_components`, `.gradle`, `Pods`, `DerivedData`, `coverage`, `.pytest_cache`, `Virtual Machines.localized`, `VirtualBox VMs`.
+`node_modules`, `.git`, `.cache`, `Library`, `.Trash`, `.cargo/registry`, `.rustup`, `AppData/Local`, `target`, `__pycache__`, `dist`, `build`, `.venv`, `.next`, `.terraform`, `vendor`, `bower_components`, `.gradle`, `Pods`, `DerivedData`, `coverage`, `.pytest_cache`, `.var/app`, `.local/share/flatpak`, `.local/share/Trash`, `.local/state`, `.mozilla`, `.config/google-chrome`, `.config/chromium`, `snap`, `Virtual Machines.localized`, `VirtualBox VMs`.
 
-App bundles (`.app`, `.framework`, `.photoslibrary`) and VM disk images (`.pvm`, `.vmwarevm`) are indexed as a single entry each — their contents are never scanned or watched individually.
+Bundle-style directories (`.app`, `.framework`, `.photoslibrary`, `.bundle`) and VM disk images (`.pvm`, `.vmwarevm`, `.vbox`) are indexed as a single entry each — their contents are never scanned or watched individually.
 
 > [!TIP]
 > A running VM writes to its virtual disk continuously. If a custom VM location isn't covered by the default exclusions above, add its parent folder under **Exclude Patterns** — otherwise the watcher reacts to every write the guest OS makes, for as long as the VM is running.
@@ -72,10 +69,6 @@ can also just drag the window.
 | --------------------- | -------------------------------------------------------------- |
 | `Display with cursor` | Opens on whichever display the pointer is on. The default.     |
 | `Primary display`     | Always the primary display, wherever the pointer happens to be |
-
-> [!NOTE]
-> Before v0.1.1, `Display with cursor` was macOS-only behaviour and Windows and
-> Linux always used the primary display. Both now honour the setting.
 
 #### Launcher Position
 

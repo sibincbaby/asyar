@@ -71,7 +71,7 @@ ORDER BY day DESC, target;
    Confirm no Coffee iframe fallback appears in the logs. Absence of a toast alone
    is not acceptance.
 2. Install an unchanged published third-party worker extension, preferably Steam
-   on Windows (171 installs in the store screenshot). Confirm its published
+   (171 installs in the store screenshot). Confirm its published
    worker bundle contains the old unguarded modulepreload polyfill first. If it
    does not, select another affected published bundle or an unchanged pre-fix
    test bundle; do not claim fallback acceptance from a clean bundle.

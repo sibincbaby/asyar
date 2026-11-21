@@ -1,4 +1,3 @@
-import { platform } from '@tauri-apps/plugin-os';
 import type { SystemActionId } from '../../lib/ipc/commands';
 import { hideWindow, setFocusLock, showWindow, systemActionRun } from '../../lib/ipc/commands';
 import { feedbackService } from '../../services/feedback/feedbackService.svelte';
@@ -16,7 +15,7 @@ import { systemActionSpecs } from './actions';
 export async function dispatchSystemCommand(
   dynamicId: string,
 ): Promise<void | BuiltinDispatchResult> {
-  const specs = systemActionSpecs(platform());
+  const specs = systemActionSpecs();
   const spec = specs[dynamicId as SystemActionId];
   if (!spec) {
     logService.warn(`[system] unknown system command: ${dynamicId}`);

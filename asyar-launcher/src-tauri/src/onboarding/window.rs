@@ -13,11 +13,6 @@ const WINDOW_URL: &str = "/onboarding";
 // other — so it needs space to breathe.
 const WINDOW_WIDTH: f64 = 1000.0;
 const WINDOW_HEIGHT: f64 = 700.0;
-// Watchdog for the macOS flash-free reveal. Generous compared to the HUD's
-// 250ms: this window is created cold (webview process spawn + first commit),
-// not merely repainted.
-#[cfg(target_os = "macos")]
-const REVEAL_FALLBACK_MS: u64 = 400;
 
 /// Open the onboarding window (creates if it doesn't exist; focuses if it does).
 pub fn open(app: &AppHandle) -> Result<(), AppError> {
@@ -31,63 +26,28 @@ pub fn open(app: &AppHandle) -> Result<(), AppError> {
         return Ok(());
     }
 
-    let _window = tauri::WebviewWindowBuilder::new(
-        app,
-        WINDOW_LABEL,
-        tauri::WebviewUrl::App(WINDOW_URL.into()),
-    )
-    .title(crate::locale::app_native_text(
-        app,
-        crate::locale::NativeText::OnboardingTitle,
-    ))
-    .inner_size(WINDOW_WIDTH, WINDOW_HEIGHT)
-    .resizable(false)
-    .center()
-    // Not always-on-top: the tour guides users to the REAL launcher, which must
-    // overlay this window when summoned. Onboarding stays a passive guide layer.
-    .always_on_top(false)
-    .decorations(false)
-    // Tauri's `transparent: true` is required so WebView2 composites onto the
-    // DWM backdrop (Mica/Acrylic) painted below — otherwise the webview is
-    // an opaque rectangle and Acrylic never shows. The CSS layout matches:
-    // `.onboarding-frame` is transparent on Windows so the backdrop reads
-    // through, while DWM rounds the visible window corners natively.
-    .transparent(true)
-    // No drop shadow: the transparent window casts a large soft shadow onto
-    // whatever sits behind it, which reads as a translucent "footer" band over
-    // the content behind the floating window. The rounded card reads as a
-    // window without it.
-    .shadow(false)
-    // macOS: build hidden and reveal on WebKit's first presented frame;
-    // showing at build time composites an empty transparent rectangle for
-    // the frames before the first WebKit commit (cold-open flash). Focus is
-    // granted by the reveal helper instead. Windows/Linux keep the
-    // visible-at-build behavior (their flash is masked by the DWM backdrop
-    // applied right below).
-    .visible(cfg!(not(target_os = "macos")))
-    .focused(cfg!(not(target_os = "macos")))
-    .build()
-    .map_err(|e| AppError::Other(format!("create onboarding: {e}")))?;
-
-    #[cfg(target_os = "macos")]
-    {
-        crate::platform::macos::track_app_window(&_window);
-        crate::platform::macos::reveal_window_after_first_paint(&_window, REVEAL_FALLBACK_MS);
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        // Native Windows polish: strip WS_EX_LAYERED so DWM owns the backdrop,
-        // round the corners, then paint Acrylic (Win10 + Win11) with a Mica
-        // fallback (Win11 only, in case Acrylic is disabled by the user).
-        if let Ok(hwnd) = _window.hwnd() {
-            crate::platform::windows::apply_dwm_polish(hwnd);
-        }
-        use window_vibrancy::{apply_acrylic, apply_mica};
-        if apply_acrylic(&_window, Some((0, 0, 0, 0))).is_err() {
-            let _ = apply_mica(&_window, None);
-        }
-    }
+    tauri::WebviewWindowBuilder::new(app, WINDOW_LABEL, tauri::WebviewUrl::App(WINDOW_URL.into()))
+        .title(crate::locale::app_native_text(
+            app,
+            crate::locale::NativeText::OnboardingTitle,
+        ))
+        .inner_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+        .resizable(false)
+        .center()
+        // Not always-on-top: the tour guides users to the REAL launcher, which must
+        // overlay this window when summoned. Onboarding stays a passive guide layer.
+        .always_on_top(false)
+        .decorations(false)
+        .transparent(true)
+        // No drop shadow: the transparent window casts a large soft shadow onto
+        // whatever sits behind it, which reads as a translucent "footer" band over
+        // the content behind the floating window. The rounded card reads as a
+        // window without it.
+        .shadow(false)
+        .visible(true)
+        .focused(true)
+        .build()
+        .map_err(|e| AppError::Other(format!("create onboarding: {e}")))?;
 
     Ok(())
 }

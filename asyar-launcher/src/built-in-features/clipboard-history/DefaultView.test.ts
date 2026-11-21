@@ -41,21 +41,12 @@ vi.mock('@tauri-apps/plugin-opener', () => ({
   revealItemInDir: (path: string) => mockRevealItemInDir(path),
 }));
 
-const mockHostPlatform = vi.hoisted(() =>
-  vi.fn<() => 'macos' | 'windows' | 'other'>(() => 'macos'),
-);
-
-vi.mock('../../lib/keyboard/hostPlatform', () => ({
-  getHostPlatform: () => mockHostPlatform(),
-}));
-
 const mockOpenPath = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock('../../services/opener/openerService', () => ({
   openerService: {
     open: vi.fn().mockResolvedValue(undefined),
-    openPath: (caller: string | null, path: string, options?: { with?: string }) =>
-      mockOpenPath(caller, path, options),
+    openPath: (caller: string | null, path: string) => mockOpenPath(caller, path),
     reveal: vi.fn().mockResolvedValue(undefined),
   },
 }));
@@ -161,7 +152,6 @@ describe('DefaultView image preview', () => {
   beforeEach(() => {
     urlCount = 0;
     mockReadFile.mockClear();
-    mockHostPlatform.mockReturnValue('macos');
     mockRevealItemInDir.mockReset().mockResolvedValue(undefined);
     mockOpenPath.mockReset().mockResolvedValue(undefined);
     mockGetFileThumbnail.mockReset().mockResolvedValue(null);
@@ -377,7 +367,6 @@ describe('DefaultView preview context menu', () => {
       Element.prototype.scrollIntoView = vi.fn();
     }
     mockReadFile.mockClear();
-    mockHostPlatform.mockReturnValue('macos');
     mockRevealItemInDir.mockReset().mockResolvedValue(undefined);
     mockOpenPath.mockReset().mockResolvedValue(undefined);
     mockGetFileThumbnail.mockReset().mockResolvedValue(null);
@@ -411,7 +400,7 @@ describe('DefaultView preview context menu', () => {
     pendingReads.clear();
   });
 
-  it('prevents the default context menu and opens Preview on macOS', async () => {
+  it('prevents the default context menu and opens the image', async () => {
     const { container, unmount } = render(DefaultView);
     await select('img');
     await finishRead('/cache/big.png');
@@ -433,40 +422,19 @@ describe('DefaultView preview context menu', () => {
     const menu = screen.getByRole('menu');
     expect(menu.hasAttribute('data-no-focus-steal')).toBe(true);
     expect(screen.getAllByRole('menuitem')).toHaveLength(3);
-    const openBtn = screen.getByRole('menuitem', { name: 'Open in Preview' });
+    const openBtn = screen.getByRole('menuitem', { name: 'Open Image' });
     expect(openBtn).toBeTruthy();
-    expect(screen.getByRole('menuitem', { name: 'Reveal in Finder' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Show in File Manager' })).toBeTruthy();
     expect(screen.getByRole('menuitem', { name: 'Copy Text from Image' })).toBeTruthy();
 
     await fireEvent.click(openBtn);
     await flush();
-    expect(mockOpenPath).toHaveBeenCalledWith(null, '/cache/big.png', {
-      with: 'Preview',
-    });
+    expect(mockOpenPath).toHaveBeenCalledWith(null, '/cache/big.png');
     expect(screen.queryByRole('menu')).toBeNull();
     unmount();
   });
 
-  it('uses default viewer and platform reveal label outside macOS', async () => {
-    mockHostPlatform.mockReturnValue('windows');
-    const { container, unmount } = render(DefaultView);
-    await select('img');
-    await finishRead('/cache/big.png');
-
-    const img = container.querySelector('img[src="blob:test/1"]')!;
-    await fireEvent.contextMenu(img, { clientX: 80, clientY: 90 });
-    await flush();
-
-    const openBtn = screen.getByRole('menuitem', { name: 'Open Image' });
-    expect(screen.getByRole('menuitem', { name: 'Show in File Explorer' })).toBeTruthy();
-    await fireEvent.click(openBtn);
-    await flush();
-
-    expect(mockOpenPath).toHaveBeenCalledWith(null, '/cache/big.png', undefined);
-    unmount();
-  });
-
-  it('reveals the image file in Finder', async () => {
+  it('reveals the image file in the file manager', async () => {
     const { container, unmount } = render(DefaultView);
     await select('img');
     await finishRead('/cache/big.png');
@@ -474,7 +442,7 @@ describe('DefaultView preview context menu', () => {
     const img = container.querySelector('img[src="blob:test/1"]')!;
     await fireEvent.contextMenu(img);
     await flush();
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Reveal in Finder' }));
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Show in File Manager' }));
     await flush();
     expect(mockRevealItemInDir).toHaveBeenCalledWith('/cache/big.png');
     expect(screen.queryByRole('menu')).toBeNull();
@@ -526,15 +494,13 @@ describe('DefaultView preview context menu', () => {
     await fireEvent.contextMenu(thumb);
     await flush();
     expect(screen.getAllByRole('menuitem')).toHaveLength(3);
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Open in Preview' }));
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Open Image' }));
     await flush();
-    expect(mockOpenPath).toHaveBeenCalledWith(null, '/Users/test/Screenshot.png', {
-      with: 'Preview',
-    });
+    expect(mockOpenPath).toHaveBeenCalledWith(null, '/Users/test/Screenshot.png');
 
     await fireEvent.contextMenu(thumb);
     await flush();
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Reveal in Finder' }));
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Show in File Manager' }));
     await flush();
     expect(mockRevealItemInDir).toHaveBeenCalledWith('/Users/test/Screenshot.png');
     unmount();
@@ -564,16 +530,16 @@ describe('DefaultView preview context menu', () => {
     await fireEvent.contextMenu(thumb);
     await flush();
     expect(screen.getAllByRole('menuitem')).toHaveLength(2);
-    expect(screen.queryByRole('menuitem', { name: 'Open in Preview' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Open Image' })).toBeNull();
 
     const openBtn = screen.getByRole('menuitem', { name: 'Open' });
     await fireEvent.click(openBtn);
     await flush();
-    expect(mockOpenPath).toHaveBeenCalledWith(null, '/Users/test/Report.pdf', undefined);
+    expect(mockOpenPath).toHaveBeenCalledWith(null, '/Users/test/Report.pdf');
     unmount();
   });
 
-  it('opens .heic thumbnails in Preview', async () => {
+  it('opens .heic thumbnails', async () => {
     vi.useFakeTimers();
     mockGetFileThumbnail.mockResolvedValue('asyar-thumb://heic');
     const heicItem: StoredClipboardItem = {
@@ -594,11 +560,11 @@ describe('DefaultView preview context menu', () => {
     const thumb = container.querySelector('img.file-solo-thumb')!;
     await fireEvent.contextMenu(thumb);
     await flush();
-    expect(screen.getByRole('menuitem', { name: 'Open in Preview' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Open Image' })).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Open in Preview' }));
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Open Image' }));
     await flush();
-    expect(mockOpenPath).toHaveBeenCalledWith(null, '/Users/test/Photo.heic', { with: 'Preview' });
+    expect(mockOpenPath).toHaveBeenCalledWith(null, '/Users/test/Photo.heic');
     unmount();
   });
 
@@ -639,7 +605,7 @@ describe('DefaultView preview context menu', () => {
     const img = container.querySelector('img[src="blob:test/1"]')!;
     await fireEvent.contextMenu(img);
     await flush();
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Open in Preview' }));
+    await fireEvent.click(screen.getByRole('menuitem', { name: 'Open Image' }));
     await flush();
 
     expect(mockLogError).toHaveBeenCalled();

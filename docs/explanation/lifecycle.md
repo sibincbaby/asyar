@@ -195,7 +195,7 @@ Asyar enforces an explicit lifecycle policy distinguishing required core infrast
      - Re-enabling restores the portal manager view and repopulates quick-launch portal search results idempotently.
    - **Screen OCR** service/UI boundary:
      - Disabling the bundled `screen-ocr` feature removes its commands (`cmd_screen-ocr_capture`), views, and deeplink entry points.
-     - Disabling does not stop or disable the native platform OCR service in Rust (`ocr_capture_screen_text` / Apple Vision & Tesseract OCR backends).
+     - Disabling does not stop or disable the native platform OCR service in Rust (`ocr_capture_screen_text`; OCR is not yet supported on Linux).
      - Permission-authorized Tier 2 extensions retain full access to capture and extract screen text via `IScreenService` (`screen.captureText()`) with the `screen:capture` permission while the bundled UI is disabled.
      - Re-enabling restores the screen capture OCR command and action bindings idempotently.
      - Any active capture overlays or views close cleanly upon deactivation.

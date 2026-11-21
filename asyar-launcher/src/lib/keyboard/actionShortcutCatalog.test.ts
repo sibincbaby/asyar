@@ -10,14 +10,10 @@ describe('actionShortcutEntries', () => {
   ];
 
   it('lists only actions that declare a shortcut, once each', () => {
-    expect(actionShortcutEntries(actions, 'macos').map((e) => e.label)).toEqual([
-      'New Note',
-      'Copy Path',
-    ]);
+    expect(actionShortcutEntries(actions).map((e) => e.label)).toEqual(['New Note', 'Copy Path']);
   });
 
-  it('renders keys for the platform', () => {
-    expect(actionShortcutEntries(actions, 'macos')[1].keys).toEqual(['⌘', '⇧', 'C']);
-    expect(actionShortcutEntries(actions, 'windows')[1].keys).toEqual(['Ctrl', 'Shift', 'C']);
+  it('renders Ctrl/Shift keycaps', () => {
+    expect(actionShortcutEntries(actions)[1].keys).toEqual(['Ctrl', 'Shift', 'C']);
   });
 });

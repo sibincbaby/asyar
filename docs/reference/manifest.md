@@ -408,7 +408,7 @@ When an extension declares permissions or updates its declared permission set:
   "searchable": true,
   "asyarSdk": "^2.7.0",
   "minAppVersion": "1.0.0",
-  "platforms": ["macos", "linux"],
+  "platforms": ["linux"],
   "permissions": ["network", "notifications:send"],
   "preferences": [
     {

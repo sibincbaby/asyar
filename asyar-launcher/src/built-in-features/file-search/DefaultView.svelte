@@ -10,8 +10,7 @@
     SplitListDetail,
   } from '../../components';
   import { fileMetadata, readTextPreview } from '../../lib/ipc/fileSearchCommands';
-  import { getFileIcon, getFileThumbnail } from '../../lib/ipc/thumbnailCommands';
-  import { getHostPlatform } from '../../lib/keyboard/hostPlatform';
+  import { getFileThumbnail } from '../../lib/ipc/thumbnailCommands';
   import { feedbackService } from '../../services/feedback/feedbackService.svelte';
   import { t } from '../../services/i18n';
   import { logService } from '../../services/log/logService';
@@ -107,28 +106,14 @@
   let selected = $derived(items.find((i) => i.fileId === selectedId));
   let pinnedIds = $derived(new Set(fileSearchViewState.pinnedFiles.map((p) => p.fileId)));
 
-  // Row-list thumbnails: fileId -> url (present+truthy), or null (requested,
-  // none available). Absence of a key means "not yet requested".
-  //
-  // Images get a real thumbnail; everything else gets the native OS file
-  // icon (NSWorkspace / SHGetFileInfo — cached per extension where icons are
-  // file-type-wide, and per path for directories or formats with embedded icons).
-  //
-  // Content thumbnails stay images-only, deliberately. Anything else falls
-  // through to `qlmanage` on macOS — a real subprocess spawn that loads
-  // Quick Look generator plugins, not a cheap call. `document`/`code` are usually the majority
-  // of a $HOME result set and already have a fast text preview, so
-  // blanket-requesting thumbnails for every row (as an earlier version of
-  // this did) meant a `qlmanage` spawn per newly-visible non-image file on
-  // every keystroke — the actual source of the CPU/heat this was causing.
-  // The detail pane still gets the richer qlmanage-backed preview, but
-  // only for the one currently-selected file, not up to 50 rows at once.
+  // Row-list thumbnails: fileId -> { url } (url null when none is available).
+  // Absence of a key means "not yet requested". Only images get a thumbnail;
+  // every other row keeps its type icon, so a $HOME result set never costs a
+  // thumbnail request per newly-visible row on every keystroke.
   let rowThumbnails = $state<Record<string, RowThumbnail>>({});
   let rowThumbTimer: ReturnType<typeof setTimeout> | undefined;
   const rowThumbnailLoader = createRowThumbnailLoader({
-    platform: getHostPlatform(),
     getThumbnail: getFileThumbnail,
-    getIcon: getFileIcon,
     thumbnailDimension: ROW_THUMB_DIM,
   });
 
@@ -141,19 +126,14 @@
     rowThumbTimer = setTimeout(() => {
       for (const item of current) {
         if (item.fileId in rowThumbnails || rowThumbnailLoader.isInFlight(item.fileId)) continue;
-        void requestRowThumbnail(item.fileId, item.path, item.type === 'image', item.isDir);
+        void requestRowThumbnail(item.fileId, item.path, item.type === 'image');
       }
     }, 120);
     return () => clearTimeout(rowThumbTimer);
   });
 
-  async function requestRowThumbnail(
-    fileId: string,
-    path: string,
-    isImage: boolean,
-    isDir: boolean,
-  ) {
-    rowThumbnails[fileId] = await rowThumbnailLoader.load(fileId, path, isImage, isDir);
+  async function requestRowThumbnail(fileId: string, path: string, isImage: boolean) {
+    rowThumbnails[fileId] = await rowThumbnailLoader.load(fileId, path, isImage);
   }
 
   // Detail pane state — one unified preview chain, no extension lists on
@@ -295,12 +275,7 @@
         {#snippet leading()}
           <div class="row-icon-wrap">
             {#if rowThumbnails[item.fileId]?.url}
-              <img
-                src={rowThumbnails[item.fileId].url}
-                alt=""
-                class="row-thumb"
-                class:native-icon={rowThumbnails[item.fileId].kind === 'icon'}
-              />
+              <img src={rowThumbnails[item.fileId].url} alt="" class="row-thumb" />
             {:else if item.type === 'image'}
               <svg class="row-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                 ><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle
@@ -462,11 +437,6 @@
     height: 100%;
     object-fit: cover;
     border-radius: var(--radius-sm);
-  }
-
-  .row-thumb.native-icon {
-    object-fit: contain;
-    border-radius: 0;
   }
 
   .row-icon {

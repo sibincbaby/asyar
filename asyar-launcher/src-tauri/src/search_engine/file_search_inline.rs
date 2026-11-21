@@ -122,12 +122,12 @@ pub fn splice_file_rows(results: &mut Vec<SearchResult>, rows: Vec<SearchResult>
 /// typed last segment. Descendants of an existing typed folder are not
 /// completions — they only resemble the last segment by accident.
 fn completes_typed_path(hit_path: &str, typed: &str) -> bool {
-    completes_typed_path_with(hit_path, typed, cfg!(any(windows, target_os = "macos")))
+    completes_typed_path_with(hit_path, typed, false)
 }
 
-/// `fold_dir_case` mirrors the filesystem: macOS and Windows volumes fold case
-/// by default, so `/home/me/docs` and `/home/me/Docs` are one directory there;
-/// on Linux they are two. The filename prefix is always case-insensitive.
+/// `fold_dir_case` mirrors the filesystem: on Linux `/home/me/docs` and
+/// `/home/me/Docs` are two directories (`false`). The filename prefix is
+/// always case-insensitive.
 fn completes_typed_path_with(hit_path: &str, typed: &str, fold_dir_case: bool) -> bool {
     let (hit, typed) = (Path::new(hit_path), Path::new(typed));
     let (Some(hit_parent), Some(typed_parent)) = (hit.parent(), typed.parent()) else {
@@ -153,12 +153,7 @@ fn completes_typed_path_with(hit_path: &str, typed: &str, fold_dir_case: bool) -
 
 pub(super) fn normalize_path_for_dedup(path: &str) -> String {
     let trimmed = path.trim_end_matches(['/', '\\']);
-    let s = trimmed.replace('\\', "/");
-    if cfg!(windows) {
-        s.to_lowercase()
-    } else {
-        s
-    }
+    trimmed.replace('\\', "/")
 }
 
 pub(super) fn parent_description(path: &str, home_root: Option<&str>) -> Option<String> {
@@ -477,11 +472,7 @@ mod tests {
     #[test]
     fn parent_directories_compare_case_sensitively_unless_the_filesystem_folds_case() {
         let (hit, typed) = ("/home/me/docs/develop", "/home/me/Docs/dev");
-        // `normalize_path_for_dedup` already lowercases on Windows, and
-        // production never asks for case-sensitive compares there.
-        if !cfg!(windows) {
-            assert!(!completes_typed_path_with(hit, typed, false));
-        }
+        assert!(!completes_typed_path_with(hit, typed, false));
         assert!(completes_typed_path_with(hit, typed, true));
         // The filename prefix is case-insensitive either way.
         assert!(completes_typed_path_with(

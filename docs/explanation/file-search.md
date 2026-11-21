@@ -13,21 +13,21 @@ work is bounded by construction, not by how many files exist on disk.
 
 All of it lives under `asyar-launcher/src-tauri/src/file_index/`:
 
-| File                                                  | Responsibility                                                                                                     |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `types.rs`                                            | Wire types (`FileHit`, `FileSearchResponse`, `IndexStatus`, `FileIndexConfig`, `FileType`, `WorkMeter`)            |
-| `index.rs`                                            | `FileIndex` — the arena (struct-of-arrays), `apply_batch` for incremental updates, snapshot (de)serialization      |
-| `query.rs`                                            | The bounded query engine — memmem prefiltering, incremental narrowing, bounded fuzzy fallback, top-N heap          |
-| `matcher.rs`                                          | Reused `nucleo` fuzzy matcher (never allocated per query)                                                          |
-| `ranking.rs`                                          | Pure scoring functions (match quality, frecency, depth, type prior)                                                |
-| `file_id.rs`                                          | Stable file id: FNV hash of `(dev, inode)` (Unix) / `(volume, file_index)` (Windows) — survives renames            |
-| `walker.rs`                                           | Parallel initial scan (`ignore` crate), exclusion patterns, hard entry cap, bundle-as-leaf handling                |
-| `watcher.rs`                                          | Raw `notify` watcher + Asyar-owned coalescer (exclusion check first, flush every 500 ms), `FileIndexWatcherHandle` |
-| `snapshot.rs`                                         | Versioned bincode snapshot — instant restart without a full rescan                                                 |
-| `learning.rs`                                         | In-memory per-query selection/pin boosts, loaded once at startup (never queried on the keystroke path)             |
-| `service.rs`                                          | `FileIndexState` — the lifecycle/state machine tying everything together, Tauri-agnostic by design                 |
-| `provider.rs` + `deep/{mdfind,everything,plocate}.rs` | On-demand "Deep Search" escalation to the OS-native search tool                                                    |
-| `commands.rs`                                         | Thin `#[tauri::command]` wrappers — no logic beyond extract/delegate/map-error                                     |
+| File                              | Responsibility                                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `types.rs`                        | Wire types (`FileHit`, `FileSearchResponse`, `IndexStatus`, `FileIndexConfig`, `FileType`, `WorkMeter`)            |
+| `index.rs`                        | `FileIndex` — the arena (struct-of-arrays), `apply_batch` for incremental updates, snapshot (de)serialization      |
+| `query.rs`                        | The bounded query engine — memmem prefiltering, incremental narrowing, bounded fuzzy fallback, top-N heap          |
+| `matcher.rs`                      | Reused `nucleo` fuzzy matcher (never allocated per query)                                                          |
+| `ranking.rs`                      | Pure scoring functions (match quality, frecency, depth, type prior)                                                |
+| `file_id.rs`                      | Stable file id: FNV hash of `(dev, inode)` — survives renames                                                      |
+| `walker.rs`                       | Parallel initial scan (`ignore` crate), exclusion patterns, hard entry cap, bundle-as-leaf handling                |
+| `watcher.rs`                      | Raw `notify` watcher + Asyar-owned coalescer (exclusion check first, flush every 500 ms), `FileIndexWatcherHandle` |
+| `snapshot.rs`                     | Versioned bincode snapshot — instant restart without a full rescan                                                 |
+| `learning.rs`                     | In-memory per-query selection/pin boosts, loaded once at startup (never queried on the keystroke path)             |
+| `service.rs`                      | `FileIndexState` — the lifecycle/state machine tying everything together, Tauri-agnostic by design                 |
+| `provider.rs` + `deep/plocate.rs` | On-demand "Deep Search" escalation to the OS-native search tool                                                    |
+| `commands.rs`                     | Thin `#[tauri::command]` wrappers — no logic beyond extract/delegate/map-error                                     |
 
 `asyar-launcher/src-tauri/src/thumbnail/` is a separate, related subsystem
 (§7).
@@ -111,10 +111,11 @@ silently finished.
 
 Default root is `$HOME`. `walker::DEFAULT_IGNORE_PATTERNS` (shared by both
 the walker _and_ the watcher's exclusion set — one source of truth) drops:
-`node_modules`, `.git`, `Library` (macOS app support/caches — this alone
-avoids ~500k+ entries), build/dependency directories (`target`, `dist`,
-`DerivedData`, …), and VM storage folders (`Virtual Machines.localized`,
-`VirtualBox VMs`).
+`node_modules`, `.git`, `.cache`, volatile desktop/container/browser
+directories (`.var/app`, `.local/share/flatpak`, `.local/share/Trash`,
+`.local/state`, `.mozilla`, `.config/google-chrome`, `snap`, …),
+build/dependency directories (`target`, `dist`, …), and VM storage folders
+(`VirtualBox VMs`).
 
 The VM exclusion is not just an index-size optimization. A **running** VM
 writes to its virtual disk continuously — on the host that's a constant
@@ -123,12 +124,11 @@ the watcher isn't told to ignore that path, it reacts to every write for
 as long as the VM is powered on, so the exclusion applies to both the
 walker and `watcher.rs`'s exclusion set (the same pattern list).
 
-`walker::BUNDLE_EXTENSIONS` treats `.app`, `.framework`, `.photoslibrary`,
-`.pvm`, `.vmwarevm` directories as opaque leaves — indexed as one entry,
+`walker::BUNDLE_EXTENSIONS` treats bundle-style directories (such as
+`.pvm` and `.vmwarevm`) as opaque leaves — indexed as one entry,
 never descended into, regardless of what folder they live in. The
 watcher's exclusion set mirrors this with `**/*.<ext>/**` globs so events
-from _inside_ a bundle (Photos doing library maintenance, an app updating
-itself) can't append tail entries the walker would never emit.
+from _inside_ a bundle (a VM manager touching its disk bundle) can't append tail entries the walker would never emit.
 
 ## 6. Watcher internals: why not `notify-debouncer-full`
 
@@ -184,30 +184,19 @@ get_file_thumbnail(path, maxDim)
   (never upscale — `DynamicImage::thumbnail` upscales small images to fill
   the box by default, which is wrong for a preview; `image_thumb.rs`
   guards this explicitly), encode PNG.
-- **Everything else, macOS only**: `qlmanage -t`, the same Quick Look
-  thumbnailing service Finder uses — one mechanism covers PDFs, videos,
-  Office docs, archives, with no per-type Rust decoder needed.
-- **Windows/Linux, non-image types**: no thumbnail yet (`None` — caller
-  falls back to a type icon/metadata display). A native shell-thumbnail
-  integration per OS is the natural follow-up; deliberately out of scope
-  for the initial pass.
-
-`qlmanage` is a thumbnailing **daemon**, not a plain CLI tool — it hangs
-indefinitely without a real WindowServer session (observed directly in a
-headless dev/test environment). `thumbnail::macos::generate_via_quicklook`
-therefore never calls it directly; it goes through
-`file_index::provider::run_with_timeout` (the same bounded
-spawn-with-kill-on-timeout helper the Deep Search providers use), capped
-at 5 seconds.
+- **Non-image types**: no thumbnail yet (`None` — caller falls back to a
+  type icon/metadata display; `thumbnail::linux` is a stub that always
+  returns `Err`). A freedesktop thumbnailer integration is the natural
+  follow-up, but it varies by desktop environment.
 
 **Where thumbnails are requested matters as much as how they're
 generated.** The row list only ever requests thumbnails for `image` type —
-never the qlmanage path — because `document`/`code` are usually the
+never a native-thumbnailer path — because `document`/`code` are usually the
 majority of a `$HOME` result set and already have a fast text preview;
-requesting a qlmanage thumbnail for every non-folder row would mean a
+requesting a native thumbnail for every non-folder row would mean a
 subprocess spawn per newly-visible file on every keystroke. The detail
 pane (one file at a time, debounced ~150 ms against fast arrow-key
-scrolling) is where the qlmanage-backed richer preview lives. The row list
+scrolling) is where a richer preview belongs. The row list
 is separately debounced (~120 ms) against fast typing replacing the
 visible set before a request would even land.
 
@@ -260,8 +249,8 @@ File search integrates with root search through a decoupled two-pass architectur
 2. **Bounded Inline Merging (`search_engine/file_search_inline.rs`)**:
    - `append_inline_file_results` checks `FileIndexConfig::root_search_enabled` and requires a $\ge 3$ character query.
    - Candidates are queried from the in-memory index, capped at 4 results, and assigned `Tier::Files` (tier 5).
-   - Normalized cross-platform path deduplication prevents file hits from duplicating `.app` bundles or executables already returned by application search.
-   - On the frontend, file rows display parent-folder subtitles (`~/Documents`), render native OS icons via `asyar-thumb://`, and support `⌘Y` Quick Look and `⌘K` file actions.
+   - Normalized path deduplication prevents file hits from duplicating executables already returned by application search.
+   - On the frontend, file rows display parent-folder subtitles (`~/Documents`), render native OS icons via `asyar-thumb://`, and support `Ctrl+Y` preview and `Ctrl+K` file actions.
 
 3. **No synthetic "Search files for …" row.** Like Raycast, matching files show inline and the dedicated **Search Files** command is the way into the full view. Root search hands every command the text in the search bar, but for `show-files` that text was only used to _find_ the command (a prefix like "sea", an alias, a typo), so `FileSearchExtension.executeCommand` ignores it and the view opens empty. (An earlier variant that kept a seeding fallback row on its own `cmd_file-search_dyn_search-for` id is preserved in `.agents/variants/892-fallback-row-dispatcher.patch` for A/B comparison.)
 
@@ -284,12 +273,11 @@ UI: `src/routes/settings/tabs/FileSearchTab.svelte`.
 
 ## 11. Known follow-ups
 
-- Windows/Linux native thumbnail providers for non-image types
-  (`thumbnail::windows`/`thumbnail::linux` are stubs today, always
-  returning `Err`).
+- A Linux native thumbnail provider for non-image types
+  (`thumbnail::linux` is a stub today, always returning `Err`).
 - No debug override for `HARD_CAP` — testing the `CapReached` state
   requires actually pointing the index at ~1M real files.
-- Cloud-sync churn (iCloud Desktop/Documents, Dropbox, Google Drive) is
+- Cloud-sync churn (Dropbox, Google Drive) is
   _not_ excluded — those files are legitimately useful to search, unlike
   VM disk images, so exclusion isn't a valid mitigation if their sync
   activity turns out to be a meaningful CPU contributor. Would need

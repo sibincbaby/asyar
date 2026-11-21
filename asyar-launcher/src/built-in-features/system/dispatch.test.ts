@@ -7,10 +7,6 @@ vi.mock('../../lib/ipc/commands', () => ({
   systemActionRun: vi.fn(async () => true),
 }));
 
-vi.mock('@tauri-apps/plugin-os', () => ({
-  platform: vi.fn(() => 'windows'),
-}));
-
 vi.mock('../../services/feedback/feedbackService.svelte', () => ({
   feedbackService: { confirmAlert: vi.fn(async () => true) },
 }));

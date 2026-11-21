@@ -17,10 +17,6 @@
     Object.values(clipboardPrivacyService.sessionStats).reduce((a, b) => a + b, 0),
   );
 
-  let isLinux = $derived(
-    typeof document !== 'undefined' && document.documentElement.dataset.platform === 'linux',
-  );
-
   let retentionOptions = $derived([
     { value: String(60 * 1000), label: t('settings.privacy.retention_1min') },
     { value: String(5 * 60 * 1000), label: t('settings.privacy.retention_5min') },
@@ -63,16 +59,14 @@
     {/snippet}
   </SettingsRow>
 
-  {#if isLinux}
-    <SettingsRow
-      label={t('settings.privacy.platform_note')}
-      description={t('settings.privacy.linux_clipboard_note')}
-    >
-      {#snippet children()}
-        <Badge text={t('settings.privacy.source_filter_only')} variant="info" />
-      {/snippet}
-    </SettingsRow>
-  {/if}
+  <SettingsRow
+    label={t('settings.privacy.platform_note')}
+    description={t('settings.privacy.linux_clipboard_note')}
+  >
+    {#snippet children()}
+      <Badge text={t('settings.privacy.source_filter_only')} variant="info" />
+    {/snippet}
+  </SettingsRow>
 
   <SettingsRow
     label={t('settings.privacy.this_session')}

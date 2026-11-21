@@ -21,7 +21,7 @@ pub fn parse_xdotool_geometry(output: &str) -> Result<WindowBounds, AppError> {
                         "xdotool: invalid value for key {:?}: {:?}",
                         key.trim(),
                         val.trim()
-                    )))
+                    )));
                 }
             };
             match key.trim() {
