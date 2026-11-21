@@ -1,0 +1,26 @@
+[package]
+name = "asyar-gpui"
+version = "0.0.1"
+description = "Spike: native GPUI launcher shell for Linux (measurement prototype)."
+license = "GPL-3.0-only"
+edition = "2024"
+publish = false
+
+# Standalone on purpose: keeps GPUI's heavy build out of the Tauri workspace's
+# `cargo test --workspace` / clippy CI until the spike is adopted.
+[workspace]
+
+[dependencies]
+gpui = { package = "gpui-ce", version = "=0.3.0" }
+gpui_platform = { package = "gpui_ce_platform", version = "=0.3.0" }
+gpui_ce_elements = "=0.3.0"
+asyar-search = { path = "../asyar-launcher/src-tauri/crates/asyar-search" }
+sys-locale = "0.3"
+futures = "0.3"
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+debug = "line-tables-only"
