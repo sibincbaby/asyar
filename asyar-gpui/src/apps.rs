@@ -1,0 +1,139 @@
+//! Installed-application discovery from XDG `.desktop` files.
+
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+
+use crate::desktop_entry::{DesktopEntry, current_desktop_environments};
+
+pub struct AppEntry {
+    pub name: String,
+    /// Empty for synthetic benchmark rows, which cannot be launched.
+    pub path: PathBuf,
+}
+
+/// `$XDG_DATA_HOME/applications` first, then each `$XDG_DATA_DIRS` entry.
+fn app_dirs() -> Vec<PathBuf> {
+    let non_empty = |key| std::env::var(key).ok().filter(|v| !v.trim().is_empty());
+    let data_home = non_empty("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")));
+    let data_dirs =
+        non_empty("XDG_DATA_DIRS").unwrap_or_else(|| "/usr/local/share:/usr/share".into());
+    data_home
+        .into_iter()
+        .chain(
+            data_dirs
+                .split(':')
+                .filter(|d| !d.is_empty())
+                .map(PathBuf::from),
+        )
+        .map(|dir| dir.join("applications"))
+        .collect()
+}
+
+pub fn scan() -> Vec<AppEntry> {
+    scan_roots(
+        &app_dirs(),
+        &current_desktop_environments(),
+        &crate::locale::detect_locale(),
+    )
+}
+
+fn scan_roots(roots: &[PathBuf], desktops: &[String], locale: &str) -> Vec<AppEntry> {
+    let desktops: Vec<&str> = desktops.iter().map(String::as_str).collect();
+    let mut seen = HashSet::new();
+    let mut apps = Vec::new();
+    for root in roots {
+        walk(root, root, &mut |id, path| {
+            // Desktop-file IDs shadow by precedence: the first root wins, and a
+            // hidden entry there still masks the same ID further down.
+            if !seen.insert(id) {
+                return;
+            }
+            if let Some(entry) = DesktopEntry::from_file(path) {
+                let name = entry.display_name(Some(locale));
+                if entry.is_visible(&desktops) && !name.is_empty() {
+                    apps.push(AppEntry {
+                        name,
+                        path: path.to_path_buf(),
+                    });
+                }
+            }
+        });
+    }
+    apps.sort_by_cached_key(|app| app.name.to_lowercase());
+    apps
+}
+
+/// Calls `visit` with each `.desktop` file's ID (`kde/foo.desktop` → `kde-foo.desktop`).
+fn walk(root: &Path, dir: &Path, visit: &mut impl FnMut(String, &Path)) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            walk(root, &path, visit);
+        } else if path.extension().is_some_and(|ext| ext == "desktop")
+            && let Ok(rel) = path.strip_prefix(root)
+        {
+            visit(rel.to_string_lossy().replace('/', "-"), &path);
+        }
+    }
+}
+
+pub fn launch(app: &AppEntry) {
+    if app.path.as_os_str().is_empty() {
+        return;
+    }
+    // shortcut: delegates Exec= field codes and D-Bus activation to `gio launch`
+    // (glib CLI); replace with a native launcher before shipping.
+    match Command::new("gio")
+        .arg("launch")
+        .arg(&app.path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        // Reap in the background so the long-lived daemon collects no zombies.
+        Ok(mut child) => drop(std::thread::spawn(move || child.wait())),
+        Err(error) => eprintln!(
+            "asyar-gpui: launching {} failed: {error}",
+            app.path.display()
+        ),
+    }
+}
+
+#[cfg(test)]
+mod scan_tests {
+    use super::*;
+
+    fn write(dir: &Path, name: &str, body: &str) {
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::write(
+            dir.join(name),
+            format!("[Desktop Entry]\nType=Application\n{body}"),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn first_root_shadows_later_roots_and_hidden_entries_mask() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (user, system) = (tmp.path().join("user"), tmp.path().join("system"));
+        write(&user, "editor.desktop", "Name=User Editor\nExec=true");
+        write(&system, "editor.desktop", "Name=System Editor\nExec=true");
+        write(&user, "junk.desktop", "Name=Junk\nExec=true\nHidden=true");
+        write(&system, "junk.desktop", "Name=Junk\nExec=true");
+        write(&system.join("kde"), "term.desktop", "Name=Term\nExec=true");
+
+        let names: Vec<String> = scan_roots(&[user, system], &[], "en-US")
+            .into_iter()
+            .map(|a| a.name)
+            .collect();
+
+        assert_eq!(names, ["Term", "User Editor"]);
+    }
+}
