@@ -3,8 +3,6 @@ pub mod ai_credentials;
 pub mod clipboard;
 pub mod clipboard_fts;
 pub mod clipboard_markup;
-pub mod cloud_sync_e2ee_local;
-pub mod cloud_sync_state;
 pub mod command_arg_defaults;
 pub mod crypto;
 pub mod error;

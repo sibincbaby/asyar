@@ -184,7 +184,7 @@ The catalogs registered today are `en`, `fr`, `pt-BR`, `zh-CN` and `zh-Hant`. Ev
 
 ### Step 4: Add the Native (Rust) Strings
 
-A handful of strings are rendered by Rust, outside the frontend catalogs: the tray menu (Settings, Check for Updates, Quit) and some window titles. They live in [`asyar-launcher/src-tauri/src/locale/native.rs`](../../asyar-launcher/src-tauri/src/locale/native.rs):
+A handful of strings are rendered by Rust, outside the frontend catalogs: the tray menu (Settings, Quit) and some window titles. They live in [`asyar-launcher/src-tauri/src/locale/native.rs`](../../asyar-launcher/src-tauri/src/locale/native.rs):
 
 1. Add a variant to `NativeLang` and map your locale to it in `NativeLang::from_locale`.
 2. Add a translation for every `NativeText` key in `native_text` (the `match` is exhaustive, so the compiler tells you what is missing).

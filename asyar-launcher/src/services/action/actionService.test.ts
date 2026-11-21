@@ -395,7 +395,6 @@ describe('filteredActions ordering', () => {
       'file-search:copy-path',
       'shortcuts:assign',
       'settings',
-      'send_feedback',
       'reset_search',
       'factory_reset',
       'drop',
@@ -419,7 +418,7 @@ describe('filteredActions ordering', () => {
         .map((a) => [a.id, a]),
     );
 
-    for (const id of ['settings', 'send_feedback', 'reset_search']) {
+    for (const id of ['settings', 'reset_search']) {
       expect(byId.get(id)?.placement, id).toBe('launcher');
     }
     for (const id of ['copy_deeplink', 'view_extension_commands', 'configure_extension']) {
@@ -1064,44 +1063,6 @@ describe('settings built-in action', () => {
     expect(action?.icon).toBe('icon:settings');
     expect(action?.category).toBe('System');
     expect(action?.context).toBe(ActionContext.CORE);
-  });
-});
-
-// ── send_feedback built-in action ─────────────────────────────────────────────
-
-describe('send_feedback built-in action', () => {
-  beforeEach(() => {
-    mockCommandService.executeCommand.mockReset().mockResolvedValue(undefined);
-  });
-
-  it('is registered as a built-in action with expected metadata', () => {
-    const svc = freshService();
-    const action = svc.getAllActions().find((a) => a.id === 'send_feedback');
-    expect(action).toBeDefined();
-    expect(action?.label).toBe('Send Feedback');
-    expect(action?.icon).toBe('icon:info');
-    expect(action?.category).toBe('System');
-    expect(action?.description).toBe('Share an idea, praise, or report a problem');
-    expect(action?.context).toBe(ActionContext.CORE);
-  });
-
-  it('is visible in filteredActions in CORE context', () => {
-    const svc = freshService();
-    svc.setContext(ActionContext.CORE);
-    const ids = svc.filteredActions.map((a) => a.id);
-    expect(ids).toContain('send_feedback');
-  });
-
-  it('executes cmd_feedback_send-feedback via commandService', async () => {
-    const svc = freshService();
-    await svc.executeAction('send_feedback');
-    expect(mockCommandService.executeCommand).toHaveBeenCalledWith('cmd_feedback_send-feedback');
-  });
-
-  it('handles errors gracefully if executeCommand throws', async () => {
-    mockCommandService.executeCommand.mockRejectedValueOnce(new Error('Extension not found'));
-    const svc = freshService();
-    await expect(svc.executeAction('send_feedback')).resolves.not.toThrow();
   });
 });
 

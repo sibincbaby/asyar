@@ -1,5 +1,4 @@
 import { portalStore, type Portal } from '../../../built-in-features/portals/portalStore.svelte';
-import { deletePortal } from '../../../built-in-features/portals/portalLifecycle';
 import type {
   ISyncProvider,
   SyncProviderData,
@@ -7,9 +6,6 @@ import type {
   ImportResult,
   DataSummary,
   ConflictStrategy,
-  SyncItem,
-  SyncChangeEvent,
-  Unsubscribe,
 } from '../types';
 
 export class PortalsSyncProvider implements ISyncProvider {
@@ -105,32 +101,5 @@ export class PortalsSyncProvider implements ISyncProvider {
       itemCount: items.length,
       label: `${items.length} portal${items.length !== 1 ? 's' : ''}`,
     };
-  }
-
-  // ── Delta sync surface ──────────────────────────────────────────────────
-  // Collection: one SyncItem per portal keyed by portal.id.
-
-  async exportItems(): Promise<SyncItem[]> {
-    return portalStore.getAll().map((portal) => ({
-      id: portal.id,
-      categoryId: this.id,
-      content: portal,
-    }));
-  }
-
-  async applyItemUpsert(item: SyncItem): Promise<void> {
-    portalStore.add(item.content as Portal);
-  }
-
-  async applyItemDelete(itemId: string): Promise<void> {
-    // Full teardown, not just store removal — the portal's global hotkey and
-    // search-index entry must go too when the delete arrives from sync.
-    await deletePortal(itemId);
-  }
-
-  subscribeToChanges(callback: (event: SyncChangeEvent) => void): Unsubscribe {
-    return portalStore.subscribe((ev) => {
-      callback({ type: ev.type, itemId: ev.itemId, categoryId: this.id });
-    });
   }
 }

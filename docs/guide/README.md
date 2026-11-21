@@ -20,7 +20,7 @@ Scripts, AI & Agents, MCP, Browser Integration, the Extension Store, and
 
 - **[Keyboard Shortcuts](./keyboard-shortcuts.md)** — Every shortcut in one place.
 - **[Settings](./settings.md)** — A tour of every settings tab.
-- **[Sync & Backup](./sync-and-backup.md)** — Your account, cloud sync, encryption, and backups.
+- **[Backup](./backup.md)** — Export and restore your data locally.
 - **[Troubleshooting](./troubleshooting.md)** — Fixes for the most common problems.
 - **[FAQ](./faq.md)** — Quick answers.
 

@@ -7,9 +7,6 @@ import type {
   ImportResult,
   DataSummary,
   ConflictStrategy,
-  SyncItem,
-  SyncChangeEvent,
-  Unsubscribe,
 } from '../types';
 
 export class SettingsSyncProvider implements ISyncProvider {
@@ -83,54 +80,10 @@ export class SettingsSyncProvider implements ISyncProvider {
   async getLocalSummary(): Promise<DataSummary> {
     return { itemCount: 1, label: 'Application settings' };
   }
-
-  // ── Delta sync surface ──────────────────────────────────────────────────
-  // Settings is a singleton: one item with id === categoryId === 'settings'.
-
-  async exportItems(): Promise<SyncItem[]> {
-    return [{ id: this.id, categoryId: this.id, content: settingsService.getSettings() }];
-  }
-
-  async applyItemUpsert(item: SyncItem): Promise<void> {
-    const incomingSettings = item.content as Partial<AppSettings> | null | undefined;
-    const sanitized = sanitizeIncomingAppSettings(incomingSettings);
-    for (const section of Object.keys(sanitized) as Array<keyof AppSettings>) {
-      const value = sanitized[section];
-      if (value !== undefined) {
-        await settingsService.updateSettings(
-          section,
-          value as Partial<AppSettings[typeof section]>,
-        );
-      }
-    }
-  }
-
-  // The settings singleton always exists — there is no meaningful "delete"
-  // for it. Reject so a server-pushed delete on category=settings can never
-  // silently wipe the user's configuration.
-  async applyItemDelete(_itemId: string): Promise<void> {
-    throw new Error('cannot delete singleton settings item');
-  }
-
-  subscribeToChanges(callback: (event: SyncChangeEvent) => void): Unsubscribe {
-    // settingsService.subscribe runs the callback eagerly; fold every
-    // notification into a single "upsert" for the singleton id.
-    let primed = false;
-    const unsub = settingsService.subscribe(() => {
-      // Skip the priming call so we don't emit a spurious change event on
-      // first subscribe — only real updates produce one.
-      if (!primed) {
-        primed = true;
-        return;
-      }
-      callback({ type: 'upsert', itemId: this.id, categoryId: this.id });
-    });
-    return unsub;
-  }
 }
 
 /**
- * Normalizes incoming application settings for imports and delta sync upserts.
+ * Normalizes incoming application settings for imports.
  * The 'ai' section is managed separately by AISettingsSyncProvider and is omitted here.
  */
 function sanitizeIncomingAppSettings(

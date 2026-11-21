@@ -266,17 +266,14 @@ For auditing specific IPC contracts, permission gate coverage, and type string c
 
 ---
 
-## Principle 5: Centralized Gate & Policy Engine (Fail-Closed Egress & Authorization)
+## Principle 5: Local-First, Fail-Closed Egress
 
 ### The Pattern
 
-Privacy and data security in Asyar are **fail-closed** by default. No private user data, telemetry, or privileged cloud requests ever leave the device unless explicitly authorized by authentication, entitlement, and user consent.
+No private user data ever leaves the device unless the user explicitly asks for it. Asyar has no account, cloud sync, telemetry, or crash-report upload, and the only built-in network egress is the extension Store and user-configured providers (see `.agents/rules/08-privacy-and-data-egress.md`).
 
-- **Rust Core is the Policy Brain**: All policy evaluations and authorization rules are defined and enforced in native Rust (`crate::auth::policy::Gate`).
-- **Typed `Ability` Enum**: All privileged operations are represented by typed variants (`Ability::CloudSyncEgress`, `Ability::AiCloudModels`, `Ability::AiConversationSync`, `Ability::TelemetryCrashReport`, `Ability::TelemetryUsageShare`). String-matching checks are strictly forbidden for core abilities.
-- **Fail-Closed by Default**: If an ability is evaluated against an unauthenticated context or missing entitlement, `Gate::evaluate` rejects immediately with `Err(PolicyError::Unauthenticated)` or `Err(PolicyError::MissingEntitlement)`.
-- **Frontend Svelte 5 `GateService`**: The frontend UI and services consume `gate.allows(ability)`, `gate.denies(ability)`, and `gate.gate(ability)`.
-- **Zero Legacy Fallbacks**: Never implement legacy fallbacks that assume signed-out users are "free tier unrestricted" for outbound network egress. Signed-out state is completely inert.
+- **Rust Core Enforces**: Permission and consent rules are enforced in native Rust, never only in the frontend.
+- **Zero Legacy Fallbacks**: Do not add a cloud/account layer, "free tier" fallbacks, or hidden outbound channels.
 
 ---
 

@@ -4,7 +4,6 @@ import { render, screen, fireEvent } from '@testing-library/svelte';
 import SettingsSidebar from './SettingsSidebar.svelte';
 
 const tabs = [
-  { id: 'account', label: 'Account', icon: 'user', group: 'top' },
   { id: 'general', label: 'General', icon: 'settings', group: 'app' },
   { id: 'extensions', label: 'Extensions', icon: 'puzzle', group: 'app' },
   { id: 'advanced', label: 'Advanced', icon: 'layers', group: 'system' },
@@ -14,7 +13,6 @@ const tabs = [
 describe('SettingsSidebar', () => {
   it('renders items and no divider between groups, and omits absent tabs', () => {
     render(SettingsSidebar, { tabs: [...tabs], activeTab: 'general' });
-    expect(screen.getByText('Account')).toBeTruthy();
     expect(screen.getByText('General')).toBeTruthy();
     expect(screen.getByText('About')).toBeTruthy();
     expect(screen.queryByRole('separator')).toBeNull();
@@ -93,23 +91,6 @@ describe('SettingsSidebar', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
     expect(input.value).toBe('');
     expect(screen.getByText('About')).toBeTruthy();
-  });
-
-  it('renders the account row as a profile card with name and email when signed in', () => {
-    render(SettingsSidebar, {
-      tabs: [...tabs],
-      activeTab: 'general',
-      accountUser: { name: 'ada', email: 'ada@example.com' },
-    });
-    expect(screen.getByText('ada')).toBeTruthy();
-    expect(screen.getByText('ada@example.com')).toBeTruthy();
-    expect(screen.getByText('A')).toBeTruthy();
-  });
-
-  it('falls back to the tab label and subtitle when signed out', () => {
-    render(SettingsSidebar, { tabs: [...tabs], activeTab: 'general', accountUser: null });
-    expect(screen.getByText('Account')).toBeTruthy();
-    expect(screen.getByText('Account & Cloud Sync')).toBeTruthy();
   });
 
   it('shows a count and a badge on the trailing edge', () => {

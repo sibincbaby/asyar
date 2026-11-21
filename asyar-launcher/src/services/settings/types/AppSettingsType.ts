@@ -48,24 +48,8 @@ export interface AppSettings {
   onboarding: {
     completed: boolean;
   };
-  feedback?: FeedbackSettings;
-  updates?: {
-    channel: 'stable' | 'beta';
-    autoCheck: boolean;
-    lastSeenVersion?: string;
-  };
-  user?: {
-    id?: string;
-    name?: string;
-    email?: string;
-    avatarUrl?: string;
-    syncEnabled?: boolean;
-    lastSynced?: number;
-    recoveryPhraseDismissed?: boolean;
-  };
   ai: AISettings;
   developer?: DeveloperSettings;
-  privacy: PrivacySettings;
   fileSearch: FileSearchSettings;
   clipboardHistory?: ClipboardHistorySettings;
   scripts: ScriptsSettings;
@@ -84,12 +68,6 @@ export interface ClipboardHistorySettings {
   retentionMs: number;
 }
 
-export interface FeedbackSettings {
-  promptSeen?: boolean;
-  firstLaunchDate?: string;
-  spreadPromptSeen?: boolean;
-}
-
 export interface FileSearchSettings {
   enabled: boolean;
   rootSearchEnabled: boolean;
@@ -104,14 +82,6 @@ export interface FileSearchSettings {
   recentIgnorePatterns: string[];
   /** Contributed remote/cloud file search providers toggle state (`${extensionId}:${providerId}` -> boolean). */
   providerStates?: Record<string, boolean>;
-}
-
-export type CrashReportMode = 'off' | 'ask' | 'auto';
-export type UsageShareMode = 'off' | 'ask' | 'auto';
-
-export interface PrivacySettings {
-  crashReportMode: CrashReportMode;
-  usageShareMode: UsageShareMode;
 }
 
 export interface DeveloperSettings {

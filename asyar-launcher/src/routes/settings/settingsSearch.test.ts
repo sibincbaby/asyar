@@ -20,9 +20,6 @@ describe('searchSettings', () => {
 
   it('finds a settings row by label and by keyword, pointing at its tab', () => {
     expect(searchSettings('shell', exts, false)[0].target).toEqual({ tab: 'privacy' });
-    expect(searchSettings('cloud sync', exts, false).every((r) => r.target.tab === 'account')).toBe(
-      true,
-    );
   });
 
   it('finds built-in features and commands under built-in-features', () => {

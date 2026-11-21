@@ -89,6 +89,10 @@ pub async fn factory_reset(app: AppHandle) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Keychain slot older builds used for the removed cloud-sync E2EE seed; still
+/// wiped so a factory reset leaves no secret behind on upgraded installs.
+const LEGACY_SYNC_SEED_SLOT: &str = "sync-master-seed-v1";
+
 /// Best-effort deletion of every OS-keychain secret Asyar owns. These live
 /// outside `app_data_dir` (Keychain Services / Credential Manager / Secret
 /// Service), so `wipe_dir_contents` can never reach them. `keyring` has no
@@ -99,7 +103,7 @@ pub async fn factory_reset(app: AppHandle) -> Result<(), AppError> {
 fn clear_keychain_secrets(key_store: &dyn KeyStore, token_store: &dyn TokenStore) {
     for account in [
         crate::crypto::keystore::KEYCHAIN_ACCOUNT,
-        crate::sync::e2ee::service::KEYCHAIN_SLOT,
+        LEGACY_SYNC_SEED_SLOT,
     ] {
         if let Err(e) = key_store.delete_slot(account) {
             log::warn!("[factory_reset] failed to clear keychain slot {account:?}: {e}");
@@ -252,9 +256,9 @@ mod tests {
 
     #[test]
     fn clear_keychain_secrets_deletes_both_crypto_slots() {
+        use super::LEGACY_SYNC_SEED_SLOT as KEYCHAIN_SLOT;
         use crate::browser::bridge::token_store::InMemoryTokenStore;
         use crate::crypto::keystore::{InMemoryKeyStore, KeyStore, KEYCHAIN_ACCOUNT};
-        use crate::sync::e2ee::service::KEYCHAIN_SLOT;
 
         let key_store = InMemoryKeyStore::new();
         key_store
@@ -337,10 +341,10 @@ mod tests {
     /// outside `app_data_dir` so `wipe_dir_contents` alone can't reach them.
     #[test]
     fn boot_time_flow_also_clears_keychain_secrets() {
+        use super::LEGACY_SYNC_SEED_SLOT as KEYCHAIN_SLOT;
         use crate::browser::bridge::token_store::{InMemoryTokenStore, TokenStore};
         use crate::browser::types::{BrowserFamily, BrowserKey};
         use crate::crypto::keystore::{InMemoryKeyStore, KeyStore, KEYCHAIN_ACCOUNT};
-        use crate::sync::e2ee::service::KEYCHAIN_SLOT;
 
         let tmp = make_temp_dir();
         let app_data_dir = tmp.path();

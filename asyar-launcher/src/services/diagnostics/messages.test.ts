@@ -29,18 +29,6 @@ describe('DIAGNOSTIC_MESSAGES', () => {
     );
   });
 
-  it('renders sync_quota_exceeded with byte counts only when limitBytes is positive', () => {
-    expect(DIAGNOSTIC_MESSAGES.sync_quota_exceeded({ usedBytes: '100', limitBytes: '500' })).toBe(
-      'Cloud sync storage quota exceeded (100 / 500 bytes)',
-    );
-
-    expect(DIAGNOSTIC_MESSAGES.sync_quota_exceeded({ usedBytes: '0', limitBytes: '0' })).toBe(
-      'Cloud sync storage quota exceeded',
-    );
-
-    expect(DIAGNOSTIC_MESSAGES.sync_quota_exceeded({})).toBe('Cloud sync storage quota exceeded');
-  });
-
   it('renders extension_proxy_error with extensionId and method when available', () => {
     expect(
       DIAGNOSTIC_MESSAGES.extension_proxy_error({

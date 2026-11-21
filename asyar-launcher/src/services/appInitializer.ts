@@ -1,8 +1,6 @@
 import { resolveShortcodeMissAgent } from '../built-in-features/agents/shortcodeMiss';
 import { logService } from './log/logService';
 import { initProviders } from './ai/initProviders';
-import { authService } from './auth/authService.svelte';
-import { cloudSyncService } from './sync/cloudSyncService.svelte';
 
 import { performanceService } from './performance/performanceService.svelte';
 import { runtimeService } from './runtime/runtimeService.svelte';
@@ -102,14 +100,10 @@ export const appInitializer = {
       // Register AI provider descriptors before any settings view reads the registry.
       initProviders();
 
-      // Initialize auth (load cached token + background entitlement refresh)
-      await authService.init();
-      logService.info('Auth service initialized.');
-
       await extensionOAuthService.init();
       logService.info('Extension OAuth service initialized.');
 
-      // Register profile sync providers before cloud sync so the initial upload has all providers
+      // Register profile sync providers (local backup import/export)
       registerProfileProviders();
       logService.info('Profile sync providers registered.');
 
@@ -177,7 +171,7 @@ export const appInitializer = {
       await portalStore.init();
       await noteStore.init();
 
-      // After a cloud restore from the settings window, reload stores so the main window
+      // After a backup restore from the settings window, reload stores so the main window
       // picks up the newly written data without requiring a full restart.
       appListen<void>('asyar:stores-restored', async () => {
         await shortcutStore.reload();
@@ -185,16 +179,10 @@ export const appInitializer = {
         await portalStore.reload();
         await noteStore.reload();
         await clipboardHistoryStore.loadInitial();
-        logService.info('Stores reloaded after cloud restore.');
+        logService.info('Stores reloaded after restore.');
       }).catch((err: any) => {
         logService.warn(`Failed to register stores-restored listener: ${err}`);
       });
-
-      // Initialize cloud sync — background, now that stores have loaded their local items
-      cloudSyncService.init().catch((err: any) => {
-        logService.warn(`Cloud sync init failed: ${err}`);
-      });
-      logService.info('Cloud sync service initialized.');
 
       // Bridge Rust `asyar:system-event` push events to extension iframes.
       // Must be ready before extensions initialize so early subscriptions
@@ -273,35 +261,6 @@ export const appInitializer = {
         );
       });
 
-      // Initialize app auto-update store (listens for Rust scheduler events)
-      const { initAppUpdateStore } = await import('./update/appUpdateStore.svelte');
-      await initAppUpdateStore();
-      logService.info('App update store initialized.');
-
-      // Check whether to surface a What's New notice (shown once after each
-      // update) or a one-time Feedback nudge (shown after real usage).
-      // Idle-deferred: purely cosmetic and independent of the remaining init
-      // chain, so it must not compete with first paint (native
-      // requestIdleCallback when the WebKit flag landed, deadline-gated
-      // setTimeout otherwise; see src/lib/idle.ts).
-      runWhenIdle(
-        () => {
-          void (async () => {
-            const { checkAndNotifyWhatsNew } = await import('./update/whatsNewNotifier');
-            await checkAndNotifyWhatsNew();
-            logService.info("What's New check complete.");
-
-            const { checkAndNotifyFeedback, checkAndNotifySpread } =
-              await import('./feedback/feedbackNotifier');
-            await checkAndNotifyFeedback();
-            logService.info('Feedback nudge check complete.');
-            await checkAndNotifySpread();
-            logService.info('Spread nudge check complete.');
-          })();
-        },
-        { timeout: 4000 },
-      );
-
       // Initialize extension deeplink service (asyar://extensions/{extId}/{cmdId})
       const { createDeeplinkService } = await import('./deeplink/deeplinkService.svelte');
       const deeplinkService = createDeeplinkService({
@@ -317,7 +276,7 @@ export const appInitializer = {
       logService.info('Extension deeplink service initialized.');
 
       // Deliver any asyar:// link that cold-started the app. Safe to call now:
-      // the extension (above), auth, and OAuth deep-link listeners are all
+      // the extension (above) and OAuth deep-link listeners are all
       // registered, so Rust's re-emit can't race listener setup.
       await commands.flushPendingDeeplinks();
 

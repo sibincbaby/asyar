@@ -107,7 +107,6 @@ pub fn sync_shortcode_triggers(app: &tauri::AppHandle) -> Result<(), AppError> {
 
 /// Initializes local-first usage recording early so it is managed before windows mount.
 pub fn init_usage(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    crate::app_updater::daily_check::snapshot_install_origin(app.handle());
     if app.try_state::<Arc<crate::usage::UsageState>>().is_none() {
         let usage_state = crate::usage::initialize_usage_state(app.handle())?;
         app.manage(Arc::new(usage_state));
@@ -130,47 +129,6 @@ pub fn init_services(
     app.manage(Arc::new(
         crate::walkthrough::registry::WalkthroughState::new(),
     ));
-
-    // Opt-in usage share check at launch
-    if let Some(usage_state) = app.try_state::<Arc<crate::usage::UsageState>>() {
-        use tauri_plugin_store::StoreExt;
-        let handle = app.handle().clone();
-        let usage_state = usage_state.inner().clone();
-        let mode = handle
-            .store("settings.dat")
-            .ok()
-            .and_then(|s| s.get("settings"))
-            .map(|v| crate::usage::parse_usage_share_mode(&v.to_string()))
-            .unwrap_or(crate::usage::UsageShareMode::Off);
-
-        let today = crate::usage::local_day();
-        if let Ok(Some(day)) =
-            crate::usage::sender::earliest_unsent_day_before(&usage_state, &today)
-        {
-            match crate::usage::sender::decide_send_action(mode) {
-                crate::usage::sender::SendAction::DoNothing => {}
-                crate::usage::sender::SendAction::SendNow => {
-                    let st = usage_state.clone();
-                    let handle = handle.clone();
-                    tauri::async_runtime::spawn(async move {
-                        let platform = crate::feedback::platform_string();
-                        let version = handle.package_info().version.to_string();
-                        if let Ok(payload) =
-                            crate::usage::sender::build_payload(&st, &day, &version, &platform)
-                        {
-                            let client = crate::auth::api_client::ApiClient::new();
-                            if client.submit_usage_ping(&payload).await.is_ok() {
-                                let _ = crate::usage::sender::mark_day_sent(&st, &day);
-                            }
-                        }
-                    });
-                }
-                crate::usage::sender::SendAction::Prompt => {
-                    crate::event_bridge::bridge_emit(&handle, "usage:pending-share", &day);
-                }
-            }
-        }
-    }
 
     // One-shot timer registry
     let timer_registry = crate::timers::TimerRegistry::new(data_store.as_ref().clone());
@@ -344,10 +302,6 @@ pub fn init_daemons(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     {
         let sched = app.state::<crate::scheduler::Scheduler>();
         let handle = app.handle();
-        sched.register(crate::app_updater::scheduler::job(handle.clone()));
-        sched.register(crate::app_updater::scheduler::idle_restart_job(
-            handle.clone(),
-        ));
         sched.register(crate::extensions::update_scheduler::job(handle.clone()));
         sched.register(crate::shell::scheduler::job(
             app.state::<crate::shell::ShellProcessRegistry>()
@@ -598,14 +552,6 @@ pub fn init_daemons(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             });
             crate::event_bridge::bridge_emit(&app_handle_for_fs_watch, "asyar:fs-watch", &payload);
         }));
-    }
-
-    // Apply pending update
-    {
-        let handle = app.handle().clone();
-        tauri::async_runtime::spawn(async move {
-            crate::app_updater::service::apply_on_start(&handle).await;
-        });
     }
 
     // One-time cleanup of legacy "asyar" MCP server entries in external CLI configs

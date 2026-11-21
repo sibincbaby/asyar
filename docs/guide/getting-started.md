@@ -9,8 +9,10 @@ _Figure: the Asyar launcher, opened with the global hotkey._
 
 Asyar runs on Linux (X11 and Wayland). Pick whichever install method suits you:
 
-- **Install script:** `curl -fsSL https://raw.githubusercontent.com/Xoshbin/asyar/main/install.sh | sh` places the AppImage at `~/.local/bin/asyar` and a summon command at `~/.local/bin/asyar-summon`.
-- **AppImage or `.deb`:** Download the package from [Releases](https://github.com/Xoshbin/asyar/releases), then make the AppImage executable and run it, or install the `.deb` with your package manager.
+- **AppImage or `.deb`:** Download the package from [Releases](https://github.com/sibincbaby/asyar/releases), then make the AppImage executable and run it, or install the `.deb` with your package manager.
+- **Build from source:** See the repository README.
+
+Asyar does not update itself. To upgrade, install a newer `.deb` or AppImage from Releases.
 
 Once Asyar starts, a small icon appears in your system tray to confirm it is running. The onboarding flow opens automatically.
 

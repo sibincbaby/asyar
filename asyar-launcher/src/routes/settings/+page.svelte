@@ -12,16 +12,13 @@
   import BuiltInFeaturesTab from './tabs/BuiltInFeaturesTab.svelte';
   import AboutTab from './tabs/AboutTab.svelte';
   import BackupTab from './tabs/BackupTab.svelte';
-  import AccountTab from './tabs/AccountTab.svelte';
   import AdvancedTab from './tabs/AdvancedTab.svelte';
   import DeveloperTab from './tabs/DeveloperTab.svelte';
   import PrivacyTab from './tabs/PrivacyTab.svelte';
   import ApplicationsTab from './tabs/ApplicationsTab.svelte';
   import { preloadApplications } from './tabs/applicationsCache.svelte';
-  import { authService } from '../../services/auth/authService.svelte';
   import { registerProfileProviders } from '../../services/appInitializer';
   import { initProviders } from '../../services/ai/initProviders';
-  import { cloudSyncService } from '../../services/sync/cloudSyncService.svelte';
   import { shortcutStore } from '../../built-in-features/shortcuts/shortcutStore.svelte';
   import { snippetStore } from '../../built-in-features/snippets/snippetStore.svelte';
   import { noteStore } from '../../built-in-features/notes/noteStore.svelte';
@@ -29,10 +26,6 @@
   import { initValidKeys } from '../../built-in-features/shortcuts/shortcutFormatter';
   import { listen } from '@tauri-apps/api/event';
   import { i18nService, t } from '../../services/i18n';
-  import {
-    initAppUpdateStore,
-    destroyAppUpdateStore,
-  } from '../../services/update/appUpdateStore.svelte';
 
   import '../../resources/styles/style.css';
 
@@ -59,7 +52,6 @@
   const settingsTabs = $derived(
     (
       [
-        { id: 'account', label: t('settings.tabs.account'), icon: 'user', group: 'top' },
         { id: 'general', label: t('settings.tabs.general'), icon: 'settings', group: 'app' },
         {
           id: 'applications',
@@ -99,7 +91,7 @@
         id: SettingsTabId;
         label: string;
         icon: string;
-        group: 'top' | 'app' | 'system';
+        group: 'app' | 'system';
         count?: number;
         badge?: string;
       }[]
@@ -148,7 +140,6 @@
     void i18nService.init();
     handler.init();
     preloadApplications(handler.settings.search?.additionalScanPaths ?? []);
-    await authService.init();
     await Promise.all([
       shortcutStore.init(),
       snippetStore.init(),
@@ -157,8 +148,6 @@
     ]);
     await initValidKeys();
     registerProfileProviders();
-    cloudSyncService.checkStatus().catch(() => {});
-    void initAppUpdateStore();
     unlistenNavTab = await listen<{ tab: string; extensionId?: string | null }>(
       'asyar:navigate-settings-tab',
       (e) => {
@@ -172,7 +161,6 @@
   onDestroy(() => {
     handler.destroy();
     unlistenNavTab?.();
-    destroyAppUpdateStore();
   });
 </script>
 
@@ -190,7 +178,6 @@
       tabs={settingsTabs}
       bind:activeTab={handler.activeTab}
       bind:query={sidebarQuery}
-      accountUser={authService.user}
       results={searchResults}
       onresult={openSearchResult}
       ontabselect={(id) => handler.selectTab(id)}
@@ -221,8 +208,6 @@
             <ExtensionsTab {handler} {tabNav} />
           {:else if handler.activeTab === 'backup'}
             <BackupTab {handler} />
-          {:else if handler.activeTab === 'account'}
-            <AccountTab {handler} />
           {:else if handler.activeTab === 'privacy'}
             <PrivacyTab />
           {:else if handler.activeTab === 'advanced'}
@@ -230,7 +215,7 @@
           {:else if handler.activeTab === 'developer'}
             <DeveloperTab {handler} />
           {:else if handler.activeTab === 'about'}
-            <AboutTab {handler} />
+            <AboutTab />
           {/if}
         </div>
       </main>

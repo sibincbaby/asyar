@@ -10,7 +10,7 @@ Every top-level `IStatusBarItem` an extension registers becomes an
 **independent menu-bar tray icon** owned by the host (Raycast's `MenuBarExtra`
 model). There is no shared "Asyar" tray that extensions land under anymore —
 Asyar keeps its own separate tray icon with only core controls (Settings /
-Check for Updates / Quit).
+Quit).
 
 > **Breaking change:** the pre-Beta "merge everything under one Asyar tray"
 > behavior is gone. Extensions now render as peers of Asyar's own icon. See

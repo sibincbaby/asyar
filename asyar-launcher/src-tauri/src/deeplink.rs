@@ -101,7 +101,7 @@ pub fn parse_extension_deeplink(
 pub enum DeeplinkRoute {
     /// Targets an extension command → frontend event `asyar:deeplink:extension`.
     Extension(ExtensionDeeplinkPayload),
-    /// Any other in-scheme URL (auth / OAuth) → frontend event `asyar:deep-link`.
+    /// Any other in-scheme URL (extension OAuth callbacks) → frontend event `asyar:deep-link`.
     Raw(String),
 }
 

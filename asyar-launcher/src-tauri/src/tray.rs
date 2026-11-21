@@ -18,19 +18,12 @@ fn show_settings_window(window: &tauri::WebviewWindow) {
 /// This tray is **never** touched by extensions — each top-level
 /// `IStatusBarItem` an extension registers gets its own independent
 /// `TrayIcon` via `crate::extension_tray`. Keeping the two flows separate
-/// means core Asyar controls (Settings / Check for Updates / Quit) remain
+/// means core Asyar controls (Settings / Quit) remain
 /// visible and stable regardless of which extensions are installed.
 pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let text = |key| crate::locale::app_native_text(app, key);
 
     let quit_i = MenuItem::with_id(app, "quit", text(NativeText::TrayQuit), true, None::<&str>)?;
-    let check_updates_i = MenuItem::with_id(
-        app,
-        "check-updates",
-        text(NativeText::TrayCheckUpdates),
-        true,
-        None::<&str>,
-    )?;
     let settings_i = MenuItem::with_id(
         app,
         "settings",
@@ -45,7 +38,7 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         let _ = settings_window.set_title(text(NativeText::SettingsWindowTitle));
     }
 
-    let menu = Menu::with_items(app, &[&settings_i, &check_updates_i, &quit_i])?;
+    let menu = Menu::with_items(app, &[&settings_i, &quit_i])?;
 
     let show_tray = crate::read_show_tray_icon(app.app_handle());
     let builder = TrayIconBuilder::with_id(TRAY_ID).icon(
@@ -63,12 +56,6 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(settings_window) = app.get_webview_window("settings") {
                     show_settings_window(&settings_window);
                 }
-            }
-            "check-updates" => {
-                if let Some(settings_window) = app.get_webview_window("settings") {
-                    show_settings_window(&settings_window);
-                }
-                crate::event_bridge::bridge_emit(app, "check-for-updates", ());
             }
             // No catch-all: extension items live on their own trays and are
             // handled by `crate::extension_tray::backend`. Unknown ids here

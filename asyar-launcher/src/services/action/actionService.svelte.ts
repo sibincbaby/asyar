@@ -17,7 +17,6 @@ let globalSelectedItemProvider: SelectedItemProvider = () => undefined;
 export function setSelectedItemProvider(provider: SelectedItemProvider): void {
   globalSelectedItemProvider = provider;
 }
-import { commandService } from '../extension/commandService.svelte';
 import { applicationService } from '../application/applicationService';
 import { writeText } from 'tauri-plugin-clipboard-x-api';
 import { assertActionShortcut, resolveActionChord } from '../../lib/keyboard/actionShortcut';
@@ -587,24 +586,6 @@ export class ActionService implements IActionService {
           await commands.showSettingsWindow();
         } catch (err) {
           logService.error(`Failed to open settings window: ${err}`);
-        }
-      },
-    });
-
-    this.registerAction({
-      id: 'send_feedback',
-      label: t('common.send_feedback'),
-      icon: 'icon:info',
-      description: t('core_actions.send_feedback_desc'),
-      category: t('categories.system'),
-      context: ActionContext.CORE,
-      placement: 'launcher',
-      execute: async () => {
-        logService.info('Executing built-in action: Send Feedback');
-        try {
-          await commandService.executeCommand('cmd_feedback_send-feedback');
-        } catch (err) {
-          logService.error(`Failed to open feedback window: ${err}`);
         }
       },
     });

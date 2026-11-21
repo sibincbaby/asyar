@@ -31,61 +31,7 @@ pub async fn get_usage_stats(
     Ok(stats)
 }
 
-#[tauri::command]
-pub async fn get_usage_anon_id(
-    state: tauri::State<'_, Arc<UsageState>>,
-) -> Result<String, UsageError> {
-    state.anon_id()
-}
-
-#[tauri::command]
-pub async fn reset_usage_anon_id(
-    state: tauri::State<'_, Arc<UsageState>>,
-) -> Result<String, UsageError> {
-    state.reset_anon_id()
-}
-
-/// Ask-mode confirm: build the payload for `day`, send it, mark sent.
-#[tauri::command]
-pub async fn send_pending_usage(
-    day: String,
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, Arc<UsageState>>,
-) -> Result<(), UsageError> {
-    // Reuse the exact platform string the feedback flow already builds (rust-first DRY).
-    let platform = crate::feedback::platform_string();
-    let version = app_handle.package_info().version.to_string();
-    let payload = usage::sender::build_payload(&state, &day, &version, &platform)?;
-    let client = crate::auth::api_client::ApiClient::new();
-    client
-        .submit_usage_ping(&payload)
-        .await
-        .map_err(|e| UsageError::Db(e.to_string()))?;
-    usage::sender::mark_day_sent(&state, &day)
-}
-
-/// Explicit user action: send today's usage snapshot immediately.
-/// Always sends regardless of share mode (the click is consent). Does NOT mark sent.
-/// Returns the number of distinct launch entries sent (for UI feedback).
-#[tauri::command]
-pub async fn send_usage_now(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, Arc<UsageState>>,
-) -> Result<u32, UsageError> {
-    let day = usage::local_day();
-    let platform = crate::feedback::platform_string();
-    let version = app_handle.package_info().version.to_string();
-    let payload = usage::sender::build_payload(&state, &day, &version, &platform)?;
-    let count = payload.launches.len() as u32;
-    let client = crate::auth::api_client::ApiClient::new();
-    client
-        .submit_usage_ping(&payload)
-        .await
-        .map_err(|e| UsageError::Db(e.to_string()))?;
-    Ok(count)
-}
-
-/// Records locally only; cannot cause egress even when usage sharing is off.
+/// Records locally only.
 #[tauri::command]
 pub async fn record_worker_fallback<R: tauri::Runtime>(
     extension_id: String,

@@ -25,17 +25,10 @@
     category: string;
   }
 
-  interface AccountUser {
-    name?: string | null;
-    email?: string | null;
-    avatarUrl?: string | null;
-  }
-
   let {
     tabs,
     activeTab = $bindable(),
     query = $bindable(''),
-    accountUser = null,
     results = [],
     onresult,
     ontabselect,
@@ -43,7 +36,6 @@
     tabs: SidebarTab[];
     activeTab: SettingsTabId;
     query?: string;
-    accountUser?: AccountUser | null;
     /** Deep matches (settings rows, features, extensions) for the current query. */
     results?: SearchResult[];
     onresult?: (result: SearchResult) => void;
@@ -71,7 +63,7 @@
   });
 
   const groups = $derived(
-    (['top', 'app', 'system'] as const)
+    (['app', 'system'] as const)
       .map((id) => ({ id, items: visibleTabs.filter((tab) => tab.group === id) }))
       .filter((g) => g.items.length > 0),
   );
@@ -131,51 +123,24 @@
     {#each groups as group (group.id)}
       <div class="group">
         {#each group.items as tab (tab.id)}
-          {#if tab.id === 'account'}
-            <button
-              class="item profile"
-              class:active={activeTab === tab.id}
-              aria-current={activeTab === tab.id ? 'page' : undefined}
-              onclick={() => {
-                activeTab = tab.id;
-                ontabselect?.(tab.id);
-              }}
-            >
-              <span class="avatar">
-                {#if accountUser?.name}
-                  {accountUser.name[0].toUpperCase()}
-                {:else}
-                  <Icon name="user" size={16} />
-                {/if}
-              </span>
-              <span class="profile-text">
-                <span class="profile-title">{accountUser?.name || t('settings.tabs.account')}</span>
-                <span class="profile-subtitle"
-                  >{accountUser?.email || t('settings.nav.account_subtitle')}</span
-                >
-              </span>
-            </button>
-          {:else}
-            <button
-              class="item"
-              class:active={activeTab === tab.id}
-              aria-current={activeTab === tab.id ? 'page' : undefined}
-              onclick={() => {
-                activeTab = tab.id;
-                ontabselect?.(tab.id);
-              }}
-            >
-              <span class="icon-box"><Icon name={tab.icon} size={13} strokeWidth={1.9} /></span>
-              <span class="label">{tab.label}</span>
-              {#if tab.count !== undefined}
-                <span class="count">{tab.count}</span>
-              {/if}
-              {#if tab.badge}
-                <span class="trailing-badge"><Badge text={tab.badge} variant="warning" mono /></span
-                >
-              {/if}
-            </button>
-          {/if}
+          <button
+            class="item"
+            class:active={activeTab === tab.id}
+            aria-current={activeTab === tab.id ? 'page' : undefined}
+            onclick={() => {
+              activeTab = tab.id;
+              ontabselect?.(tab.id);
+            }}
+          >
+            <span class="icon-box"><Icon name={tab.icon} size={13} strokeWidth={1.9} /></span>
+            <span class="label">{tab.label}</span>
+            {#if tab.count !== undefined}
+              <span class="count">{tab.count}</span>
+            {/if}
+            {#if tab.badge}
+              <span class="trailing-badge"><Badge text={tab.badge} variant="warning" mono /></span>
+            {/if}
+          </button>
         {/each}
       </div>
     {/each}
@@ -356,11 +321,6 @@
     color: var(--text-primary);
   }
 
-  .item.profile {
-    padding: var(--space-2) var(--space-2);
-    border-radius: var(--radius-md);
-  }
-
   .count {
     margin-inline-start: auto;
     font-family: var(--font-mono);
@@ -371,45 +331,6 @@
   .trailing-badge {
     margin-inline-start: auto;
     display: flex;
-  }
-
-  .avatar {
-    width: var(--size-xl);
-    height: var(--size-xl);
-    border-radius: var(--radius-full);
-    background: var(--accent-primary-fill);
-    color: var(--text-on-accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--font-size-md);
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-
-  .profile-text {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .profile-title,
-  .profile-subtitle {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .profile-title {
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .profile-subtitle {
-    font-size: var(--font-size-xs);
-    color: var(--text-secondary);
   }
 
   .label {

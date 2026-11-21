@@ -630,10 +630,6 @@ pub fn get_builtin_records() -> Vec<ExtensionRecord> {
                     include_str!("../../../src/built-in-features/create-extension/manifest.json"),
                 ),
                 (
-                    "feedback",
-                    include_str!("../../../src/built-in-features/feedback/manifest.json"),
-                ),
-                (
                     "file-search",
                     include_str!("../../../src/built-in-features/file-search/manifest.json"),
                 ),
@@ -2658,7 +2654,7 @@ mod manifest_schema_tests {
     #[test]
     fn test_get_builtin_records_statically_compiled() {
         let records = get_builtin_records();
-        assert_eq!(records.len(), 24, "expected 24 built-in feature records");
+        assert_eq!(records.len(), 23, "expected 23 built-in feature records");
         for record in &records {
             assert!(
                 record.is_built_in,

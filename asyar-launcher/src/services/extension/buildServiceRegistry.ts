@@ -18,8 +18,6 @@ import { actionService } from '../action/actionService.svelte';
 import { statusBarService } from '../statusBar/statusBarService.svelte';
 import { searchBarAccessoryService } from '../search/searchBarAccessoryService.svelte';
 import type { SearchBarAccessoryDropdownOption } from 'asyar-sdk/contracts';
-import { gate } from '../auth/gateService.svelte';
-import { authService } from '../auth/authService.svelte';
 import { extensionStorageService } from '../storage/extensionStorageService';
 import { notesService } from './notesService';
 import { extensionPreferencesService } from './extensionPreferencesService.svelte';
@@ -97,9 +95,10 @@ export function buildServiceRegistry(deps: {
       ) => searchBarAccessoryService.set(extensionId, opts ?? {}),
       clear: (extensionId: string) => searchBarAccessoryService.clearForExtension(extensionId),
     },
+    // Extension contract: no accounts in this build, so nothing is ever entitled.
     entitlements: {
-      check: (entitlement: string) => gate.allows(entitlement as any),
-      getAll: () => authService.entitlements,
+      check: (_entitlement: string) => false,
+      getAll: (): string[] => [],
     },
     storage: extensionStorageService,
     notes: notesService,

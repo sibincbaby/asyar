@@ -1061,11 +1061,8 @@ pub fn set_custom_title_with_fts(
     Ok(())
 }
 
-/// Tombstone the item in the cloud-sync journal then hard-delete it from
-/// `clipboard_items`. Order matters: tombstone first so the journal row is
-/// always present before the item disappears from the primary table.
-fn delete_and_tombstone(conn: &Connection, id: &str) -> Result<(), AppError> {
-    crate::cloud_sync_state::mark_tombstone(conn, id, CLIPBOARD_CATEGORY)?;
+/// Hard-delete the item from `clipboard_items`.
+fn delete_row(conn: &Connection, id: &str) -> Result<(), AppError> {
     conn.execute("DELETE FROM clipboard_items WHERE id = ?1", params![id])
         .map_err(|e| AppError::Database(format!("Failed to delete clipboard item: {e}")))?;
     Ok(())
@@ -1097,7 +1094,7 @@ pub fn delete_item(
         }
     };
 
-    delete_and_tombstone(conn, id)?;
+    delete_row(conn, id)?;
     Ok(DeleteResult { image_content_path })
 }
 
@@ -1142,7 +1139,7 @@ pub fn clear_non_favorites(
                 removed_image_paths.push(path);
             }
         }
-        delete_and_tombstone(conn, &id)?;
+        delete_row(conn, &id)?;
         removed_ids.push(id);
     }
     Ok(ClearResult {
@@ -1183,7 +1180,7 @@ pub fn cleanup(
         .filter_map(|r| r.ok())
         .collect();
     for id in age_ids {
-        delete_and_tombstone(conn, &id)?;
+        delete_row(conn, &id)?;
         evicted.push(id);
     }
 
@@ -1202,7 +1199,7 @@ pub fn cleanup(
         .filter_map(|r| r.ok())
         .collect();
     for id in overflow_ids {
-        delete_and_tombstone(conn, &id)?;
+        delete_row(conn, &id)?;
         evicted.push(id);
     }
 
@@ -1327,9 +1324,6 @@ fn find_duplicate_with_hash(
         Err(e) => Err(AppError::Database(format!("Failed to find duplicate: {e}"))),
     }
 }
-
-/// Cloud-sync category identifier for clipboard items.
-const CLIPBOARD_CATEGORY: &str = "clipboard";
 
 /// MAX age: 90 days in milliseconds (matches TS-side constant).
 const MAX_HISTORY_AGE_MS: f64 = 90.0 * 24.0 * 60.0 * 60.0 * 1000.0;
@@ -1464,54 +1458,6 @@ pub fn record_capture_with_fts(
     Ok(res)
 }
 
-/// Apply an item pulled from cloud sync: a plain upsert by id.
-///
-/// Deliberately NOT [`record_capture`]. A pull restores what the server
-/// already holds, so it must not:
-/// - dedupe by content (two devices copying the same text legitimately own two
-///   ids; deleting one would tombstone it and push the delete to the cloud),
-/// - run [`cleanup`] (a full-table scan per pulled item, and it tombstones
-///   every row past retention, deleting them from the cloud).
-///
-/// A non-favorite already past `retention_ms` is skipped (`Ok(false)`) rather
-/// than inserted, since the next local capture would evict and tombstone it.
-pub fn apply_synced_item(
-    conn: &Connection,
-    item: &ClipboardItem,
-    master_key: &[u8; 32],
-    retention_ms: Option<f64>,
-) -> Result<bool, AppError> {
-    let age_ms = retention_ms.unwrap_or(MAX_HISTORY_AGE_MS);
-    if !item.favorite && item.created_at < js_sys_now() - age_ms {
-        return Ok(false);
-    }
-    add_item(conn, item, master_key)?;
-    Ok(true)
-}
-
-/// FTS-aware wrapper for [`apply_synced_item`].
-pub fn apply_synced_item_with_fts(
-    conn: &Connection,
-    item: &ClipboardItem,
-    master_key: &[u8; 32],
-    fts: &ClipboardFts,
-    retention_ms: Option<f64>,
-) -> Result<bool, AppError> {
-    let applied = apply_synced_item(conn, item, master_key, retention_ms)?;
-    if applied {
-        let source_app_text =
-            crate::clipboard_fts::extract_source_app_text(item.source_app.as_ref());
-        fts.upsert_full(
-            &item.id,
-            item.preview.as_deref(),
-            item.content.as_deref(),
-            Some(&source_app_text),
-            item.custom_title.as_deref(),
-        )?;
-    }
-    Ok(applied)
-}
-
 /// JavaScript-compatible timestamp (milliseconds since epoch).
 /// In test builds this returns 0 so that age-based cleanup uses a negative
 /// cutoff and never purges items whose `created_at` is set to small fake
@@ -1533,108 +1479,16 @@ fn js_sys_now() -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rusqlite::OptionalExtension;
 
     fn setup() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
         init_table(&conn).unwrap();
-        crate::cloud_sync_state::init_table(&conn).unwrap();
         conn
-    }
-
-    /// Query the journal directly for a specific item_id and return
-    /// (is_tombstone, is_dirty, last_uploaded_hash_is_none).
-    fn journal_row(conn: &Connection, id: &str) -> Option<(bool, bool, bool)> {
-        conn.query_row(
-            "SELECT is_tombstone, is_dirty, last_uploaded_hash
-               FROM cloud_sync_items_journal
-              WHERE item_id = ?1",
-            params![id],
-            |row| {
-                let ts: i64 = row.get(0)?;
-                let dirty: i64 = row.get(1)?;
-                let hash: Option<Vec<u8>> = row.get(2)?;
-                Ok((ts != 0, dirty != 0, hash.is_none()))
-            },
-        )
-        .optional()
-        .unwrap()
-    }
-
-    fn tombstone_count(conn: &Connection) -> i64 {
-        conn.query_row(
-            "SELECT COUNT(*) FROM cloud_sync_items_journal WHERE is_tombstone = 1",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap()
     }
 
     fn row_count(conn: &Connection) -> i64 {
         conn.query_row("SELECT COUNT(*) FROM clipboard_items", [], |r| r.get(0))
             .unwrap()
-    }
-
-    /// A pull must restore what the server holds. Two devices that copied the
-    /// same text produce two ids with identical content; the local-capture
-    /// dedupe would delete one and tombstone it, pushing a delete back to the
-    /// cloud for an item that was just restored.
-    #[test]
-    fn apply_synced_item_keeps_same_content_items_and_writes_no_tombstones() {
-        let conn = setup();
-        let key = test_key();
-        let now = js_sys_now();
-        let mut a = make_item("1", "same text", false);
-        let mut b = make_item("2", "same text", false);
-        a.created_at = now - 1000.0;
-        b.created_at = now - 500.0;
-
-        assert!(apply_synced_item(&conn, &a, &key, None).unwrap());
-        assert!(apply_synced_item(&conn, &b, &key, None).unwrap());
-
-        assert_eq!(row_count(&conn), 2, "both pulled items must survive");
-        assert_eq!(tombstone_count(&conn), 0, "a pull must never tombstone");
-    }
-
-    /// Applying a pulled item must not run retention cleanup over the rest of
-    /// the table: that is a full scan per item (the freeze) and tombstones
-    /// every expired row (cloud data loss).
-    #[test]
-    fn apply_synced_item_does_not_evict_or_tombstone_other_rows() {
-        let conn = setup();
-        let key = test_key();
-        let now = js_sys_now();
-        let mut old = make_item("1", "old local", false);
-        old.created_at = now - 40.0 * 86_400_000.0;
-        add_item(&conn, &old, &key).unwrap();
-        let mut fresh = make_item("2", "fresh remote", false);
-        fresh.created_at = now - 1000.0;
-
-        let retention_30d = Some(30.0 * 86_400_000.0);
-        assert!(apply_synced_item(&conn, &fresh, &key, retention_30d).unwrap());
-
-        assert_eq!(row_count(&conn), 2);
-        assert_eq!(tombstone_count(&conn), 0);
-    }
-
-    /// An item already past retention would be evicted (and tombstoned) by the
-    /// next local capture, deleting it from the cloud. Skip it instead.
-    #[test]
-    fn apply_synced_item_skips_expired_non_favorites_but_keeps_favorites() {
-        let conn = setup();
-        let key = test_key();
-        let now = js_sys_now();
-        let retention_30d = Some(30.0 * 86_400_000.0);
-        let mut expired = make_item("1", "expired", false);
-        expired.created_at = now - 40.0 * 86_400_000.0;
-        let mut expired_fav = make_item("2", "expired favorite", true);
-        expired_fav.created_at = now - 40.0 * 86_400_000.0;
-
-        assert!(!apply_synced_item(&conn, &expired, &key, retention_30d).unwrap());
-        assert!(apply_synced_item(&conn, &expired_fav, &key, retention_30d).unwrap());
-
-        assert_eq!(row_count(&conn), 1);
-        assert_eq!(tombstone_count(&conn), 0);
     }
 
     #[test]
@@ -2278,26 +2132,21 @@ mod tests {
         assert!(serde_json::to_value(result).unwrap()["replacedImagePath"].is_null());
     }
 
-    // ── Tombstone regression tests ──────────────────────────────────────────
+    // ── Deletion regression tests ───────────────────────────────────────────
 
     #[test]
-    fn delete_item_marks_journal_tombstone() {
+    fn delete_item_removes_the_row() {
         let conn = setup();
         let key = test_key();
         add_item(&conn, &make_item("42", "some text", false), &key).unwrap();
 
         let _ = delete_item(&conn, "42", &key).unwrap();
 
-        let row = journal_row(&conn, "42");
-        assert!(row.is_some(), "journal row must exist after delete");
-        let (is_tombstone, is_dirty, hash_is_none) = row.unwrap();
-        assert!(is_tombstone, "is_tombstone must be 1");
-        assert!(is_dirty, "is_dirty must be 1");
-        assert!(hash_is_none, "last_uploaded_hash must be NULL");
+        assert_eq!(row_count(&conn), 0);
     }
 
     #[test]
-    fn clear_non_favorites_marks_each_removed_id_as_tombstone() {
+    fn clear_non_favorites_keeps_only_favorites() {
         let conn = setup();
         let key = test_key();
         add_item(&conn, &make_item("10", "non-fav a", false), &key).unwrap();
@@ -2306,22 +2155,6 @@ mod tests {
 
         let _ = clear_non_favorites(&conn, &key).unwrap();
 
-        // Non-favorites are tombstoned
-        for id in &["10", "30"] {
-            let row = journal_row(&conn, id);
-            assert!(row.is_some(), "journal row must exist for id {id}");
-            let (is_tombstone, is_dirty, _) = row.unwrap();
-            assert!(is_tombstone, "id {id} must be tombstoned");
-            assert!(is_dirty, "id {id} must be dirty");
-        }
-
-        // Favorite is NOT tombstoned
-        let fav_row = journal_row(&conn, "20");
-        assert!(
-            fav_row.is_none(),
-            "favorite id 20 must not appear in journal"
-        );
-
         // Only the favorite remains in clipboard_items
         let remaining = get_all(&conn, &key).unwrap();
         assert_eq!(remaining.len(), 1);
@@ -2329,7 +2162,7 @@ mod tests {
     }
 
     #[test]
-    fn cleanup_age_based_marks_evicted_ids_as_tombstone() {
+    fn cleanup_age_based_evicts_expired_non_favorites() {
         let conn = setup();
         let key = test_key();
         // js_sys_now() returns 0 in test builds. Use negative max_age_ms so that
@@ -2346,17 +2179,11 @@ mod tests {
         // => max_age_ms < -1001.
         cleanup(&conn, -2000.0, 1000).unwrap();
 
-        for id in &["1", "2"] {
-            let row = journal_row(&conn, id);
-            assert!(row.is_some(), "journal row must exist for evicted id {id}");
-            let (is_tombstone, is_dirty, _) = row.unwrap();
-            assert!(is_tombstone, "evicted id {id} must be tombstoned");
-            assert!(is_dirty, "evicted id {id} must be dirty");
-        }
+        assert_eq!(row_count(&conn), 0);
     }
 
     #[test]
-    fn cleanup_count_limit_marks_overflow_ids_as_tombstone() {
+    fn cleanup_count_limit_evicts_overflow_ids() {
         let conn = setup();
         let key = test_key();
         // Insert 5 items with distinct timestamps (make_item uses 1000 + id as f64)
@@ -2377,19 +2204,10 @@ mod tests {
         let remaining_ids: Vec<_> = remaining.iter().map(|i| i.id.as_str()).collect();
         assert!(remaining_ids.contains(&"5"));
         assert!(remaining_ids.contains(&"4"));
-
-        // The 3 oldest (ids 1, 2, 3) must be tombstoned
-        for id in &["1", "2", "3"] {
-            let row = journal_row(&conn, id);
-            assert!(row.is_some(), "journal row must exist for evicted id {id}");
-            let (is_tombstone, is_dirty, _) = row.unwrap();
-            assert!(is_tombstone, "evicted id {id} must be tombstoned");
-            assert!(is_dirty, "evicted id {id} must be dirty");
-        }
     }
 
     #[test]
-    fn record_capture_dedup_path_tombstones_replaced_id() {
+    fn record_capture_dedup_path_removes_replaced_id() {
         let conn = setup();
         let key = test_key();
 
@@ -2403,18 +2221,12 @@ mod tests {
         new_item.created_at = 2000.0;
         record_capture(&conn, &new_item, None, &key, None).unwrap();
 
-        // "old" must be tombstoned
-        let row = journal_row(&conn, "old");
-        assert!(
-            row.is_some(),
-            "journal row must exist for replaced id 'old'"
-        );
-        let (is_tombstone, is_dirty, _) = row.unwrap();
-        assert!(
-            is_tombstone,
-            "'old' must be tombstoned after dedup replacement"
-        );
-        assert!(is_dirty, "'old' must be dirty");
+        let ids: Vec<_> = get_all(&conn, &key)
+            .unwrap()
+            .into_iter()
+            .map(|item| item.id)
+            .collect();
+        assert_eq!(ids, vec!["new".to_string()]);
     }
 
     // ── get_recent tests ────────────────────────────────────────────────────
@@ -2913,24 +2725,13 @@ mod tests {
     }
 
     #[test]
-    fn delete_item_with_missing_id_returns_none_and_tombstones() {
+    fn delete_item_with_missing_id_returns_none() {
         let conn = setup();
         let key = test_key();
 
         // No row exists with this id.
         let res = delete_item(&conn, "ghost", &key).unwrap();
         assert!(res.image_content_path.is_none(), "no row, no image path");
-
-        // A tombstone is still written — current contract, intentional for
-        // cloud-sync idempotency on cross-device delete races.
-        let row = journal_row(&conn, "ghost");
-        assert!(
-            row.is_some(),
-            "tombstone written even for a never-existing id"
-        );
-        let (is_tombstone, is_dirty, _) = row.unwrap();
-        assert!(is_tombstone);
-        assert!(is_dirty);
     }
 
     #[test]

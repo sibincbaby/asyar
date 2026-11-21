@@ -232,11 +232,11 @@ For simple cases that don't cache values — where the extension reads `context.
 
 Values of type `password` are encrypted with AES-256-GCM using a device-local key and stored in the launcher's SQLite database. Plaintext is only materialised when the launcher decrypts on read to inject into the extension runtime.
 
-## Cloud Sync
+## Backup
 
-Non-password preferences sync across devices via the `ExtensionPreferencesSyncProvider` in the Profile Sync system. Password-type values are excluded at the Rust query layer (`WHERE is_encrypted = 0`) and never leave the device — users re-enter API keys per machine.
+Non-password preferences are included in local profile backups (**Settings → Backup**) via the `ExtensionPreferencesSyncProvider`. Password-type values are excluded at the Rust query layer (`WHERE is_encrypted = 0`) and never leave the device — users re-enter API keys per machine.
 
-Sync conflict resolution is controlled from the Profile settings tab. Default strategy for preferences is `replace`.
+Conflict handling on import (Merge, Replace, or Skip) is chosen per category in the restore dialog.
 
 ## Validation
 

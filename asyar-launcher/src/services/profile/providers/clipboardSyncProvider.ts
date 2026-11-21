@@ -1,12 +1,10 @@
 import {
   clipboardExportForSync,
   clipboardCount,
-  clipboardApplySynced,
   type StoredClipboardItem,
   type ClipboardCursor,
 } from '../../../lib/ipc/commands';
 import { clipboardHistoryStore } from '../../clipboard/stores/clipboardHistoryStore.svelte';
-import { settingsService } from '../../settings/settingsService.svelte';
 import { stripHtml, stripRtf, type ClipboardHistoryItem } from 'asyar-sdk/contracts';
 import type {
   ISyncProvider,
@@ -16,9 +14,6 @@ import type {
   ImportResult,
   DataSummary,
   ConflictStrategy,
-  SyncItem,
-  SyncChangeEvent,
-  Unsubscribe,
 } from '../types';
 
 const SYNC_PAGE_SIZE = 500;
@@ -143,49 +138,5 @@ export class ClipboardSyncProvider implements ISyncProvider {
   async getLocalSummary(): Promise<DataSummary> {
     const c = await clipboardCount();
     return { itemCount: c.total, label: `${c.total} clipboard item(s)` };
-  }
-
-  async exportItems(): Promise<SyncItem[]> {
-    const items = await collectAllItems();
-    return items
-      .filter((i) => i.type !== 'image')
-      .filter(
-        (i) =>
-          (i.content !== undefined && i.content !== null && i.content.trim() !== '') ||
-          (i.preview !== undefined && i.preview !== null && i.preview.trim() !== ''),
-      )
-      .map((i) => ({
-        id: i.id,
-        categoryId: this.id,
-        content: i as unknown as ClipboardHistoryItem,
-      }));
-  }
-
-  async applyItemUpsert(item: SyncItem): Promise<void> {
-    const incoming = item.content as ClipboardHistoryItem;
-    if (!incoming) return;
-    if (
-      (!incoming.content || incoming.content.trim() === '') &&
-      (!incoming.preview || incoming.preview.trim() === '')
-    ) {
-      return;
-    }
-    // Not addHistoryItem: that is the local-capture path (content dedupe +
-    // retention cleanup, both of which tombstone rows and delete them from the
-    // cloud). The store reloads via `asyar:stores-restored` after the pull.
-    await clipboardApplySynced(
-      incoming as unknown as StoredClipboardItem,
-      settingsService.currentSettings.clipboardHistory?.retentionMs,
-    );
-  }
-
-  async applyItemDelete(itemId: string): Promise<void> {
-    await clipboardHistoryStore.deleteHistoryItem(itemId);
-  }
-
-  subscribeToChanges(callback: (event: SyncChangeEvent) => void): Unsubscribe {
-    return clipboardHistoryStore.subscribe((ev) => {
-      callback({ type: ev.type, itemId: ev.itemId, categoryId: this.id });
-    });
   }
 }

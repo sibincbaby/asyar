@@ -100,8 +100,6 @@ asyar-platform = { path = "crates/asyar-platform" }
 sysinfo = "0.31" # cross-platform process enumeration + kill
 sha2 = "0.10"
 hmac = "0.12"
-hkdf = "0.12"
-x25519-dalek = { version = "2", features = ["static_secrets", "zeroize"] }
 aes-gcm = "0.10"
 aes = "0.8"           # Raycast classic .rayconfig decryption (CBC)
 cbc = { version = "0.1", features = ["alloc"] }
@@ -110,12 +108,11 @@ hex = "0.4"
 flate2 = "1"          # .rayconfig gzip layers
 tar = "0.4"            # tar.gz extraction for on-demand runtime downloads (e.g. uv)
 argon2 = "0.5"
-bip39 = { version = "2.0", default-features = false, features = ["std"] }
 rand = "0.10"
 zeroize = "1"
 keyring = { version = "3", features = ["sync-secret-service"] }
 # Two HTTP stacks coexist on purpose — do NOT unify them:
-# reqwest is host-side Rust HTTP (downloads, the auth/API client, sidecar
+# reqwest is host-side Rust HTTP (downloads, the Store/extension client, sidecar
 # fetches) that runs in the Rust process with no webview origin.
 reqwest = { version = "0.12", features = ["json", "stream"] } # host-side Rust HTTP
 zip = { version = "4.6", default-features = false, features = ["deflate"] } # For extracting zip files
@@ -141,7 +138,6 @@ tauri-plugin-http = { version = "2", features = ["unsafe-headers"] }
 tauri-plugin-dialog = "2.7"
 tauri-plugin-shell = "2.3.5"
 tauri-plugin-os = "2.0.0"
-tauri-plugin-updater = "2.0.0"
 tauri-plugin-deep-link = "2"
 arboard = "3.6.1"
 trash = "5"
@@ -199,5 +195,4 @@ notify-rust = "4"
 asyar-platform = { path = "crates/asyar-platform", features = ["test-support"] }
 mockito = "1.4"
 proptest = "1"
-serial_test = "3"
 tokio-tungstenite = "0.21"

@@ -1,19 +1,19 @@
 import { t } from '../../services/i18n';
-/** Maps each Help topic to its page in the user guide on asyar.org. */
+/** Maps each Help topic to its page in the user guide in the repo's docs/guide. */
 export interface HelpTopic {
   id: string;
   title: string;
   subtitle: string;
   /** Built-in icon, "icon:<name>". Names must exist in asyar-sdk ICON_DATA. */
   icon: string;
-  /** Path under the guide root, e.g. "features/calculator". */
+  /** Path under the guide root without ".md", e.g. "features/calculator". */
   slug: string;
 }
 
-export const GUIDE_BASE_URL = 'https://asyar.org/docs/guide';
+export const GUIDE_BASE_URL = 'https://github.com/sibincbaby/asyar/tree/main/docs/guide';
 
 export function guideUrl(slug: string): string {
-  return `${GUIDE_BASE_URL}/${slug}`;
+  return `${GUIDE_BASE_URL}/${slug}.md`;
 }
 
 export const HELP_TOPICS: readonly HelpTopic[] = [

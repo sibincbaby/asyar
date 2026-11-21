@@ -54,19 +54,16 @@ the code cannot drift apart silently.
 
 ## Feedback and state
 
-| Component           | Use for                                                                                                                |
-| :------------------ | :--------------------------------------------------------------------------------------------------------------------- |
-| `EmptyState`        | "There is nothing here." `compact` for a panel inside a fuller view; `bordered` when it doubles as "add the first one" |
-| `LoadingState`      | "This is loading" — a centred spinner and message                                                                      |
-| `ErrorState`        | "This failed", at view level                                                                                           |
-| `InlineError`       | A validation error inside a form                                                                                       |
-| `WarningBanner`     | A non-blocking caution                                                                                                 |
-| `FeedbackMessage`   | A single status line, with marquee for long text                                                                       |
-| `FeedbackBar`       | The launcher's persistent status strip                                                                                 |
-| `ToastHost`         | Transient confirmations. Already mounted app-wide; publish via `feedbackService` rather than importing it              |
-| `EntitlementGate`   | Content gated behind an entitlement                                                                                    |
-| `CrashReportPrompt` | The post-crash report prompt                                                                                           |
-| `UsageSharePrompt`  | The usage-sharing opt-in prompt                                                                                        |
+| Component         | Use for                                                                                                                |
+| :---------------- | :--------------------------------------------------------------------------------------------------------------------- |
+| `EmptyState`      | "There is nothing here." `compact` for a panel inside a fuller view; `bordered` when it doubles as "add the first one" |
+| `LoadingState`    | "This is loading" — a centred spinner and message                                                                      |
+| `ErrorState`      | "This failed", at view level                                                                                           |
+| `InlineError`     | A validation error inside a form                                                                                       |
+| `WarningBanner`   | A non-blocking caution                                                                                                 |
+| `FeedbackMessage` | A single status line, with marquee for long text                                                                       |
+| `FeedbackBar`     | The launcher's persistent status strip                                                                                 |
+| `ToastHost`       | Transient confirmations. Already mounted app-wide; publish via `feedbackService` rather than importing it              |
 
 ## Dialogs
 
@@ -154,13 +151,10 @@ to mount your own.
 | `ExtensionPreferencesForm` | An extension's own preferences                |
 
 **Settings sections** — drop-in blocks for the settings pages:
-`ClipboardPrivacySection`, `CrashReportSection`, `EncryptionStatusSection`,
-`RuntimesSection`, `ScheduledTasksSection`, `SecretRedactionSection`,
-`UsageShareSection`.
+`ClipboardPrivacySection`, `EncryptionStatusSection`, `RuntimesSection`,
+`ScheduledTasksSection`, `SecretRedactionSection`.
 
-**Encryption dialogs** — `EncryptionEnrolmentDialog`, `PassphraseDialog`,
-`RotatePassphraseDialog`, `RecoveryPhraseDialog`, `RecoverWithMnemonicDialog`,
-`DisableE2eeDialog`, plus `RequiredPreferencesDialog` and
+**Preferences dialogs** — `RequiredPreferencesDialog` and
 `PreferencesPromptHost`.
 
 ## Onboarding

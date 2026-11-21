@@ -20,25 +20,20 @@ When the user launches Asyar, the startup process follows a strict sequence to g
 4. **WebView Hydration (`+page.svelte` mounted):**
    - SvelteKit boots in the webview.
    - `onMount` calls `appInitializer.init()`.
-5. **Auth Initialization:**
-   - `authService.init()` is called (Tauri-only, skipped in browser mode).
-   - Loads encrypted token + cached entitlements from `auth.dat` via `auth_load_cached` Tauri command.
-   - If a cached session is found, `AuthState` (Rust managed state) is populated immediately — the UI can show the logged-in state before any network call.
-   - A background `auth_refresh_entitlements` call fetches fresh entitlements from `https://asyar.org/api/entitlements`. On failure, cached entitlements are used (7-day grace period). If the cache is older than 7 days and the network is unreachable, entitlements are cleared and a non-blocking notification is shown.
-6. **Theme Application (if persisted):**
+5. **Theme Application (if persisted):**
    - `extensionManager.init()` reads `settings.appearance.activeTheme` immediately after `settingsService.init()`.
    - If a theme ID is stored, `applyTheme(themeId)` is called fire-and-forget (`.catch()`) so it does not block extension loading.
    - The Rust `get_theme_definition` command reads `theme.json` from the extension directory and returns the CSS variable map and font declarations to the frontend.
-7. **Extension Discovery & Loading (`extensionLoaderService.ts`):**
+6. **Extension Discovery & Loading (`extensionLoaderService.ts`):**
    - `loadAllExtensions()` is triggered.
    - **Tier 1:** Discovered synchronously via Vite's `import.meta.glob('/src/built-in-features/*/index.ts', { eager: true })`.
    - **Tier 2:** Rust command `discover_extensions` is queried. Returns all installed extension records (manifest + enabled state + path).
    - **Theme extensions** (`type === "theme"`) are present in the discovered records but skipped by `ExtensionLoaderService` — they have no JS module to load.
-8. **Command Index Synchronization:**
+7. **Command Index Synchronization:**
    - Once all manifests are loaded, `ExtensionManager.syncCommandIndex()` is fired.
    - All extension `commands` are formatted into `cmd_${extension.id}_${command.id}` objects.
    - The Rust-backed search engine updates the index via invoke hooks (`index_item`, `delete_item`).
-9. **Ready State:**
+8. **Ready State:**
    - `ExtensionManager.isReady` evaluates to `true`.
    - The UI enables the search bar and waits for user input.
 

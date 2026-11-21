@@ -215,8 +215,8 @@ Asyar enforces an explicit lifecycle policy distinguishing required core infrast
      - Re-enabling restores the shortcut manager view idempotently.
    - **Usage Stats** service/UI boundary:
      - Disabling the bundled `usage-stats` feature removes its commands (`cmd_usage-stats_view`), views (`usage-stats/DefaultView`), and view actions (`usage-stats:export`, `usage-stats:reset`).
-     - Disabling does not stop or disable the telemetry and usage logging platform service in Rust (`UsageTracker` / SQLite event logging).
-     - App launch frequencies, command invocations, and extension usage metrics continue recording silently to ensure analytics consistency.
+     - Disabling does not stop or disable the local usage logging platform service in Rust (`UsageTracker` / SQLite event logging).
+     - App launch frequencies, command invocations, and extension usage metrics continue recording silently, locally only.
      - Historical usage data and streaks in SQLite are preserved across disable/re-enable.
      - Active usage stats views close cleanly, and re-enabling restores the stats dashboard idempotently.
    - **Window Management** service/UI boundary:

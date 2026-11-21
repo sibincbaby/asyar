@@ -19,7 +19,6 @@ pub enum NativeLang {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NativeText {
     TrayQuit,
-    TrayCheckUpdates,
     TraySettings,
     SettingsWindowTitle,
     StickyNoteTitle,
@@ -54,12 +53,6 @@ pub fn native_text(locale: &ParsedLocale, key: NativeText) -> &'static str {
         (NativeText::TrayQuit, NativeLang::ZhHans) => "退出 Asyar",
         (NativeText::TrayQuit, NativeLang::ZhHant) => "結束 Asyar",
         (NativeText::TrayQuit, NativeLang::Fr) => "Quitter Asyar",
-
-        (NativeText::TrayCheckUpdates, NativeLang::En) => "Check for Updates",
-        (NativeText::TrayCheckUpdates, NativeLang::PtBr) => "Verificar atualizações",
-        (NativeText::TrayCheckUpdates, NativeLang::ZhHans) => "检查更新",
-        (NativeText::TrayCheckUpdates, NativeLang::ZhHant) => "檢查更新",
-        (NativeText::TrayCheckUpdates, NativeLang::Fr) => "Rechercher des mises à jour",
 
         (NativeText::TraySettings, NativeLang::En) => "Settings",
         (NativeText::TraySettings, NativeLang::PtBr) => "Configurações",
@@ -136,7 +129,6 @@ mod tests {
     fn every_key_is_translated_and_non_empty_in_every_language() {
         let keys = [
             NativeText::TrayQuit,
-            NativeText::TrayCheckUpdates,
             NativeText::TraySettings,
             NativeText::SettingsWindowTitle,
             NativeText::StickyNoteTitle,
@@ -154,10 +146,6 @@ mod tests {
     fn english_matches_the_previous_hardcoded_strings() {
         let en = ParsedLocale::parse("en-US").unwrap();
         assert_eq!(native_text(&en, NativeText::TrayQuit), "Quit Asyar");
-        assert_eq!(
-            native_text(&en, NativeText::TrayCheckUpdates),
-            "Check for Updates"
-        );
         assert_eq!(native_text(&en, NativeText::TraySettings), "Settings");
         assert_eq!(native_text(&en, NativeText::StickyNoteTitle), "Sticky Note");
         assert_eq!(

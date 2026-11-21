@@ -52,12 +52,9 @@ describe('resolveNavigation', () => {
     });
   });
 
-  it.each(['general', 'privacy', 'backup', 'account', 'advanced', 'about'])(
-    'passes %s through',
-    (tab) => {
-      expect(resolveNavigation({ tab }, false)).toEqual({ tab, extensionId: null });
-    },
-  );
+  it.each(['general', 'privacy', 'backup', 'advanced', 'about'])('passes %s through', (tab) => {
+    expect(resolveNavigation({ tab }, false)).toEqual({ tab, extensionId: null });
+  });
 
   it('gates developer on Developer Mode', () => {
     expect(resolveNavigation({ tab: 'developer' }, true).tab).toBe('developer');
@@ -72,7 +69,6 @@ describe('resolveNavigation', () => {
 describe('SIDEBAR_GROUPS', () => {
   it('lists the nine tabs in spec order', () => {
     expect(SIDEBAR_GROUPS.flatMap((g) => g.tabs)).toEqual([
-      'account',
       'general',
       'applications',
       'built-in-features',

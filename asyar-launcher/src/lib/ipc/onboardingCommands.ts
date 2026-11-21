@@ -15,8 +15,7 @@ export type OnboardingStepKind =
   | 'snippets'
   | 'featuredExtensions'
   | 'pickTheme'
-  | 'cheatSheet'
-  | 'privacyConsent';
+  | 'cheatSheet';
 
 export interface OnboardingState {
   current: OnboardingStepKind;

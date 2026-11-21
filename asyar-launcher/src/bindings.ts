@@ -91,25 +91,6 @@ export type Application = {
 	exeName?: string | null,
 };
 
-/**
- *  One server-applied record in [`SyncRunReport::applied_records`].
- * 
- *  `content` is the plaintext payload the server returned (the same string
- *  the launcher pushed, after a round-trip). `None` indicates a tombstone
- *  — the TS layer should treat the entry as a delete and call
- *  `provider.applyItemDelete(item_id)`.
- */
-export type AppliedRecord = {
-	// Stable item id.
-	itemId: string,
-	// Category the item belongs to.
-	categoryId: string,
-	// Plaintext payload (provider-emitted JSON). `None` for tombstones.
-	content: string | null,
-	// `true` for tombstones, `false` for live items.
-	deleted: boolean,
-};
-
 // Category of a calculator answer. Drives icon selection in the UI.
 export type CalcKind = "math" | "unit" | "currency" | "date" | "time" | "base" | "color" | "percent" | "ratio";
 
@@ -207,16 +188,6 @@ export type Command = {
 export type CredentialState = "notConfigured" | "configured" | "needsReentry";
 
 export type CredentialTarget = { type: "provider"; id: string } | { type: "webSearch"; engine: string } | { type: "webReader"; reader: string };
-
-export type E2eeStatusReport = {
-	enabled: boolean,
-	// Enrolled but no cached master_seed (e.g. fresh second-device install).
-	locked: boolean,
-	keyVersion: number | null,
-	mode: string | null,
-	keystoreIsOsBacked: boolean,
-	finalizePending: boolean,
-};
 
 /**
  *  Represents a search result contributed by a frontend extension.
@@ -353,16 +324,6 @@ export type GroundingSource = {
  *  provider (mdfind / Everything / plocate).
  */
 export type HitSource = "local" | "deep";
-
-// Pending pairing request enriched for UI display.
-export type IncomingPairingRequest = {
-	id: string,
-	deviceName: string,
-	devicePublicKey: string,
-	fingerprint: string,
-	createdAt: string,
-	expiresAt: string,
-};
 
 // Index lifecycle state, kebab-case on the wire.
 export type IndexStateKind = "disabled" | "building" | "ready" | "rescanning" | "cap-reached";
@@ -527,21 +488,6 @@ export type NumberFormat =
 // `1.234,56` — comma decimal, point grouping.
 "comma";
 
-export type PairingApproveResult = {
-	confirmationWords: string,
-};
-
-export type PairingPollResult = {
-	status: string,
-	confirmationWords: string | null,
-};
-
-export type PairingRequestResult = {
-	id: string,
-	fingerprint: string,
-	expiresAt: string,
-};
-
 // A normalized, structured locale representation.
 export type ParsedLocale = {
 	// 2- or 3-letter ISO 639 language code (always lowercase, e.g. "en", "zh", "de")
@@ -664,71 +610,6 @@ export type Snippet = {
 export type StreamEventPayload = {
 	streamId: string,
 	event: ChatStreamEventPayload,
-};
-
-/**
- *  Push phase failure details returned in [`SyncRunReport`] when push encounters
- *  an error after pull has succeeded.
- */
-export type SyncPushFailure = {
-	/**
-	 *  Diagnostic kind string (e.g. `"sync_entitlement_required"`, `"sync_quota_exceeded"`,
-	 *  `"sync_rate_limited"`, `"sync_server_unavailable"`, `"network_failure"`, `"auth_failure"`).
-	 */
-	kind: string,
-	// Error display message.
-	message: string,
-	// Context map (e.g. `code`, `usedBytes`, `limitBytes`, `retryAfter`, `detail`).
-	context: { [key in string]: string },
-};
-
-// One failed push entry inside a [`SyncRunReport`].
-export type SyncRunFailure = {
-	// The item id that failed.
-	itemId: string,
-	/**
-	 *  A short human-readable reason (typically the underlying [`AppError`]'s
-	 *  `Display` form, or an `oversized:` validation tag).
-	 */
-	reason: string,
-};
-
-// Result of one [`sync_run`] pull-then-push round-trip.
-export type SyncRunReport = {
-	// Item ids successfully pushed (live items + tombstones).
-	uploaded: string[],
-	// Item ids skipped because the local hash already matched the journal.
-	skipped: string[],
-	// Item ids that failed validation (oversize) or HTTP push.
-	failed: SyncRunFailure[],
-	/**
-	 *  Item ids applied from the server's pull (upserts + deletes).
-	 * 
-	 *  Kept alongside [`Self::applied_records`] for cheap count-only
-	 *  inspection from the TS layer / diagnostics; the records carry the
-	 *  content the providers need to update their stores.
-	 */
-	appliedFromPull: string[],
-	/**
-	 *  Full applied records from the server's pull, in input order. The TS
-	 *  layer fans these out through `provider.applyItemUpsert` (live rows)
-	 *  or `provider.applyItemDelete` (tombstones) so each provider's local
-	 *  store stays in sync with the journal.
-	 */
-	appliedRecords: AppliedRecord[],
-	/**
-	 *  Item ids that were locally dirty and overwritten by a newer server
-	 *  version — surfaced as a diagnostic warning to the user.
-	 */
-	lwwWarnings: string[],
-	// New cursor value after the pull pass.
-	serverVersion: number,
-	/**
-	 *  Set when the push phase encounters a fatal or rate-limited error
-	 *  after a successful pull phase. The pull results are preserved in
-	 *  [`Self::applied_records`].
-	 */
-	pushFailure: SyncPushFailure | null,
 };
 
 export type SystemAction = "sleep" | "hibernate" | "lockScreen" | "logOut" | "restart" | "shutDown";

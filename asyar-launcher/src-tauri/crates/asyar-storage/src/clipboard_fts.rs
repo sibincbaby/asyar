@@ -652,7 +652,6 @@ mod rebuild_tests {
     fn rebuild_from_disk_indexes_every_row() {
         let conn = Connection::open_in_memory().unwrap();
         init_table(&conn).unwrap();
-        crate::cloud_sync_state::init_table(&conn).unwrap();
         let key = test_key();
         for i in 0..20u32 {
             add_item(
@@ -673,7 +672,6 @@ mod rebuild_tests {
     fn rebuild_backfills_null_content_hash_rows() {
         let conn = Connection::open_in_memory().unwrap();
         init_table(&conn).unwrap();
-        crate::cloud_sync_state::init_table(&conn).unwrap();
         let key = test_key();
         // Insert a row with NULL content_hash directly (simulating a legacy row).
         let encrypted = crate::crypto::cipher::encrypt("legacy body", &key).unwrap();

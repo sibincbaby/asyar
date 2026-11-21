@@ -9,9 +9,9 @@
     <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-AGPL_v3-blue.svg"></a>
   </p>
   <p>
-    <a href="https://asyar.org/download"><strong>Download</strong></a>
+    <a href="https://github.com/sibincbaby/asyar/releases"><strong>Download</strong></a>
     ·
-    <a href="https://asyar.org/release-notes">Release Notes</a>
+    <a href="https://github.com/sibincbaby/asyar/releases">Release Notes</a>
     ·
     <a href="https://discord.gg/vvYRXrs7Xa">Community</a>
     ·
@@ -59,18 +59,14 @@ Asyar is built with **Tauri + Rust** instead of Electron. That means:
 
 ## Installation
 
-**One-line install:**
+**Download:** grab the `.AppImage` or `.deb` from
+[Releases](https://github.com/sibincbaby/asyar/releases), or build from source (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/Xoshbin/asyar/main/install.sh | sh
-```
-
-**Manual download:** grab the `.AppImage` or `.deb` from
-[Releases](https://github.com/Xoshbin/asyar/releases).
+**Updating:** Asyar does not update itself. To upgrade, install a newer `.deb` or AppImage from Releases. Installed extensions can still auto-update from the Store.
 
 **Wayland shortcut setup:**
 
-The installer places the AppImage at `~/.local/bin/asyar` and a lightweight summon command beside it at `~/.local/bin/asyar-summon`. Wayland protocol security prevents background applications from intercepting global keyboard shortcuts directly, so bind your preferred shortcut in your desktop environment or window manager to execute `asyar-summon`:
+Asyar ships a lightweight summon command, `asyar-summon`. Wayland protocol security prevents background applications from intercepting global keyboard shortcuts directly, so bind your preferred shortcut in your desktop environment or window manager to execute `asyar-summon`:
 
 - **GNOME:** Open **Settings** → **Keyboard** → **View and Customize Shortcuts** → **Custom Shortcuts**, click **+**, set Name to `Asyar`, Command to `asyar-summon`, and assign your shortcut (e.g. `Ctrl+Space` or `Super+Space`).
 - **KDE Plasma:** Open **System Settings** → **Shortcuts** → **Custom Shortcuts** (or **Command/URL**), add a new global shortcut for `asyar-summon`, and set your trigger key (e.g. `Alt+Space` or `Meta+Space`).
@@ -134,7 +130,7 @@ If you are moving over from Raycast, you don't have to rebuild your configuratio
 - **Window Management** — 17 built-in layout presets (halves, quarters, thirds, maximize, center) plus custom saved layouts; undo the last move with "Restore Previous"; works on Linux (X11)
 - **Context Modes** — Type prefixes (`ask ai`, a URL, etc.) to switch the launcher into a specialized mode; visual chips indicate the active context
 - **Create Extension** — Scaffold a new extension from a template without leaving the launcher
-- **AI Extension Builder** — Describe an extension in plain language (_"build an extension for Notion"_) and an AI agent scaffolds, codes, builds, and verifies it for you — gating feasibility up front, asking clarifying questions via notifications, and dropping a working extension into `~/AsyarExtensions`. Uses your own Anthropic key (BYOK, no Asyar account). Browse and one-click-publish everything you've built from the **My Extensions** view.
+- **AI Extension Builder** — Describe an extension in plain language (_"build an extension for Notion"_) and an AI agent scaffolds, codes, builds, and verifies it for you — gating feasibility up front, asking clarifying questions via notifications, and dropping a working extension into `~/AsyarExtensions`. Uses your own Anthropic key (BYOK). Browse and one-click-publish everything you've built from the **My Extensions** view.
 - **Themes** — Customize the launcher's appearance with built-in themes or create your own
 - **Backup & Restore** — Export and import your data locally; optional password encryption for sensitive fields
 - **Privacy by Default** — Clipboard items copied from denylisted password managers (1Password, Bitwarden, KeePassXC, Dashlane, Enpass by default) are never stored. Known secret formats (AWS keys, GitHub/GitLab/Stripe/Slack/OpenAI/Anthropic tokens, JWTs, PEM private keys, Luhn-validated credit cards) are redacted in place across clipboard, snippets, and AI conversations — including before the AI provider sees them.
@@ -166,21 +162,20 @@ Want Asyar in your language? See [Contributing a Localization](CONTRIBUTING.md#i
 
 ## Privacy Scorecard
 
-|                                                                                |                 Asyar                  |
-| ------------------------------------------------------------------------------ | :------------------------------------: |
-| Data stored locally only                                                       |                   ✅                   |
-| Works fully offline                                                            |                   ✅                   |
-| No telemetry by default                                                        |                   ✅                   |
-| No account or login required                                                   |                   ✅                   |
-| No subscription to unlock features                                             |                   ✅                   |
-| Extensions run in sandboxed iframes                                            |                   ✅                   |
-| Sensitive backup fields encrypted                                              |                   ✅                   |
-|                                                                                | Configurable password-manager denylist | ✅  |
-| Auto-redacts known secret formats (API keys, JWTs, private keys)               |                   ✅                   |
-| AI provider receives redacted user messages, not raw secrets                   |                   ✅                   |
-| Local encryption at rest with OS-keychain key                                  |                   ✅                   |
-| Cloud sync uploads only what changed                                           |                   ✅                   |
-| Optional end-to-end encrypted cloud sync (passphrase + Argon2id + AES-256-GCM) |                   ✅                   |
+|                                                                  |                 Asyar                  |
+| ---------------------------------------------------------------- | :------------------------------------: |
+| Data stored locally only                                         |                   ✅                   |
+| Works fully offline                                              |                   ✅                   |
+| No telemetry by default                                          |                   ✅                   |
+| No account or login required                                     |                   ✅                   |
+| No subscription to unlock features                               |                   ✅                   |
+| Extensions run in sandboxed iframes                              |                   ✅                   |
+| Sensitive backup fields encrypted                                |                   ✅                   |
+|                                                                  | Configurable password-manager denylist | ✅  |
+| Auto-redacts known secret formats (API keys, JWTs, private keys) |                   ✅                   |
+| AI provider receives redacted user messages, not raw secrets     |                   ✅                   |
+| Local encryption at rest with OS-keychain key                    |                   ✅                   |
+| No cloud sync, no crash-report upload, no usage-metrics sharing  |                   ✅                   |
 
 ---
 
@@ -192,7 +187,7 @@ Asyar's privacy work is layered — each layer protects a different boundary, an
 
 When a clipboard event arrives, Asyar checks the source app against a configurable denylist **before** writing anything to disk. Items copied from a denylisted app are dropped at the door. Defaults cover 1Password, Bitwarden, KeePassXC, Dashlane, and Enpass. Users add their own apps in **Settings → Privacy → Clipboard Privacy**. Linux has no standard "do not capture" pasteboard flag, so the denylist is the capture-time defense.
 
-Items rejected at this layer never reach SQLite, so they cannot leak via local disk theft, the diagnostics channel, or cloud sync.
+Items rejected at this layer never reach SQLite, so they cannot leak via local disk theft or the diagnostics channel.
 
 ### Layer 2 — Pattern-based secret redaction
 
@@ -218,23 +213,10 @@ Clipboard `content` / `preview`, snippet `expansion`, AI conversation message bo
 
 On Linux without Secret Service (headless, minimal WM, DBus-less containers) Asyar falls back to a `0600` file-backed key and surfaces a warning in **Settings → Privacy → Encryption at Rest**, telling you to install gnome-keyring or KWallet for full protection.
 
-### Layer 4a — Minimal cloud sync
-
-Cloud sync (when enabled) is built around a simple privacy promise: **the less data on the wire, the smaller the surface for any potential breach.** Asyar uploads only what you've actually changed since your last sync — never your whole history, never on a fixed schedule. An idle launcher moves zero bytes. Editing one snippet syncs one snippet. Concurrent edits on different devices coexist instead of overwriting each other.
-
-### Layer 4b/4c — Optional end-to-end encrypted cloud sync
-
-Opt-in passphrase-based E2EE on top of the per-item sync layer. Default OFF. Enable in **Settings → Account → Encrypted Sync**.
-
-- Passphrase → Argon2id → 32-byte sync key → AES-256-GCM per item.
-- Passphrase entered once at enrolment; derived key cached in the OS keychain — daily UX has zero friction.
-- 24-word BIP-39 recovery phrase issued at enrolment. Passphrase loss without the recovery phrase means data loss; Asyar.org cannot reset it.
-
-### Layer 5 — Retention & automatic eviction
+### Layer 4 — Retention & automatic eviction
 
 - **Clipboard History TTL** — Configurable retention window (1 min to 90 days) with favourite protection (**Settings → Privacy → Clipboard Privacy**).
 - **AI Conversation Retention Cap** — Maximum retained threads (Unlimited, 25, 50, 100 [default], or custom) with pinned thread protection (**Settings → AI → Behavior**).
-- **Snippet Private Tag (Local-Only Sync Opt-Out)** — Mark sensitive snippets as private; they remain strictly local and are never included in cloud sync payloads or tombstones.
 
 See [`docs/explanation/clipboard-privacy.md`](docs/explanation/clipboard-privacy.md) for the full design.
 
@@ -412,7 +394,7 @@ The scheduler (backed by Tokio) fires the command every `interval` seconds (60 s
 
 ## Backup & Restore
 
-Asyar lets you export and import your data locally — no account required.
+Asyar lets you export and import your data locally — there is no account or cloud sync.
 
 Go to **Settings → Backup** to:
 
@@ -420,8 +402,6 @@ Go to **Settings → Backup** to:
 - **Restore** — open a backup file, preview what's inside (item counts and conflicts per category), choose a conflict strategy (`replace`, `merge`, or `skip`) per category, then apply.
 
 **How sensitive data is handled:** if a backup contains sensitive fields and no password is set, those fields are stripped from the export automatically. When a password is provided, the archive is encrypted and the password is required to restore it.
-
-Cloud sync and account-based backup are intentionally out of scope — they will live in a future **Account** tab.
 
 ---
 

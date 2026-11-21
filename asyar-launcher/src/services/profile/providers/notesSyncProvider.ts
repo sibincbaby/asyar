@@ -1,4 +1,3 @@
-import { type UnlistenFn } from '@tauri-apps/api/event';
 import {
   noteGetAllForService,
   noteRemove,
@@ -13,11 +12,7 @@ import type {
   ImportResult,
   DataSummary,
   ConflictStrategy,
-  SyncItem,
-  SyncChangeEvent,
-  Unsubscribe,
 } from '../types';
-import { appListen } from '../../../lib/ipc/bridgeEvents';
 
 export class NotesSyncProvider implements ISyncProvider {
   readonly id = 'notes';
@@ -118,43 +113,6 @@ export class NotesSyncProvider implements ISyncProvider {
     return {
       itemCount: items.length,
       label: `${items.length} note${items.length !== 1 ? 's' : ''}`,
-    };
-  }
-
-  // ── Delta sync surface ──────────────────────────────────────────────────
-  // Collection: one SyncItem per note keyed by note.id.
-
-  async exportItems(): Promise<SyncItem[]> {
-    return (await noteGetAllForService()).map((note) => ({
-      id: note.id,
-      categoryId: this.id,
-      content: note,
-    }));
-  }
-
-  async applyItemUpsert(item: SyncItem): Promise<void> {
-    await noteUpsert(item.content as StoredNote);
-  }
-
-  async applyItemDelete(itemId: string): Promise<void> {
-    await noteRemove(itemId);
-  }
-
-  subscribeToChanges(callback: (event: SyncChangeEvent) => void): Unsubscribe {
-    let disposed = false;
-    let unlisten: UnlistenFn | null = null;
-
-    void appListen<{ id: string; type: 'upsert' | 'delete' }>('notes:changed', (event) => {
-      if (disposed) return;
-      callback({ type: event.payload.type, itemId: event.payload.id, categoryId: this.id });
-    }).then((stopListening) => {
-      if (disposed) stopListening();
-      else unlisten = stopListening;
-    });
-
-    return () => {
-      disposed = true;
-      unlisten?.();
     };
   }
 }

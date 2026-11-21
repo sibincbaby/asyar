@@ -14,7 +14,6 @@
   import PickTheme from './steps/PickTheme.svelte';
   import CheatSheet from './steps/CheatSheet.svelte';
   import AiSetupStep from './steps/AiSetupStep.svelte';
-  import PrivacyConsent from './steps/PrivacyConsent.svelte';
   import { Button, OnboardingStage } from '../../components';
   import { STEP_VISUALS } from './stepVisuals';
   import { onboardingNav } from './onboardingNav.svelte';
@@ -62,8 +61,6 @@
           <PickTheme />
         {:else if state.current === 'cheatSheet'}
           <CheatSheet />
-        {:else if state.current === 'privacyConsent'}
-          <PrivacyConsent />
         {/if}
       </div>
       <div class="onboarding-stage__footer">

@@ -702,7 +702,7 @@ follows a native desktop settings layout (Raycast Settings).
 - **Window & sidebar (`SettingsSidebar`).** Full-height, `220px`. The window
   hides its native title (`hiddenTitle: true`) and leaves a top inset. Top to bottom: a soft
   recessed search pill (`Ctrl+F` deep search — no `Ctrl+F` keycap chip inside the
-  input), the Account profile card, then nav groups separated by a `1px`
+  input), then nav groups separated by a `1px`
   `--separator` hairline. **No uppercase `APP` / `SYSTEM` group headers** — only
   search `Results` uses a group label. Icon badges are `20px` (`--size-md`):
   transparent when inactive; solid `--accent-primary-fill` with a

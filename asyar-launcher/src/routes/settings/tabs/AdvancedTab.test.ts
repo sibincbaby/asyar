@@ -52,7 +52,6 @@ vi.mock('../../../services/settings/settingsService.svelte', () => ({
         tracing: false,
         allowSideloading: false,
       },
-      privacy: { crashReportMode: 'off', usageShareMode: 'off' },
       fileSearch: {
         enabled: true,
         rootSearchEnabled: true,
@@ -137,8 +136,6 @@ function createMockHandler(overrides?: Partial<SettingsHandler>): SettingsHandle
       },
       extensions: { enabled: {}, autoUpdate: true },
       onboarding: { completed: false },
-      feedback: { promptSeen: false },
-      updates: { channel: 'stable', autoCheck: true },
       ai: {
         providers: {},
         temperature: 0.7,
@@ -153,7 +150,6 @@ function createMockHandler(overrides?: Partial<SettingsHandler>): SettingsHandle
         tracing: false,
         allowSideloading: false,
       },
-      privacy: { crashReportMode: 'off', usageShareMode: 'off' },
       fileSearch: {
         enabled: true,
         rootSearchEnabled: true,

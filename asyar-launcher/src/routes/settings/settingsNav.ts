@@ -1,5 +1,4 @@
 export type SettingsTabId =
-  | 'account'
   | 'general'
   | 'applications'
   | 'built-in-features'
@@ -38,10 +37,9 @@ const BUILT_IN_FEATURE_IDS: readonly string[] = [
   'browsers',
 ];
 
-export type SidebarGroupId = 'top' | 'app' | 'system';
+export type SidebarGroupId = 'app' | 'system';
 
 export const SIDEBAR_GROUPS: { id: SidebarGroupId; tabs: SettingsTabId[] }[] = [
-  { id: 'top', tabs: ['account'] },
   {
     id: 'app',
     tabs: ['general', 'applications', 'built-in-features', 'extensions', 'privacy', 'backup'],
@@ -50,7 +48,6 @@ export const SIDEBAR_GROUPS: { id: SidebarGroupId; tabs: SettingsTabId[] }[] = [
 ];
 
 const DIRECT_TABS: readonly string[] = [
-  'account',
   'general',
   'applications',
   'privacy',
@@ -110,15 +107,7 @@ export const SETTINGS_TAB_KEYWORDS: Partial<Record<SettingsTabId, string[]>> = {
     'window management',
   ],
   extensions: ['store', 'plugins', 'auto-update'],
-  privacy: [
-    'permissions',
-    'accessibility',
-    'calendar',
-    'reminders',
-    'encryption',
-    'shell',
-    'telemetry',
-  ],
+  privacy: ['permissions', 'accessibility', 'calendar', 'reminders', 'encryption', 'shell'],
   backup: ['export', 'restore', 'raycast', 'migration'],
   advanced: ['runtimes', 'node', 'bun', 'python', 'scheduled tasks', 'developer mode'],
 };

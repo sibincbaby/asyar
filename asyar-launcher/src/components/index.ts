@@ -26,7 +26,6 @@ export { default as ErrorState } from './feedback/ErrorState.svelte';
 export { default as InlineError } from './feedback/InlineError.svelte';
 export { default as LoadingState } from './feedback/LoadingState.svelte';
 export { default as WarningBanner } from './feedback/WarningBanner.svelte';
-export { default as EntitlementGate } from './feedback/EntitlementGate.svelte';
 export { default as DialogHost } from './feedback/DialogHost.svelte';
 export { default as FeedbackMessage } from './feedback/FeedbackMessage.svelte';
 
@@ -109,10 +108,8 @@ export { default as SearchBarAccessoryDropdown } from './search/SearchBarAccesso
 export { default as Spinner } from './base/Spinner.svelte';
 
 // Feedback
-export { default as CrashReportPrompt } from './feedback/CrashReportPrompt.svelte';
 export { default as PermissionConsentDialog } from './feedback/PermissionConsentDialog.svelte';
 export { default as LanDevicePickerDialog } from './feedback/LanDevicePickerDialog.svelte';
-export { default as UsageSharePrompt } from './feedback/UsageSharePrompt.svelte';
 
 // Layout
 export { default as AppShell } from './layout/AppShell.svelte';
@@ -126,14 +123,10 @@ export { default as ShellConsentDialog } from './shell/ShellConsentDialog.svelte
 
 // Settings — sections
 export { default as ClipboardPrivacySection } from './settings/ClipboardPrivacySection.svelte';
-export { default as CrashReportSection } from './settings/CrashReportSection.svelte';
-export { default as DeviceKeyLockedCard } from './settings/DeviceKeyLockedCard.svelte';
 export { default as EncryptionStatusSection } from './settings/EncryptionStatusSection.svelte';
-export { default as IncomingPairingRequests } from './settings/IncomingPairingRequests.svelte';
 export { default as RuntimesSection } from './settings/RuntimesSection.svelte';
 export { default as ScheduledTasksSection } from './settings/ScheduledTasksSection.svelte';
 export { default as SecretRedactionSection } from './settings/SecretRedactionSection.svelte';
-export { default as UsageShareSection } from './settings/UsageShareSection.svelte';
 
 // Settings — controls and lists
 export { default as PermissionList } from './settings/PermissionList.svelte';
@@ -141,14 +134,7 @@ export { default as RuntimeDownloadList } from './settings/RuntimeDownloadList.s
 export { default as ShellTrustManager } from './settings/ShellTrustManager.svelte';
 
 // Settings — dialogs
-export { default as DisableE2eeDialog } from './settings/DisableE2eeDialog.svelte';
-export { default as EncryptionEnrolmentDialog } from './settings/EncryptionEnrolmentDialog.svelte';
-export { default as PassphraseDialog } from './settings/PassphraseDialog.svelte';
-export { default as RecoverWithMnemonicDialog } from './settings/RecoverWithMnemonicDialog.svelte';
-export { default as RecoveryPhraseDialog } from './settings/RecoveryPhraseDialog.svelte';
 export { default as RequiredPreferencesView } from './settings/RequiredPreferencesView.svelte';
-export { default as ResetCloudSyncDialog } from './settings/ResetCloudSyncDialog.svelte';
-export { default as RotatePassphraseDialog } from './settings/RotatePassphraseDialog.svelte';
 
 // Dev — the extension inspector. Only the shell is exported; its panels are
 // internal to it and importing one on its own is always a mistake.

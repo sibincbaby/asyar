@@ -48,11 +48,9 @@ Errors after worker readiness do not trigger this fallback. Invalid module paths
 also fail directly. A metadata test enforces removal before 0.2.0 ships.
 
 Fallback attempts are aggregated locally in `usage.db` as
-`(worker_fallback, extension_id, local_day, count)`. The existing server payload
-has no fallback field, so these counts are intentionally local-only. They are
-excluded from launch totals, walkthrough history, network payloads, and pending
-usage-send selection. No new egress path or per-event request is introduced;
-usage-sharing consent behavior is unchanged.
+`(worker_fallback, extension_id, local_day, count)`. These counts are local-only:
+they are excluded from launch totals and walkthrough history, and nothing is sent
+over the network.
 
 To inspect local counts, query a copy of the application's `usage.db`:
 
@@ -82,9 +80,8 @@ ORDER BY day DESC, target;
 4. Hide and reveal the launcher several times. Confirm background commands still
    work and the extension's state persists. Disable/re-enable the extension and
    verify that one iframe is mounted per current mount token.
-5. With usage sharing off, repeat a fallback startup. Confirm a local daily count
-   increments and no usage request is emitted. With sharing enabled, confirm
-   ordinary usage sends contain no fallback identifiers or counts.
+5. Repeat a fallback startup. Confirm a local daily count increments and no
+   usage request is emitted.
 6. With a deliberately broken worker iframe in a test extension, confirm load
    failure or an uncaught exception still produces visible failure feedback.
 

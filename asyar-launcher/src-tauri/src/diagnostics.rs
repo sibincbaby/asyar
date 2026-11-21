@@ -53,23 +53,9 @@ mod kinds_contract {
             "platform_failure",
             "validation_failure",
             "encryption_failure",
-            "auth_failure",
             "oauth_failure",
             "power_failure",
             "run_failed",
-            "sync_entitlement_required",
-            "sync_quota_exceeded",
-            "sync_rate_limited",
-            "sync_server_unavailable",
-            "sync_e2ee_locked",
-            "sync_e2ee_already_enrolled",
-            "sync_e2ee_not_enrolled",
-            "sync_e2ee_wrong_mode",
-            "sync_pairing_not_found",
-            "sync_pairing_not_pending",
-            "sync_pairing_fingerprint_mismatch",
-            "sync_pairing_too_many",
-            "sync_finalize_behind",
             "io_failure",
             "json_failure",
             "unknown",
@@ -83,23 +69,6 @@ mod kinds_contract {
             assert!(
                 ts.contains(&format!("\"{kind}\"")),
                 "TS kinds.ts is missing kind: {kind}. Run `pnpm gen:diagnostic-kinds`."
-            );
-        }
-    }
-
-    #[test]
-    fn registry_contains_e2ee_kinds() {
-        let ts = include_str!("../../src/services/diagnostics/kinds.ts");
-        for required in [
-            "e2ee_enrollment_failed",
-            "e2ee_passphrase_required",
-            "e2ee_key_derivation_failed",
-            "e2ee_decrypt_failed",
-            "e2ee_key_version_mismatch",
-        ] {
-            assert!(
-                ts.contains(&format!("\"{required}\"")),
-                "TS kinds.ts is missing kind: {required}. Run `pnpm gen:diagnostic-kinds`."
             );
         }
     }

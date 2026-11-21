@@ -9,9 +9,6 @@ import type {
   ImportResult,
   DataSummary,
   ConflictStrategy,
-  SyncItem,
-  SyncChangeEvent,
-  Unsubscribe,
 } from '../types';
 
 export class SnippetsSyncProvider implements ISyncProvider {
@@ -117,56 +114,5 @@ export class SnippetsSyncProvider implements ISyncProvider {
       itemCount: items.length,
       label: `${items.length} snippet${items.length !== 1 ? 's' : ''}`,
     };
-  }
-
-  // ── Delta sync surface ──────────────────────────────────────────────────
-  // Collection: one SyncItem per snippet keyed by snippet.id.
-
-  async exportItems(): Promise<SyncItem[]> {
-    return snippetStore
-      .getAll()
-      .filter(
-        (snippet) => !snippet.isPrivate && snippet.expansion && snippet.expansion.trim() !== '',
-      )
-      .map((snippet) => ({
-        id: snippet.id,
-        categoryId: this.id,
-        content: snippet,
-      }));
-  }
-
-  async applyItemUpsert(item: SyncItem): Promise<void> {
-    const incoming = item.content as Snippet;
-    if (!incoming) return;
-    const existing = snippetStore.getAll().find((s) => s.id === incoming.id);
-    if (existing?.isPrivate) {
-      return;
-    }
-    if (
-      existing &&
-      existing.expansion &&
-      existing.expansion.trim() !== '' &&
-      (!incoming.expansion || incoming.expansion.trim() === '')
-    ) {
-      return;
-    }
-    snippetStore.add(incoming);
-  }
-
-  async applyItemDelete(itemId: string): Promise<void> {
-    const existing = snippetStore.getAll().find((s) => s.id === itemId);
-    if (existing?.isPrivate) {
-      return;
-    }
-    snippetStore.remove(itemId);
-  }
-
-  subscribeToChanges(callback: (event: SyncChangeEvent) => void): Unsubscribe {
-    return snippetStore.subscribe((ev) => {
-      if (ev.isPrivate) {
-        return;
-      }
-      callback({ type: ev.type, itemId: ev.itemId, categoryId: this.id });
-    });
   }
 }

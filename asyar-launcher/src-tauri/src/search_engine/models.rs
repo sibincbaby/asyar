@@ -257,17 +257,16 @@ impl SearchableItem {
     }
 }
 
-/// Max length the cloud-sync backend accepts for an item id
-/// (`items.*.id` `max:64` in `CloudSyncController::pushItems`).
+/// Max app id length. Originally the removed cloud-sync backend's limit; kept
+/// so ids already stored in usage, aliases and shortcuts stay stable.
 const MAX_APP_ID_LEN: usize = 64;
 
 /// Builds a stable `app_` id for an application, guaranteed to fit within
 /// `MAX_APP_ID_LEN`. `unique_key` is whatever makes the app unique on this
 /// machine (its absolute path).
 ///
-/// Deeply nested paths would otherwise produce
-/// an id over the server's length limit and get the whole sync batch
-/// rejected, so those fall back to a short deterministic hash of `unique_key`.
+/// Deeply nested paths would otherwise produce an overlong id, so those fall
+/// back to a short deterministic hash of `unique_key`.
 pub fn build_app_id(name: &str, unique_key: &str) -> String {
     let sanitized_name = name.replace([' ', '/'], "_");
     let sanitized_key = unique_key.replace([' ', '/'], "_");
@@ -553,16 +552,7 @@ mod bindings_export {
             .register::<crate::locale::ParsedLocale>()
             .register::<crate::locale::NumberFormat>()
             .register::<crate::window_management::types::AppWindowInfo>()
-            .register::<crate::storage::snippets::Snippet>()
-            .register::<crate::commands::sync::SyncRunReport>()
-            .register::<crate::commands::sync::SyncPushFailure>()
-            .register::<crate::commands::sync::AppliedRecord>()
-            .register::<crate::commands::sync::SyncRunFailure>()
-            .register::<crate::sync::e2ee::service::E2eeStatusReport>()
-            .register::<crate::sync::types::IncomingPairingRequest>()
-            .register::<crate::commands::sync_e2ee::PairingRequestResult>()
-            .register::<crate::commands::sync_e2ee::PairingPollResult>()
-            .register::<crate::commands::sync_e2ee::PairingApproveResult>();
+            .register::<crate::storage::snippets::Snippet>();
 
         Typescript::default()
             .bigint(BigIntExportBehavior::Number)

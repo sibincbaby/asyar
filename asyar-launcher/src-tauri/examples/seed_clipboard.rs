@@ -14,7 +14,6 @@
 
 use asyar_lib::crypto::keystore::{KEYCHAIN_ACCOUNT, KEYCHAIN_SERVICE};
 use asyar_lib::storage::clipboard::{add_item, init_table, ClipboardItem};
-use asyar_lib::storage::cloud_sync_state;
 use keyring::Entry;
 use rusqlite::Connection;
 use std::path::PathBuf;
@@ -127,7 +126,6 @@ fn main() {
 
     let conn = Connection::open(&db_path).expect("open SQLite");
     init_table(&conn).expect("init clipboard table");
-    cloud_sync_state::init_table(&conn).expect("init cloud-sync journal");
 
     let base = now_ms();
     let t = Instant::now();

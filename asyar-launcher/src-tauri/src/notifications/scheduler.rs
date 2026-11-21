@@ -1,7 +1,6 @@
 //! Hourly GC timer for the notification action registry.
 //!
-//! Mirrors [`crate::app_updater::scheduler`] and
-//! [`crate::extensions::update_scheduler`] — a tokio task spawned once
+//! Mirrors [`crate::extensions::update_scheduler`] — a tokio task spawned once
 //! during `setup_app`, sleeping between iterations rather than holding a
 //! long-lived `tokio::time::interval` handle. Keeps the shape identical
 //! to the other per-hour background jobs in the launcher.

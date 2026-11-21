@@ -3,8 +3,6 @@ import { defineDiagnosticMessages } from './defineDiagnosticMessages';
 export const DIAGNOSTIC_MESSAGES = defineDiagnosticMessages({
   // Rust-derived (AppError)
   permission_denied: ({ permission }) => `Access to ${permission ?? 'a resource'} was denied`,
-  policy_denied: ({ policyError }) =>
-    policyError ? `Action denied: ${policyError}` : 'Action denied by policy',
   network_failure: () => 'Network error',
   lock_poisoned: () => 'Internal lock corrupted; please restart Asyar',
   database_failure: () => 'Database error',
@@ -14,31 +12,10 @@ export const DIAGNOSTIC_MESSAGES = defineDiagnosticMessages({
   platform_failure: ({ platform }) => `Platform error: ${platform ?? 'unknown'}`,
   validation_failure: ({ field }) => `Invalid input: ${field ?? 'value'}`,
   encryption_failure: () => 'Encryption error',
-  auth_failure: ({ provider }) => `Authentication failed${provider ? ` (${provider})` : ''}`,
   oauth_failure: ({ provider }) => `OAuth error${provider ? ` (${provider})` : ''}`,
   power_failure: () => 'Power management error',
   run_failed: ({ id, message }) =>
     message ? `Run failed: ${message}` : `Run ${id ?? 'unknown'} failed`,
-  sync_entitlement_required: () => 'Cloud sync requires an active plan',
-  sync_quota_exceeded: ({ usedBytes, limitBytes }) =>
-    Number(limitBytes) > 0
-      ? `Cloud sync storage quota exceeded (${usedBytes} / ${limitBytes} bytes)`
-      : 'Cloud sync storage quota exceeded',
-  sync_rate_limited: ({ retryAfter }) =>
-    `Cloud sync is rate limited. Retrying in ${retryAfter ?? '60'}s`,
-  sync_server_unavailable: ({ detail }) =>
-    `Cloud sync server is temporarily unavailable${detail ? `: ${detail}` : ''}`,
-  sync_e2ee_locked: () =>
-    'Cloud sync is locked on this device. Enter your recovery phrase or approve from another device.',
-  sync_e2ee_not_enrolled: () => 'End-to-end encryption is not enabled for this account',
-  sync_e2ee_already_enrolled: () => 'End-to-end encryption is already enabled for this account',
-  sync_e2ee_wrong_mode: () => 'Operation not supported for this encryption mode',
-  sync_finalize_behind: () => 'Cloud sync finalization was postponed until local state catches up',
-  sync_pairing_not_found: () => 'Device pairing request not found or expired',
-  sync_pairing_not_pending: () => 'Device pairing request is no longer pending',
-  sync_pairing_fingerprint_mismatch: () =>
-    'Device pairing fingerprint mismatch: the verification words do not match the requesting device.',
-  sync_pairing_too_many: () => 'Too many active pairing requests; please try again later',
   io_failure: () => 'I/O error',
   json_failure: () => 'Data format error',
   unknown: ({ message }) => message ?? 'Unexpected error',
@@ -67,14 +44,4 @@ export const DIAGNOSTIC_MESSAGES = defineDiagnosticMessages({
   manual: ({ message }) => message ?? 'Error',
   action_failed: ({ message }) => message ?? 'Action failed',
   mcp_permission_required: ({ tool }) => `Permission required to use ${tool ?? 'this MCP tool'}`,
-
-  // E2EE cloud sync
-  e2ee_enrollment_failed: () =>
-    "Couldn't enable encrypted sync. Check your connection and try again.",
-  e2ee_passphrase_required: () => 'Encrypted sync needs your passphrase to continue.',
-  e2ee_key_derivation_failed: () =>
-    "Couldn't derive your sync key. Try closing other apps and retrying.",
-  e2ee_decrypt_failed: () =>
-    'An item failed to decrypt — your data may be corrupted, or the passphrase has changed.',
-  e2ee_key_version_mismatch: () => 'Your encrypted sync needs to refresh. Pulling latest…',
 });

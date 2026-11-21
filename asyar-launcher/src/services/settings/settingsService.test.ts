@@ -55,10 +55,6 @@ const DEFAULT: AppSettings = {
   onboarding: {
     completed: false,
   },
-  updates: {
-    channel: 'stable',
-    autoCheck: true,
-  },
   ai: {
     providers: {
       openai: { enabled: false },
@@ -73,10 +69,6 @@ const DEFAULT: AppSettings = {
     defaultAgentId: null,
     tabContinuesLastThread: false,
     historyRetentionCap: 100,
-  },
-  privacy: {
-    crashReportMode: 'off' as const,
-    usageShareMode: 'off' as const,
   },
   fileSearch: {
     enabled: true,
@@ -140,14 +132,17 @@ describe('mergeWithDefaults', () => {
     expect(result.extensions.enabled.store).toBe(true);
   });
 
-  it('preserves the user field when present', () => {
-    const result = merge({ user: { id: 'u1', syncEnabled: true } });
-    expect(result.user).toEqual({ id: 'u1', syncEnabled: true });
-  });
-
-  it('sets user to undefined when not in stored data', () => {
-    const result = merge({});
+  it('drops legacy keys (user, privacy, updates, feedback) from stored data', () => {
+    const result = merge({
+      user: { id: 'u1', syncEnabled: true },
+      privacy: { crashReportMode: 'auto' },
+      updates: { channel: 'beta' },
+      feedback: { promptSeen: true },
+    });
     expect(result.user).toBeUndefined();
+    expect(result.privacy).toBeUndefined();
+    expect(result.updates).toBeUndefined();
+    expect(result.feedback).toBeUndefined();
   });
 
   it('overrides only the provided appearance fields', () => {
@@ -526,70 +521,6 @@ describe('rust runs_done notify-on-success contract', () => {
     const serialized = JSON.parse(JSON.stringify(svc.currentSettings));
     expect(serialized.scripts.notifyOnSuccess).toBe(false);
     expect(Object.keys(serialized)).toContain('scripts');
-  });
-});
-
-// ── privacy.crashReportMode ───────────────────────────────────────────────────
-
-describe('privacy.crashReportMode', () => {
-  beforeEach(() => {
-    resetState();
-    injectStore();
-  });
-
-  it('defaults crashReportMode to off', () => {
-    expect(settingsService.currentSettings.privacy.crashReportMode).toBe('off');
-  });
-
-  it('persists an updated crashReportMode', async () => {
-    const ok = await settingsService.updateSettings('privacy', { crashReportMode: 'ask' });
-    expect(ok).toBe(true);
-    expect(settingsService.currentSettings.privacy.crashReportMode).toBe('ask');
-  });
-
-  it('mergeWithDefaults fills privacy with defaults when missing from stored settings', () => {
-    const result = (settingsService as any).mergeWithDefaults({});
-    expect(result.privacy).toBeDefined();
-    expect(result.privacy.crashReportMode).toBe('off');
-  });
-
-  it('mergeWithDefaults preserves a stored crashReportMode', () => {
-    const result = (settingsService as any).mergeWithDefaults({
-      privacy: { crashReportMode: 'auto' },
-    });
-    expect(result.privacy.crashReportMode).toBe('auto');
-  });
-});
-
-// ── privacy.usageShareMode ────────────────────────────────────────────────────
-
-describe('privacy.usageShareMode', () => {
-  beforeEach(() => {
-    resetState();
-    injectStore();
-  });
-
-  it('defaults usageShareMode to off', () => {
-    expect(settingsService.currentSettings.privacy.usageShareMode).toBe('off');
-  });
-
-  it('persists an updated usageShareMode', async () => {
-    const ok = await settingsService.updateSettings('privacy', { usageShareMode: 'ask' });
-    expect(ok).toBe(true);
-    expect(settingsService.currentSettings.privacy.usageShareMode).toBe('ask');
-  });
-
-  it('mergeWithDefaults fills usageShareMode with off when missing from stored settings', () => {
-    const result = (settingsService as any).mergeWithDefaults({});
-    expect(result.privacy).toBeDefined();
-    expect(result.privacy.usageShareMode).toBe('off');
-  });
-
-  it('mergeWithDefaults preserves a stored usageShareMode', () => {
-    const result = (settingsService as any).mergeWithDefaults({
-      privacy: { crashReportMode: 'off', usageShareMode: 'auto' },
-    });
-    expect(result.privacy.usageShareMode).toBe('auto');
   });
 });
 

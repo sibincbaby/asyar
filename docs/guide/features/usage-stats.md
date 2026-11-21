@@ -32,7 +32,7 @@ All metrics are stored locally in your SQLite database and are **never sent over
 ## Privacy & local storage
 
 - **100% Local**: All launch counters and timestamps are recorded in the local SQLite database (`asyar_data.db`).
-- **Zero Telemetry**: Asyar does not phone home with your launch frequencies, command choices, or habit data.
+- **Never shared**: Usage stats stay on your machine. Asyar does not send your launch frequencies, command choices, or habit data anywhere.
 - **Data Reset**: If you ever want a fresh start, use **Clear Stats** from the action panel (`Ctrl+K`).
 
 ## Tips

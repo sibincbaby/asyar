@@ -13,7 +13,6 @@ pub enum OnboardingStep {
     Snippets,
     FeaturedExtensions,
     PickTheme,
-    PrivacyConsent,
     CheatSheet,
 }
 
@@ -37,7 +36,6 @@ pub fn step_order() -> Vec<OnboardingStep> {
         OnboardingStep::Snippets,
         OnboardingStep::FeaturedExtensions,
         OnboardingStep::PickTheme,
-        OnboardingStep::PrivacyConsent,
         OnboardingStep::CheatSheet,
     ]
 }
@@ -77,7 +75,7 @@ pub fn go_back(state: OnboardingState) -> OnboardingState {
 mod tests {
     use super::*;
 
-    const EXPECTED: [OnboardingStep; 12] = [
+    const EXPECTED: [OnboardingStep; 11] = [
         OnboardingStep::Welcome,
         OnboardingStep::SummonSearch,
         OnboardingStep::Clipboard,
@@ -88,7 +86,6 @@ mod tests {
         OnboardingStep::Snippets,
         OnboardingStep::FeaturedExtensions,
         OnboardingStep::PickTheme,
-        OnboardingStep::PrivacyConsent,
         OnboardingStep::CheatSheet,
     ];
 
@@ -98,8 +95,8 @@ mod tests {
     }
 
     #[test]
-    fn order_has_twelve_steps() {
-        assert_eq!(step_order().len(), 12);
+    fn order_has_eleven_steps() {
+        assert_eq!(step_order().len(), 11);
     }
 
     #[test]
@@ -135,7 +132,7 @@ mod tests {
         let s = initial();
         assert_eq!(s.current, OnboardingStep::Welcome);
         assert_eq!(s.position, 1);
-        assert_eq!(s.total, 12);
+        assert_eq!(s.total, 11);
     }
 
     #[test]

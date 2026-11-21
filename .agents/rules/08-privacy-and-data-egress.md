@@ -1,24 +1,25 @@
 # Privacy-First & Local-First Outbound Data Egress Policy
 
-Asyar is a local-first platform built on the guarantee that user data stays private and on-device by default.
+Asyar is a local-first platform built on the guarantee that user data stays private and on-device by default. This fork has no Asyar account, no cloud sync, no telemetry, and no crash-report upload — do not add them back.
 
 ## 1. The Core Egress Invariant
 
-**NO USER DATA EVER LEAVES THE DEVICE THROUGH ASYAR UNLESS EXPLICITLY PERMITTED BY AUTHENTICATION, ENTITLEMENT, AND USER CONSENT.**
+**NO USER DATA EVER LEAVES THE DEVICE THROUGH ASYAR UNLESS THE USER EXPLICITLY ASKED FOR IT.**
 
-All outbound network requests must be gated against an explicit policy before any socket is opened or HTTP payload constructed.
+All outbound network requests must be justified by a user-initiated action before any socket is opened or HTTP payload constructed.
 
-## 2. Policy Matrix by Egress Channel
+## 2. Allowed Egress Channels
 
-| Channel / Category                                                                                                              | Endpoints                                       | Required Gates                                                                                                                                                                                      | Default                         | Fail-Closed Policy                                                                                           |
-| ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| **Private User Data** (Settings, Snippets, Notes, Shortcuts, Portals, Clipboard, AI history, Extensions, Extension preferences) | `POST /api/sync/items`<br>`GET /api/sync/items` | 1. Authenticated session (`auth_state.token` is valid)<br>2. Active subscription (`sync:settings` / `sync:ai-conversations` entitlement)<br>3. Explicit user consent (`user.syncEnabled !== false`) | **Locked** (Signed-out = inert) | **Strictly blocked**: No network requests, no sync timer ticks, no provider subscriptions, no serialization. |
-| **Crash Reports**                                                                                                               | `POST /api/feedback`                            | `privacy.crashReportMode !== 'off'`                                                                                                                                                                 | **Off**                         | **Dropped locally**: Never sent without consent.                                                             |
-| **Anonymous Usage Metrics**                                                                                                     | `POST /api/usage`                               | `privacy.usageShareMode !== 'off'`                                                                                                                                                                  | **Off**                         | **Dropped locally**: Never sent without consent.                                                             |
+| Channel                                                              | Purpose                                                   | Notes                                                                               |
+| -------------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **Extension Store** (asyar.org catalog)                              | Browse, install, and check updates for Store extensions   | Sends no user data beyond what the catalog request itself requires.                 |
+| **User-configured AI / web-search providers**                        | Requests the user triggers, with the user's own API keys  | Messages are secret-redacted first; API keys never leave the encrypted local store. |
+| **Extension network access** (`network`, `network:lan`, `oauth:use`) | Whatever the extension declared and the user consented to | Gated by the permission system; see `05-architecture.md`.                           |
+
+Anything else (analytics, usage sharing, crash reports, settings/content sync, app self-update checks) does not exist and must not be introduced without an explicit product decision from the user.
 
 ## 3. Defense-in-Depth Requirements
 
-1. **Rust-Level Enforcement**: Never rely solely on frontend guards. The Rust backend command handlers (`sync_run`, `ApiClient`) must independently enforce token presence, entitlement validity, and policy rules before initiating network calls.
-2. **Session Expiration Auto-Purge**: If the server returns `401 Unauthorized` or token revocation, the local auth session (`auth_state` and disk `auth.dat`) must be purged immediately, terminating background sync loops.
-3. **Cross-Window Consistency**: Any auth state transition (login, logout, token expiration) must be broadcast across all webview windows (`asyar:auth-changed`) to guarantee immediate sync teardown or initialization.
-4. **User-Accessible Controls**: Users must always have the ability in Settings to inspect and toggle data-sharing / sync features on or off, even when signed out.
+1. **Rust-Level Enforcement**: Never rely solely on frontend guards. Rust command handlers must independently enforce permission and consent rules before initiating network calls.
+2. **Local-only analytics**: Usage Stats are recorded in the local SQLite database and are never transmitted.
+3. **Local backup only**: Profile export/import writes to a file the user chooses; API keys are never included.

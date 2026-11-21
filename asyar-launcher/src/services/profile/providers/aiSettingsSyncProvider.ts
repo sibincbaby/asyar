@@ -9,9 +9,6 @@ import type {
   ImportResult,
   DataSummary,
   ConflictStrategy,
-  SyncItem,
-  SyncChangeEvent,
-  Unsubscribe,
 } from '../types';
 
 export class AISettingsSyncProvider implements ISyncProvider {
@@ -117,47 +114,6 @@ export class AISettingsSyncProvider implements ISyncProvider {
       label: `AI settings (${enabledCount} provider${enabledCount !== 1 ? 's' : ''} enabled)`,
     };
   }
-
-  // ── Delta sync surface ──────────────────────────────────────────────────
-  // ai-settings is a singleton stored under the 'ai' section of AppSettings.
-
-  async exportItems(): Promise<SyncItem[]> {
-    return [
-      {
-        id: this.id,
-        categoryId: this.id,
-        content: withoutApiKeys(settingsService.currentSettings.ai),
-      },
-    ];
-  }
-
-  async applyItemUpsert(item: SyncItem): Promise<void> {
-    const sanitized = sanitizeIncomingAiSettings(
-      item.content as Partial<AISettings>,
-      settingsService.currentSettings.ai,
-    );
-    await settingsService.updateSettings('ai', sanitized);
-  }
-
-  // The ai-settings singleton lives inside settings — there is no separate
-  // delete; reject so a stray server-pushed delete can never wipe it.
-  async applyItemDelete(_itemId: string): Promise<void> {
-    throw new Error('cannot delete singleton ai-settings item');
-  }
-
-  subscribeToChanges(callback: (event: SyncChangeEvent) => void): Unsubscribe {
-    // settingsService.currentSettings.ai holds the AI settings;
-    // subscribing to settingsService picks up ai-settings changes.
-    let primed = false;
-    const unsub = settingsService.subscribe(() => {
-      if (!primed) {
-        primed = true;
-        return;
-      }
-      callback({ type: 'upsert', itemId: this.id, categoryId: this.id });
-    });
-    return unsub;
-  }
 }
 
 /** Copy of the AI settings with any `apiKey` removed from providers and web search. */
@@ -244,7 +200,7 @@ async function migrateLegacyExportKeys(
 }
 
 /**
- * Normalizes incoming AI settings for delta sync upserts.
+ * Normalizes incoming AI settings, keeping provider configs and API keys device-local.
  * Omits 'providers' so local provider configurations and credentials remain intact.
  * Merges 'webSearch' while stripping any incoming apiKey.
  */

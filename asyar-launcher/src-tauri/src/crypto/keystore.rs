@@ -702,55 +702,6 @@ mod tests {
         assert!(store.read_slot(test_account).unwrap().is_none());
     }
 
-    #[test]
-    #[ignore = "interacts with the user's real OS keychain; run manually with --ignored"]
-    fn os_keystore_sync_seed_slot_round_trip() {
-        assert_ne!(
-            KEYCHAIN_SERVICE, "org.asyar.app",
-            "Refusing to run OS keychain test against production service 'org.asyar.app'. \
-             Recompile with ASYAR_KEYCHAIN_SERVICE=org.asyar.keystore-test"
-        );
-        let store = OsKeyStore::new();
-        let slot = crate::sync::e2ee::service::KEYCHAIN_SLOT;
-
-        // Clean up before the test in case of prior interrupted runs.
-        let _ = store.delete_slot(slot);
-
-        let mut val1 = [0u8; 32];
-        rand::rng().fill(&mut val1[..]);
-
-        // Write and assert read equals.
-        store.write_slot(slot, &val1).unwrap();
-        let got1 = store
-            .read_slot(slot)
-            .unwrap()
-            .expect("slot must exist after write");
-        assert_eq!(*got1, val1);
-
-        // Overwrite with a different value and read back.
-        let mut val2 = [0u8; 32];
-        rand::rng().fill(&mut val2[..]);
-        while val2 == val1 {
-            rand::rng().fill(&mut val2[..]);
-        }
-        store.write_slot(slot, &val2).unwrap();
-        let got2 = store
-            .read_slot(slot)
-            .unwrap()
-            .expect("slot must exist after overwrite");
-        assert_eq!(*got2, val2);
-
-        // Delete slot, assert read_slot is None.
-        store.delete_slot(slot).unwrap();
-        assert!(store.read_slot(slot).unwrap().is_none());
-
-        // Delete again is Ok (idempotent).
-        assert!(store.delete_slot(slot).is_ok());
-
-        // Clean up after.
-        let _ = store.delete_slot(slot);
-    }
-
     const PERSIST_TEST_SLOT: &str = "test-slot-cross-process-persistence";
     const PERSIST_TEST_VALUE: [u8; 32] = [
         0x41, 0x53, 0x59, 0x41, 0x52, 0x2d, 0x50, 0x45, // "ASYAR-PE"

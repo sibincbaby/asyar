@@ -1,11 +1,8 @@
-//! Local-first usage recording. Owns a dedicated `usage.db`.
-//! Recording always runs locally; the network sender (sender.rs) is gated
-//! behind UsageShareMode and is OFF by default.
+//! Local-only usage recording. Owns a dedicated `usage.db`; nothing leaves the
+//! machine. The `sent` column and `usage_meta` table are legacy schema kept so
+//! existing databases open unchanged.
 
-use std::collections::HashMap;
 use std::sync::Mutex;
-
-pub mod sender;
 
 /// Managed Tauri state: the single connection to usage.db.
 pub struct UsageState {
@@ -98,8 +95,7 @@ impl UsageState {
         Ok(())
     }
 
-    /// Local-only compatibility measurement. The usage API has no fallback field.
-    /// Mark excluded rows sent so they never schedule a network ping themselves.
+    /// Local-only compatibility measurement.
     pub fn record_worker_fallback(&self, target: &str, day: &str) -> Result<(), UsageError> {
         let conn = self.db.lock().map_err(|_| UsageError::Lock)?;
         conn.execute(
@@ -152,103 +148,6 @@ impl UsageState {
         }
         Ok(out)
     }
-
-    pub fn anon_id(&self) -> Result<String, UsageError> {
-        let conn = self.db.lock().map_err(|_| UsageError::Lock)?;
-        let existing: Option<String> = conn
-            .query_row(
-                "SELECT value FROM usage_meta WHERE key='anon_id'",
-                [],
-                |r| r.get(0),
-            )
-            .ok();
-        if let Some(id) = existing {
-            return Ok(id);
-        }
-        let id = uuid::Uuid::new_v4().to_string();
-        conn.execute(
-            "INSERT INTO usage_meta (key, value) VALUES ('anon_id', ?1)",
-            rusqlite::params![id],
-        )
-        .map_err(|e| UsageError::Db(e.to_string()))?;
-        Ok(id)
-    }
-
-    pub fn reset_anon_id(&self) -> Result<String, UsageError> {
-        let id = uuid::Uuid::new_v4().to_string();
-        let conn = self.db.lock().map_err(|_| UsageError::Lock)?;
-        conn.execute(
-            "INSERT INTO usage_meta (key, value) VALUES ('anon_id', ?1)
-             ON CONFLICT(key) DO UPDATE SET value = ?1",
-            rusqlite::params![id],
-        )
-        .map_err(|e| UsageError::Db(e.to_string()))?;
-        Ok(id)
-    }
-
-    pub fn rollup_for_day(&self, day: &str) -> Result<DayRollup, UsageError> {
-        let conn = self.db.lock().map_err(|_| UsageError::Lock)?;
-
-        let active: bool = conn
-            .query_row(
-                "SELECT COUNT(*) FROM usage_events WHERE event_type='heartbeat' AND day=?1",
-                rusqlite::params![day],
-                |r| r.get::<_, i64>(0),
-            )
-            .map_err(|e| UsageError::Db(e.to_string()))?
-            > 0;
-
-        let mut launches = HashMap::new();
-        let mut stmt = conn
-            .prepare("SELECT target, count FROM usage_events WHERE event_type='launch' AND day=?1")
-            .map_err(|e| UsageError::Db(e.to_string()))?;
-        let rows = stmt
-            .query_map(rusqlite::params![day], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u32))
-            })
-            .map_err(|e| UsageError::Db(e.to_string()))?;
-        for row in rows {
-            let (t, c) = row.map_err(|e| UsageError::Db(e.to_string()))?;
-            launches.insert(t, c);
-        }
-
-        Ok(DayRollup {
-            day: day.to_string(),
-            active,
-            launches,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UsageShareMode {
-    Off,
-    Ask,
-    Auto,
-}
-
-/// Mirrors feedback::parse_crash_report_mode. Default Off on any parse miss.
-pub fn parse_usage_share_mode(settings_json: &str) -> UsageShareMode {
-    let value: serde_json::Value = match serde_json::from_str(settings_json) {
-        Ok(v) => v,
-        Err(_) => return UsageShareMode::Off,
-    };
-    match value
-        .get("privacy")
-        .and_then(|p| p.get("usageShareMode"))
-        .and_then(|m| m.as_str())
-    {
-        Some("ask") => UsageShareMode::Ask,
-        Some("auto") => UsageShareMode::Auto,
-        _ => UsageShareMode::Off,
-    }
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct DayRollup {
-    pub day: String,
-    pub active: bool,
-    pub launches: HashMap<String, u32>,
 }
 
 /// Today's local date as YYYY-MM-DD.
@@ -355,12 +254,6 @@ mod tests {
         drop(conn);
         assert_eq!(state.stats().unwrap().total_launches, 0);
         assert!(state.all_launches().unwrap().is_empty());
-        let payload = sender::build_payload(&state, "2026-10-04", "0.1.1", "test").unwrap();
-        assert!(payload.launches.is_empty());
-        assert_eq!(
-            sender::earliest_unsent_day_before(&state, "2026-10-06").unwrap(),
-            None
-        );
     }
 
     #[test]
@@ -480,49 +373,6 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 1); // stays 1, never increments
-    }
-
-    #[test]
-    fn anon_id_is_stable_then_resettable() {
-        let state = mem_state();
-        let a = state.anon_id().unwrap();
-        let b = state.anon_id().unwrap();
-        assert_eq!(a, b); // stable across calls
-        assert_eq!(a.len(), 36); // uuid v4 hyphenated
-
-        let c = state.reset_anon_id().unwrap();
-        assert_ne!(a, c); // reset produces a new id
-        assert_eq!(state.anon_id().unwrap(), c);
-    }
-
-    #[test]
-    fn rollup_for_day_collects_launches_and_active() {
-        let state = mem_state();
-        state.record_launch("a", "2026-06-15").unwrap();
-        state.record_launch("a", "2026-06-15").unwrap();
-        state.record_launch("b", "2026-06-15").unwrap();
-        state.record_active_day("2026-06-15").unwrap();
-        state.record_launch("c", "2026-06-16").unwrap(); // other day excluded
-
-        let r = state.rollup_for_day("2026-06-15").unwrap();
-        assert!(r.active);
-        assert_eq!(r.launches.get("a"), Some(&2));
-        assert_eq!(r.launches.get("b"), Some(&1));
-        assert_eq!(r.launches.get("c"), None);
-    }
-
-    #[test]
-    fn parse_share_mode_defaults_off() {
-        assert_eq!(parse_usage_share_mode("{}"), UsageShareMode::Off);
-        assert_eq!(parse_usage_share_mode("not json"), UsageShareMode::Off);
-        assert_eq!(
-            parse_usage_share_mode(r#"{"privacy":{"usageShareMode":"ask"}}"#),
-            UsageShareMode::Ask
-        );
-        assert_eq!(
-            parse_usage_share_mode(r#"{"privacy":{"usageShareMode":"auto"}}"#),
-            UsageShareMode::Auto
-        );
     }
 
     #[test]

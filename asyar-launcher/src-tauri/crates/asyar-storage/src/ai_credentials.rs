@@ -450,61 +450,6 @@ mod tests {
     }
 
     #[test]
-    fn test_ai_credentials_never_syncable() {
-        let conn = setup();
-        let key = test_key();
-
-        // Populate credentials
-        set(&conn, "provider:openai", "sk-secret-test-openai", &key).unwrap();
-        set(
-            &conn,
-            "provider:anthropic",
-            "sk-secret-test-anthropic",
-            &key,
-        )
-        .unwrap();
-        set(&conn, "web_search:brave", "secret-test-brave", &key).unwrap();
-
-        // 1. Initialize cloud sync tables in the same DB
-        crate::cloud_sync_state::init_table(&conn).unwrap();
-
-        // 2. Assert no sync journal entries exist for ai_credentials or provider keys
-        let sync_journal_count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM cloud_sync_items_journal
-                 WHERE category_id IN ('ai_credentials', 'credentials', 'ai')
-                    OR item_id LIKE 'provider:%'
-                    OR item_id LIKE 'web_search%'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(
-            sync_journal_count, 0,
-            "ai_credentials items must NEVER be recorded in cloud_sync_items_journal"
-        );
-
-        // 3. Verify known sync categories never include ai_credentials or secrets
-        let known_sync_categories = [
-            "clipboard",
-            "snippets",
-            "notes",
-            "portals",
-            "shortcuts",
-            "settings",
-            "ai-settings",
-            "extensions",
-            "extension-preferences",
-        ];
-        for cat in known_sync_categories {
-            assert_ne!(
-                cat, "ai_credentials",
-                "ai_credentials cannot be a sync category"
-            );
-        }
-    }
-
-    #[test]
     fn test_is_extension_ai_provider() {
         assert!(is_extension_ai_provider("ext:org.asyar.groq:groq"));
         assert!(is_extension_ai_provider("ext:my-ext:model_engine"));

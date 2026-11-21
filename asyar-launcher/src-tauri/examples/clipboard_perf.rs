@@ -54,7 +54,6 @@ fn main() {
 
     let conn = Connection::open_in_memory().unwrap();
     init_table(&conn).unwrap();
-    asyar_lib::storage::cloud_sync_state::init_table(&conn).unwrap();
     let fts = ClipboardFts::new_in_memory().unwrap();
     let key = key();
     let base_ms = now_ms();

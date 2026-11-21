@@ -3,11 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../../lib/ipc/commands', () => ({
   clipboardExportForSync: vi.fn(),
   clipboardCount: vi.fn(),
-  clipboardApplySynced: vi.fn(async () => true),
-}));
-
-vi.mock('../../settings/settingsService.svelte', () => ({
-  settingsService: { currentSettings: { clipboardHistory: { retentionMs: 1234 } } },
 }));
 
 vi.mock('../../clipboard/stores/clipboardHistoryStore.svelte', () => ({
@@ -23,7 +18,6 @@ import { ClipboardSyncProvider } from './clipboardSyncProvider';
 import {
   clipboardExportForSync,
   clipboardCount,
-  clipboardApplySynced,
   type StoredClipboardItem,
 } from '../../../lib/ipc/commands';
 import type { SyncProviderData } from '../types';
@@ -38,7 +32,7 @@ beforeEach(() => {
 // ── Paged export ─────────────────────────────────────────────────────────────
 
 describe('ClipboardSyncProvider — paged export', () => {
-  it('exportItems iterates every row across multiple pages without holding all rows at once', async () => {
+  it('exportFull iterates every row across multiple pages without holding all rows at once', async () => {
     const allRows: StoredClipboardItem[] = Array.from({ length: 5 }, (_, i) => ({
       id: `id-${i}`,
       type: 'text',
@@ -60,13 +54,13 @@ describe('ClipboardSyncProvider — paged export', () => {
     });
 
     const provider = new ClipboardSyncProvider();
-    const items = await provider.exportItems();
+    const items = (await provider.exportFull()).data as StoredClipboardItem[];
     expect(items.map((i: any) => i.id).sort()).toEqual(allRows.map((r) => r.id).sort());
     expect(mockExport).toHaveBeenCalled();
     expect(mockExport.mock.calls[0][1]).toBeGreaterThan(0); // limit > 0
   });
 
-  it('exportItems issues multiple pages when the dataset is larger than the page size', async () => {
+  it('exportFull issues multiple pages when the dataset is larger than the page size', async () => {
     const allRows: StoredClipboardItem[] = Array.from({ length: 5 }, (_, i) => ({
       id: `id-${i}`,
       type: 'text',
@@ -89,7 +83,7 @@ describe('ClipboardSyncProvider — paged export', () => {
     });
 
     const provider = new ClipboardSyncProvider();
-    const items = await provider.exportItems();
+    const items = (await provider.exportFull()).data as StoredClipboardItem[];
     expect(items.map((i: any) => i.id).sort()).toEqual(allRows.map((r) => r.id).sort());
     expect(call).toBe(3); // 2 + 2 + 1
   });
@@ -343,87 +337,5 @@ describe('ClipboardSyncProvider — applyImport', () => {
     expect(clipboardHistoryStore.addHistoryItem).not.toHaveBeenCalled();
     expect(result.itemsAdded).toBe(0);
     expect(result.itemsUpdated).toBe(0);
-  });
-});
-
-// ── Delta sync surface ────────────────────────────────────────────────────────
-
-describe('ClipboardSyncProvider — delta sync surface', () => {
-  it('exportItems returns one SyncItem per non-image clipboard entry', async () => {
-    mockExport.mockResolvedValueOnce({
-      items: [
-        { id: 'c1', type: 'text', content: 'Hello World', createdAt: 1000, favorite: false },
-        { id: 'c2', type: 'image', createdAt: 2000, favorite: false },
-      ],
-      nextCursor: undefined,
-    });
-
-    const provider = new ClipboardSyncProvider();
-    const items = await provider.exportItems();
-    expect(items.length).toBe(1);
-    expect(items[0].id).toBe('c1');
-    expect(items[0].categoryId).toBe('clipboard');
-  });
-
-  it('applyItemUpsert stores the pulled item without the local-capture path', async () => {
-    const { clipboardHistoryStore } =
-      await import('../../clipboard/stores/clipboardHistoryStore.svelte');
-    const content = { id: 'c10', type: 'text', content: 'Hello', createdAt: 5000, favorite: false };
-    const provider = new ClipboardSyncProvider();
-    await provider.applyItemUpsert({ id: 'c10', categoryId: 'clipboard', content });
-    // addHistoryItem -> clipboard_record_capture dedupes by content and runs
-    // retention cleanup, tombstoning rows and deleting them from the cloud.
-    expect(clipboardHistoryStore.addHistoryItem).not.toHaveBeenCalled();
-    expect(clipboardApplySynced).toHaveBeenCalledWith(content, 1234);
-  });
-
-  it('applyItemDelete routes to deleteHistoryItem with the id', async () => {
-    const { clipboardHistoryStore } =
-      await import('../../clipboard/stores/clipboardHistoryStore.svelte');
-    const provider = new ClipboardSyncProvider();
-    await provider.applyItemDelete('c1');
-    expect(clipboardHistoryStore.deleteHistoryItem).toHaveBeenCalledWith('c1');
-  });
-
-  it('subscribeToChanges fires when the store emits an upsert', async () => {
-    // Re-wire the subscribe mock to support __emit for this test
-    const { clipboardHistoryStore } =
-      await import('../../clipboard/stores/clipboardHistoryStore.svelte');
-    type ChangeCb = (event: { type: 'upsert' | 'delete'; itemId: string }) => void;
-    const subscribers = new Set<ChangeCb>();
-    vi.mocked(clipboardHistoryStore.subscribe).mockImplementation((cb: ChangeCb) => {
-      subscribers.add(cb);
-      return () => subscribers.delete(cb);
-    });
-
-    const provider = new ClipboardSyncProvider();
-    const events: Array<{ type: string; itemId: string; categoryId: string }> = [];
-    const unsub = provider.subscribeToChanges((ev) => events.push(ev));
-
-    subscribers.forEach((cb) => cb({ type: 'upsert', itemId: 'c5' }));
-
-    expect(events.length).toBe(1);
-    expect(events[0]).toEqual({ type: 'upsert', itemId: 'c5', categoryId: 'clipboard' });
-    unsub();
-  });
-
-  it('subscribeToChanges propagates delete events', async () => {
-    const { clipboardHistoryStore } =
-      await import('../../clipboard/stores/clipboardHistoryStore.svelte');
-    type ChangeCb = (event: { type: 'upsert' | 'delete'; itemId: string }) => void;
-    const subscribers = new Set<ChangeCb>();
-    vi.mocked(clipboardHistoryStore.subscribe).mockImplementation((cb: ChangeCb) => {
-      subscribers.add(cb);
-      return () => subscribers.delete(cb);
-    });
-
-    const provider = new ClipboardSyncProvider();
-    const events: Array<{ type: string; itemId: string; categoryId: string }> = [];
-    const unsub = provider.subscribeToChanges((ev) => events.push(ev));
-
-    subscribers.forEach((cb) => cb({ type: 'delete', itemId: 'c1' }));
-
-    expect(events).toEqual([{ type: 'delete', itemId: 'c1', categoryId: 'clipboard' }]);
-    unsub();
   });
 });

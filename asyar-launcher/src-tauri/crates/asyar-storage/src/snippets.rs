@@ -282,39 +282,6 @@ pub fn get_all(conn: &Connection, master_key: &[u8; 32]) -> Result<Vec<Snippet>,
     Ok(items)
 }
 
-/// Export snippets eligible for sync (omits all private / local-only snippets).
-pub fn export_for_sync(conn: &Connection, master_key: &[u8; 32]) -> Result<Vec<Snippet>, AppError> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, keyword, expansion, name, created_at, pinned, is_private, redacted_kinds
-             FROM snippets
-             WHERE is_private = 0
-             ORDER BY created_at DESC",
-        )
-        .map_err(|e| AppError::Database(format!("Failed to prepare export_for_sync query: {e}")))?;
-
-    let items = stmt
-        .query_map([], |row| {
-            let redacted_kinds_str: Option<String> = row.get(7)?;
-            let raw_expansion: String = row.get(2)?;
-            Ok(Snippet {
-                id: row.get(0)?,
-                keyword: row.get(1)?,
-                expansion: decrypt_expansion(raw_expansion, master_key),
-                name: row.get(3)?,
-                created_at: row.get(4)?,
-                pinned: row.get::<_, i32>(5)? != 0,
-                is_private: row.get::<_, i32>(6)? != 0,
-                redacted_kinds: decode_redacted_kinds(redacted_kinds_str),
-            })
-        })
-        .map_err(|e| AppError::Database(format!("Failed to query syncable snippets: {e}")))?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    Ok(items)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -583,30 +550,5 @@ mod tests {
 
         let items = get_all(&conn, &key).unwrap();
         assert!(items[0].is_private);
-    }
-
-    #[test]
-    fn test_export_for_sync_omits_private_snippets() {
-        let conn = setup();
-        let key = test_key();
-
-        let mut s1 = make_snippet("1", ";priv", "super secret private");
-        s1.is_private = true;
-        let mut s2 = make_snippet("2", ";pub", "public snippet");
-        s2.is_private = false;
-
-        upsert(&conn, &s1, &key).unwrap();
-        upsert(&conn, &s2, &key).unwrap();
-
-        // get_all returns both for local launcher use
-        let local_all = get_all(&conn, &key).unwrap();
-        assert_eq!(local_all.len(), 2);
-
-        // export_for_sync returns ONLY non-private snippet
-        let sync_items = export_for_sync(&conn, &key).unwrap();
-        assert_eq!(sync_items.len(), 1);
-        assert_eq!(sync_items[0].id, "2");
-        assert_eq!(sync_items[0].expansion, "public snippet");
-        assert!(!sync_items[0].is_private);
     }
 }

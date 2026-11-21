@@ -111,10 +111,6 @@ export async function setTrayIconVisible(visible: boolean): Promise<void> {
   await invokeSafe('set_tray_icon_visible', { visible });
 }
 
-export async function appRelaunch(): Promise<void> {
-  await invokeSafe('app_relaunch');
-}
-
 /**
  * Wipe everything Asyar persists, then quit. The Rust side writes a
  * sentinel into `app_data_dir` and calls `app.exit(0)`; the user must

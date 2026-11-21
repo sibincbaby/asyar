@@ -8,8 +8,6 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 const PRIVACY_SECTION_FILES = [
   'EncryptionStatusSection.svelte',
-  'CrashReportSection.svelte',
-  'UsageShareSection.svelte',
   'ClipboardPrivacySection.svelte',
   'SecretRedactionSection.svelte',
   'ShellTrustManager.svelte',

@@ -10,7 +10,7 @@ If you are moving over from Raycast, you don't have to start over or re-type you
 
 Thousands of developers are switching to Asyar for a simpler, faster, and more private experience:
 
-- **100% Offline & Local-First:** No mandatory account, no cloud login, and no background telemetry. Your data stays on your machine.
+- **100% Offline & Local-First:** No account, no cloud login, and no background telemetry. Your data stays on your machine.
 - **Free Bring Your Own Key (BYOK) AI:** Connect your own API keys for Claude, OpenAI, Google Gemini, Ollama, OpenRouter, or any OpenAI-compatible provider. No $8–$10/month Pro paywalls, no artificial credit caps, and full autonomous tool calling out of the box.
 - **Instant Native Performance:** Built with **Tauri v2 + Rust** and a fine-grained **Svelte 5** frontend. Summons in 12–15 ms without the memory overhead of bundled Chromium or sluggish hybrid webviews.
 - **Double-Gated Security:** Raycast runs extensions with unsandboxed Node.js child processes. Asyar runs extensions in isolated iframes guarded by two independent security gates: a frontend IPC filter and a Rust kernel permission verifier.
@@ -96,9 +96,9 @@ Here is how Raycast commands and concepts translate to Asyar:
 
 No. Asyar never requires an account, email, or login. Everything works completely offline from day one.
 
-### Is cloud sync required?
+### Is there cloud sync?
 
-No. Asyar is local-first. Cloud sync is entirely optional, disabled by default, and features client-side end-to-end encryption (Argon2id + AES-256-GCM) when enabled.
+No. Asyar is local-first and has no cloud sync. To move your data between computers, use a local [backup](../backup.md).
 
 ### Will my Raycast installation be affected?
 

@@ -1,7 +1,6 @@
 import { Store, load } from '@tauri-apps/plugin-store';
 import { logService } from '../log/logService';
 import { appDataDir, join } from '@tauri-apps/api/path';
-import { getVersion } from '@tauri-apps/api/app';
 import * as commands from '../../lib/ipc/commands';
 import type { ISettingsService } from './interfaces/ISettingsService';
 import type { AppSettings, AISettings } from './types/AppSettingsType';
@@ -15,15 +14,6 @@ import { createPersistence } from '../../lib/persistence/extensionStore';
 // `launchView` here silently breaks that seed — the Rust-side test
 // `parse_launch_view` and the TS `rust read_launch_view contract` describe
 // block guard both ends.
-// `AppSettings['updates']` is optional, so spreading `DEFAULT_SETTINGS.updates`
-// directly would widen every field to optional and drop the required
-// `autoCheck`. Keeping the defaults in their own complete constant lets the
-// channel auto-detection below spread them safely.
-const DEFAULT_UPDATE_SETTINGS: NonNullable<AppSettings['updates']> = {
-  channel: 'stable',
-  autoCheck: true,
-};
-
 const DEFAULT_SETTINGS: AppSettings = {
   general: {
     startAtLogin: false,
@@ -58,10 +48,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   onboarding: {
     completed: false,
   },
-  feedback: {
-    promptSeen: false,
-  },
-  updates: DEFAULT_UPDATE_SETTINGS,
   ai: {
     providers: {
       openai: { enabled: false },
@@ -86,13 +72,6 @@ const DEFAULT_SETTINGS: AppSettings = {
     verboseLogging: false,
     tracing: false,
     allowSideloading: false,
-  },
-  privacy: {
-    crashReportMode: 'off',
-    usageShareMode: 'off',
-  },
-  user: {
-    syncEnabled: true,
   },
   fileSearch: {
     enabled: true,
@@ -159,7 +138,6 @@ class SettingsService implements ISettingsService {
       }
 
       // Load settings from persistent storage
-      const storedRaw = await this.store.get<AppSettings>('settings');
       await this.load();
 
       // Propagate settings changes made in other windows (e.g. the settings window)
@@ -172,20 +150,6 @@ class SettingsService implements ISettingsService {
       });
 
       this.initialized = true;
-
-      // Auto-detect update channel on first launch (storedRaw is null) or when
-      // upgrading from old settings that lacked the 'updates' key. Only fires once.
-      if (!storedRaw || (storedRaw as Partial<AppSettings>).updates === undefined) {
-        try {
-          const version = await getVersion();
-          if (/-/.test(version)) {
-            this.currentSettings.updates = { ...DEFAULT_UPDATE_SETTINGS, channel: 'beta' };
-            await this.save();
-          }
-        } catch {
-          // Non-fatal: version detection failed, keep stable default
-        }
-      }
 
       // Ensure autostart state matches settings
       try {
@@ -417,12 +381,6 @@ class SettingsService implements ISettingsService {
           },
         },
         onboarding: { ...DEFAULT_SETTINGS.onboarding, ...typedStored?.onboarding },
-        feedback: typedStored?.feedback
-          ? { ...DEFAULT_SETTINGS.feedback, ...typedStored.feedback }
-          : DEFAULT_SETTINGS.feedback,
-        updates: typedStored?.updates
-          ? { ...DEFAULT_SETTINGS.updates, ...typedStored.updates }
-          : DEFAULT_SETTINGS.updates,
         ai: {
           ...DEFAULT_SETTINGS.ai,
           ...typedStored?.ai,
@@ -436,14 +394,9 @@ class SettingsService implements ISettingsService {
             ...(typedStored?.ai as any)?.providers,
           },
         },
-        user: typedStored?.user,
         developer: typedStored?.developer
           ? { ...DEFAULT_SETTINGS.developer, ...typedStored.developer }
           : DEFAULT_SETTINGS.developer,
-        privacy: {
-          ...DEFAULT_SETTINGS.privacy,
-          ...(typedStored?.privacy ?? {}),
-        },
         fileSearch: {
           ...DEFAULT_SETTINGS.fileSearch,
           ...(typedStored?.fileSearch ?? {}),

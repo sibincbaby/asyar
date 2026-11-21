@@ -37,13 +37,8 @@
   import type { CommandArgument } from 'asyar-sdk/contracts';
   import { developerSettingsService } from '../services/settings/developerSettingsService.svelte';
   import { type UnlistenFn } from '@tauri-apps/api/event';
-  import CrashReportPrompt from '../components/feedback/CrashReportPrompt.svelte';
-  import { crashPromptState } from '../services/feedback/crashPromptState.svelte';
-  import UsageSharePrompt from '../components/feedback/UsageSharePrompt.svelte';
-  import { usageSharePromptState } from '../services/feedback/usageSharePromptState.svelte';
   import { recordActiveDay } from '../lib/ipc/commands';
   import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { authService } from '../services/auth/authService.svelte';
   import { runWhenIdle } from '../lib/idle';
   import { prewarmEmojiFont } from '../lib/emojiPrewarm';
   import { i18nService } from '../services/i18n';
@@ -269,39 +264,6 @@
     runWhenIdle(() => prewarmEmojiFont(), { timeout: 3000 });
     void i18nService.init();
     return compactSync.onMount();
-  });
-
-  onMount(() => {
-    // Load any pending Ask-mode crash report on startup, pre-filling the
-    // user's email if they are already signed in.
-    void crashPromptState.load(authService.user?.email ?? undefined);
-
-    // Re-check when Rust emits 'crash-report-pending' (e.g. if a second
-    // launch triggers a new detection while the app is already running).
-    // Hold the promise (not the resolved fn) so cleanup still unlistens even
-    // if the component unmounts before `listen` resolves.
-    const unlistenCrash = appListen('crash-report-pending', () => {
-      void crashPromptState.load(authService.user?.email ?? undefined);
-    });
-    unlistenCrash.catch((e) =>
-      logService.debug(`[+page] listen crash-report-pending failed: ${e}`),
-    );
-
-    return () => {
-      void unlistenCrash.then((unlisten) => unlisten()).catch(() => {});
-    };
-  });
-
-  // Ask-mode usage share: Rust emits 'usage:pending-share' with the day to
-  // confirm. Show the banner; the user decides whether to send.
-  $effect(() => {
-    const unlisten = appListen<string>('usage:pending-share', (e) => {
-      usageSharePromptState.show(e.payload);
-    });
-    unlisten.catch((e) => logService.debug(`[+page] listen usage:pending-share failed: ${e}`));
-    return () => {
-      void unlisten.then((fn) => fn()).catch(() => {});
-    };
   });
 
   // Usage heartbeat: record an active day on startup and whenever the window
@@ -660,8 +622,6 @@
 
   <ToastHost />
   <FatalErrorDialog />
-  <CrashReportPrompt />
-  <UsageSharePrompt />
 
   {#if import.meta.env.DEV || developerSettingsService.showInspector}
     {#await import('../components/dev/InspectorShell.svelte') then InspectorShellModule}

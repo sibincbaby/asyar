@@ -35,13 +35,3 @@ export async function applicationIndexUnsubscribe(
 export async function setApplicationScanPaths(paths: string[]): Promise<boolean> {
   return invokeSafeVoid('set_application_scan_paths', { paths });
 }
-
-export async function appUpdaterShouldShowWhatsNew(
-  lastSeenVersion: string | undefined,
-  currentVersion: string,
-): Promise<boolean> {
-  return invokeSafe<boolean>('app_updater_should_show_whats_new', {
-    lastSeenVersion,
-    currentVersion,
-  });
-}

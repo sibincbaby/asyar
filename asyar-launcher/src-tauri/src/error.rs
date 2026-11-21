@@ -39,12 +39,6 @@ pub enum AppError {
     #[error("Permission denied: {0}")]
     Permission(String),
 
-    #[error("Policy error: {0}")]
-    Policy(#[from] crate::auth::policy::PolicyError),
-
-    #[error("Authentication error: {0}")]
-    Auth(String),
-
     #[error("Database error: {0}")]
     Database(String),
 
@@ -56,45 +50,6 @@ pub enum AppError {
 
     #[error("run {id} failed: {message}")]
     RunFailed { id: String, message: String },
-
-    #[error("Sync entitlement required: {code}")]
-    SyncEntitlementRequired { code: String },
-
-    #[error("Sync quota exceeded: used {used_bytes} bytes of {limit_bytes} bytes")]
-    SyncQuotaExceeded { used_bytes: u64, limit_bytes: u64 },
-
-    #[error("Sync rate limited: retry after {retry_after_secs}s")]
-    SyncRateLimited { retry_after_secs: u64 },
-
-    #[error("Sync server unavailable: {0}")]
-    SyncServerUnavailable(String),
-
-    #[error("Sync E2EE locked: recovery phrase or approval required")]
-    SyncE2eeLocked,
-
-    #[error("Sync E2EE already enrolled")]
-    SyncE2eeAlreadyEnrolled,
-
-    #[error("Sync E2EE not enrolled")]
-    SyncE2eeNotEnrolled,
-
-    #[error("Sync E2EE wrong mode: {0}")]
-    SyncE2eeWrongMode(String),
-
-    #[error("Sync pairing not found")]
-    SyncPairingNotFound,
-
-    #[error("Sync pairing not pending: {status}")]
-    SyncPairingNotPending { status: String },
-
-    #[error("Sync pairing fingerprint mismatch")]
-    SyncPairingFingerprintMismatch,
-
-    #[error("Sync pairing too many")]
-    SyncPairingTooMany,
-
-    #[error("Sync finalize behind: plaintext max version {plaintext_max_version}")]
-    SyncFinalizeBehind { plaintext_max_version: i64 },
 
     #[error("mcp_permission_required: server={server_id} tool={tool_id}")]
     McpPermissionRequired { server_id: String, tool_id: String },
@@ -153,25 +108,10 @@ impl HasSeverity for AppError {
             AppError::Validation(_) => "validation_failure",
             AppError::Encryption(_) => "encryption_failure",
             AppError::Permission(_) => "permission_denied",
-            AppError::Policy(_) => "policy_denied",
-            AppError::Auth(_) => "auth_failure",
             AppError::Database(_) => "database_failure",
             AppError::OAuth(_) => "oauth_failure",
             AppError::Power(_) => "power_failure",
             AppError::RunFailed { .. } => "run_failed",
-            AppError::SyncEntitlementRequired { .. } => "sync_entitlement_required",
-            AppError::SyncQuotaExceeded { .. } => "sync_quota_exceeded",
-            AppError::SyncRateLimited { .. } => "sync_rate_limited",
-            AppError::SyncServerUnavailable(_) => "sync_server_unavailable",
-            AppError::SyncE2eeLocked => "sync_e2ee_locked",
-            AppError::SyncE2eeAlreadyEnrolled => "sync_e2ee_already_enrolled",
-            AppError::SyncE2eeNotEnrolled => "sync_e2ee_not_enrolled",
-            AppError::SyncE2eeWrongMode(_) => "sync_e2ee_wrong_mode",
-            AppError::SyncPairingNotFound => "sync_pairing_not_found",
-            AppError::SyncPairingNotPending { .. } => "sync_pairing_not_pending",
-            AppError::SyncPairingFingerprintMismatch => "sync_pairing_fingerprint_mismatch",
-            AppError::SyncPairingTooMany => "sync_pairing_too_many",
-            AppError::SyncFinalizeBehind { .. } => "sync_finalize_behind",
             AppError::McpPermissionRequired { .. } => "mcp_permission_required",
             AppError::Other(_) => "unknown",
         }
@@ -181,22 +121,9 @@ impl HasSeverity for AppError {
         match self {
             AppError::Lock | AppError::Encryption(_) => Severity::Fatal,
             AppError::Permission(_)
-            | AppError::Policy(_)
             | AppError::Validation(_)
             | AppError::NotFound(_)
             | AppError::RunFailed { .. }
-            | AppError::SyncEntitlementRequired { .. }
-            | AppError::SyncQuotaExceeded { .. }
-            | AppError::SyncRateLimited { .. }
-            | AppError::SyncE2eeLocked
-            | AppError::SyncE2eeAlreadyEnrolled
-            | AppError::SyncE2eeNotEnrolled
-            | AppError::SyncE2eeWrongMode(_)
-            | AppError::SyncPairingNotFound
-            | AppError::SyncPairingNotPending { .. }
-            | AppError::SyncPairingFingerprintMismatch
-            | AppError::SyncPairingTooMany
-            | AppError::SyncFinalizeBehind { .. }
             | AppError::McpPermissionRequired { .. } => Severity::Warning,
             _ => Severity::Error,
         }
@@ -205,13 +132,7 @@ impl HasSeverity for AppError {
     fn retryable(&self) -> bool {
         matches!(
             self,
-            AppError::Network(_)
-                | AppError::Io(_)
-                | AppError::Auth(_)
-                | AppError::OAuth(_)
-                | AppError::SyncRateLimited { .. }
-                | AppError::SyncServerUnavailable(_)
-                | AppError::SyncFinalizeBehind { .. }
+            AppError::Network(_) | AppError::Io(_) | AppError::OAuth(_)
         )
     }
 
@@ -220,9 +141,6 @@ impl HasSeverity for AppError {
         match self {
             AppError::Permission(s) => {
                 ctx.insert("permission", s.clone());
-            }
-            AppError::Policy(p) => {
-                ctx.insert("policyError", p.to_string());
             }
             AppError::NotFound(s) => {
                 ctx.insert("target", s.clone());
@@ -239,43 +157,11 @@ impl HasSeverity for AppError {
             AppError::Validation(s) => {
                 ctx.insert("field", s.clone());
             }
-            AppError::Auth(s) | AppError::OAuth(s) => {
+            AppError::OAuth(s) => {
                 ctx.insert("provider", s.clone());
             }
             AppError::RunFailed { id, .. } => {
                 ctx.insert("id", id.clone());
-            }
-            AppError::SyncEntitlementRequired { code } => {
-                ctx.insert("code", code.clone());
-            }
-            AppError::SyncQuotaExceeded {
-                used_bytes,
-                limit_bytes,
-            } => {
-                if *limit_bytes > 0 {
-                    ctx.insert("usedBytes", used_bytes.to_string());
-                    ctx.insert("limitBytes", limit_bytes.to_string());
-                }
-            }
-            AppError::SyncRateLimited { retry_after_secs } => {
-                ctx.insert("retryAfter", retry_after_secs.to_string());
-            }
-            AppError::SyncServerUnavailable(s) => {
-                ctx.insert("detail", s.clone());
-            }
-            AppError::SyncE2eeLocked => {}
-            AppError::SyncE2eeNotEnrolled => {}
-            AppError::SyncE2eeWrongMode(mode) => {
-                ctx.insert("mode", mode.clone());
-            }
-            AppError::SyncPairingNotFound => {}
-            AppError::SyncPairingNotPending { status } => {
-                ctx.insert("status", status.clone());
-            }
-            AppError::SyncFinalizeBehind {
-                plaintext_max_version,
-            } => {
-                ctx.insert("plaintextMaxVersion", plaintext_max_version.to_string());
             }
             AppError::McpPermissionRequired { server_id, tool_id } => {
                 ctx.insert("serverId", server_id.clone());
@@ -451,28 +337,5 @@ mod severity_tests {
     fn validation_is_warning() {
         let err = AppError::Validation("bad input".into());
         assert_eq!(err.severity(), Severity::Warning);
-    }
-
-    #[test]
-    fn sync_quota_exceeded_context_requires_positive_limit() {
-        let with_limit = AppError::SyncQuotaExceeded {
-            used_bytes: 100,
-            limit_bytes: 500,
-        };
-        assert_eq!(
-            with_limit.context().get("usedBytes"),
-            Some(&"100".to_string())
-        );
-        assert_eq!(
-            with_limit.context().get("limitBytes"),
-            Some(&"500".to_string())
-        );
-
-        let without_limit = AppError::SyncQuotaExceeded {
-            used_bytes: 0,
-            limit_bytes: 0,
-        };
-        assert_eq!(without_limit.context().get("usedBytes"), None);
-        assert_eq!(without_limit.context().get("limitBytes"), None);
     }
 }

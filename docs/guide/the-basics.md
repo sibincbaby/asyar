@@ -54,7 +54,7 @@ By default, Asyar centers itself on your active display. You can reposition the 
 - **Drag to move**: Click and drag the launcher from any non-interactive header or padding area to place it anywhere on your screen.
 - **Snap guides**: As you drag near screen edges or vertical/horizontal centers, subtle alignment snap guide lines appear.
 - **Toggle snap**: You can enable or disable drag snapping in **Settings → General → Placement**.
-- Note that launcher placement is deliberately kept local per-machine rather than synced, ensuring optimal positions across varying multi-monitor setups.
+- Note that launcher placement is deliberately kept local per-machine rather than carried between machines, ensuring optimal positions across varying multi-monitor setups.
 
 ## The action panel (Ctrl+K)
 

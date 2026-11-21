@@ -124,8 +124,6 @@ jobs:
 
       - name: Build Linux ${{ matrix.arch }}
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # Tauri's bundler invokes linuxdeploy/appimagetool — themselves AppImages.
           # Ubuntu 24.04 blocks their default FUSE/userns mount path, so tell them
           # to self-extract to a temp dir instead. Official CI-mode flag, not a hack.
@@ -135,8 +133,8 @@ jobs:
           # eglGetDisplay(EGL_DEFAULT_DISPLAY) fail with EGL_BAD_PARAMETER.
           LINUXDEPLOY_EXCLUDED_LIBRARIES: 'libwayland-client.so*'
           # Embed AppImage update metadata for AppImageUpdate / zsync delta updates (issue #668)
-          UPDATE_INFORMATION: 'gh-releases-zsync|Xoshbin|asyar|latest|*${{ matrix.arch }}*.AppImage.zsync'
-          LDAI_UPDATE_INFORMATION: 'gh-releases-zsync|Xoshbin|asyar|latest|*${{ matrix.arch }}*.AppImage.zsync'
+          UPDATE_INFORMATION: 'gh-releases-zsync|${{ github.repository_owner }}|asyar|latest|*${{ matrix.arch }}*.AppImage.zsync'
+          LDAI_UPDATE_INFORMATION: 'gh-releases-zsync|${{ github.repository_owner }}|asyar|latest|*${{ matrix.arch }}*.AppImage.zsync'
         run: |
           pnpm tauri build -v --target ${{ matrix.rust-target }}
           SUMMON_SOURCE="src-tauri/binaries/${{ matrix.summon-source }}"
@@ -223,7 +221,6 @@ jobs:
           if-no-files-found: error
           path: |
             asyar-launcher/src-tauri/target/${{ matrix.rust-target }}/release/bundle/appimage/*.AppImage
-            asyar-launcher/src-tauri/target/${{ matrix.rust-target }}/release/bundle/appimage/*.AppImage.sig
             asyar-launcher/src-tauri/target/${{ matrix.rust-target }}/release/bundle/appimage/*.zsync
             asyar-launcher/src-tauri/target/${{ matrix.rust-target }}/release/bundle/deb/*.deb
             asyar-launcher/src-tauri/target/${{ matrix.rust-target }}/release/${{ matrix.summon-asset }}
@@ -268,7 +265,6 @@ jobs:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: |
             artifacts/**/*.AppImage
-            artifacts/**/*.AppImage.sig
             artifacts/**/*.zsync
             artifacts/**/*.deb
             artifacts/**/asyar-summon_*
@@ -279,85 +275,6 @@ jobs:
           # picks the most recently published release repo-wide, which can be
           # an `sdk-v*` tag rather than the last launcher release — pin it.
           previous_tag: ${{ steps.prev_tag.outputs.tag }}
-
-      - name: Notify Website
-        env:
-          ASYAR_UPDATE_TOKEN: ${{ secrets.ASYAR_UPDATE_TOKEN }}
-          APP_URL: 'https://asyar.org'
-          REF_NAME: ${{ github.event.inputs.tag || github.ref_name }}
-          REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="${REF_NAME#v}"
-
-          # Detect type: any hyphenated version (e.g., 0.1.0-1) is treated as beta
-          TYPE="stable"
-          if [[ "$VERSION" == *-* ]]; then
-            TYPE="beta"
-          fi
-
-          # Locate files using find to handle any directory structure.
-          # Scope per-arch artifacts to their artifact dirs so different-arch
-          # builds don't get cross-picked.
-          LINUX_FILE_PATH=$(find artifacts/linux-amd64-artifacts -name "*.AppImage" | head -n 1)
-          LINUX_ARM64_FILE_PATH=$(find artifacts/linux-arm64-artifacts -name "*.AppImage" | head -n 1)
-
-          LINUX_SIG_PATH=$(find artifacts/linux-amd64-artifacts -name "*.AppImage.sig" | head -n 1)
-          LINUX_ARM64_SIG_PATH=$(find artifacts/linux-arm64-artifacts -name "*.AppImage.sig" | head -n 1)
-
-          if [[ -z "$LINUX_FILE_PATH" || -z "$LINUX_ARM64_FILE_PATH" ]]; then
-            echo "Error: Binaries missing in artifacts."
-            ls -R artifacts
-            exit 1
-          fi
-
-          if [[ -z "$LINUX_SIG_PATH" || -z "$LINUX_ARM64_SIG_PATH" ]]; then
-            echo "Error: Signatures (.sig files) missing in artifacts. Check tauri.conf.json bundle configuration."
-            ls -R artifacts
-            exit 1
-          fi
-
-          LINUX_SIG=$(cat "$LINUX_SIG_PATH")
-          LINUX_ARM64_SIG=$(cat "$LINUX_ARM64_SIG_PATH")
-
-          LINUX_FILE=$(basename "$LINUX_FILE_PATH")
-          LINUX_ARM64_FILE=$(basename "$LINUX_ARM64_FILE_PATH")
-
-          TAG="$REF_NAME"
-          BASE_URL="https://github.com/$REPO/releases/download/$TAG"
-
-          # Pull generated release notes from the GitHub Release
-          GH_RELEASE_NOTES=$(gh release view "$TAG" --repo "$REPO" --json body -q .body 2>/dev/null || true)
-          if [[ -z "$GH_RELEASE_NOTES" ]]; then
-            GH_RELEASE_NOTES="Automated release $VERSION"
-          fi
-
-          PAYLOAD=$(jq -n \
-            --arg version "$VERSION" \
-            --arg type "$TYPE" \
-            --arg notes "$GH_RELEASE_NOTES" \
-            --arg lin_x64_url "$BASE_URL/$LINUX_FILE" \
-            --arg lin_x64_sig "$LINUX_SIG" \
-            --arg lin_arm_url "$BASE_URL/$LINUX_ARM64_FILE" \
-            --arg lin_arm_sig "$LINUX_ARM64_SIG" \
-            '{
-              version: $version,
-              type: $type,
-              notes: $notes,
-              platforms: {
-                "linux-x86_64": { url: $lin_x64_url, signature: $lin_x64_sig },
-                "linux-aarch64": { url: $lin_arm_url, signature: $lin_arm_sig }
-              }
-            }')
-
-          # --fail-with-body: non-2xx → non-zero exit (no more silent failures).
-          # Retries cover transient asyar.org/network blips; the endpoint upserts
-          # by version (Release::updateOrCreate), so retries are safe.
-          curl --fail-with-body --retry 3 --retry-all-errors --retry-delay 5 \
-            -X POST "$APP_URL/api/releases" \
-            -H "Content-Type: application/json" \
-            -H "X-Asyar-Update-Token: $ASYAR_UPDATE_TOKEN" \
-            -d "$PAYLOAD"
 
       - name: Announce Release to Discord
         if: ${{ !cancelled() && steps.create_release.outcome == 'success' }}
@@ -374,7 +291,7 @@ jobs:
           VERSION="${REF_NAME#v}"
           TAG="$REF_NAME"
 
-          CONTENT=$(printf "🚀 **Asyar v%s is out!**\n\nRead what's new & changelog: https://asyar.org/release-notes/%s\nDirect downloads: https://asyar.org/download\nGitHub Release: https://github.com/%s/releases/tag/%s" "$VERSION" "$VERSION" "$REPO" "$TAG")
+          CONTENT=$(printf "🚀 **Asyar v%s is out!**\n\nRelease notes and downloads: https://github.com/%s/releases/tag/%s" "$VERSION" "$REPO" "$TAG")
 
           JSON_PAYLOAD=$(jq -n --arg content "$CONTENT" '{content: $content}')
 

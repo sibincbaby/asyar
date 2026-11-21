@@ -11,26 +11,10 @@ vi.mock('../../lib/ipc/commands', () => ({
     totalLaunches: 7,
     top: [{ id: 'org.asyar.calculator', count: 7 }],
   }),
-  sendUsageNow: vi.fn(),
 }));
 
-vi.mock('../../services/action/actionService.svelte', () => ({
-  actionService: { registerAction: vi.fn(), unregisterAction: vi.fn() },
-}));
-
-vi.mock('../../services/feedback/feedbackService.svelte', () => ({
-  feedbackService: { report: vi.fn() },
-}));
-
-import { getUsageStats, sendUsageNow } from '../../lib/ipc/commands';
-import { actionService } from '../../services/action/actionService.svelte';
-import { feedbackService } from '../../services/feedback/feedbackService.svelte';
+import { getUsageStats } from '../../lib/ipc/commands';
 import extension from './index';
-
-const mockRegister = actionService.registerAction as ReturnType<typeof vi.fn>;
-const mockUnregister = actionService.unregisterAction as ReturnType<typeof vi.fn>;
-const mockSendUsageNow = sendUsageNow as ReturnType<typeof vi.fn>;
-const mockReport = feedbackService.report as ReturnType<typeof vi.fn>;
 
 function mockContext() {
   return {
@@ -57,49 +41,6 @@ describe('UsageStatsExtension', () => {
   it('throws on an unknown command', async () => {
     await extension.initialize(mockContext() as any);
     await expect(extension.executeCommand('nope')).rejects.toThrow();
-  });
-
-  it('registers the "Send usage now" view action scoped to usage-stats', async () => {
-    await (extension as any).viewActivated('usage-stats/DefaultView');
-    expect(mockRegister).toHaveBeenCalledTimes(1);
-    const action = mockRegister.mock.calls[0][0];
-    expect(action.id).toBe('usage-stats:send-now');
-    expect(action.title).toBe('Send usage now');
-    expect(action.extensionId).toBe('usage-stats');
-    expect(action.context).toBe('extension_view');
-  });
-
-  it('unregisters the action on view deactivation', async () => {
-    await (extension as any).viewDeactivated('usage-stats/DefaultView');
-    expect(mockUnregister).toHaveBeenCalledWith('usage-stats:send-now');
-  });
-
-  it('action sends usage and reports success with the event count', async () => {
-    mockSendUsageNow.mockResolvedValue(3);
-    await (extension as any).viewActivated('usage-stats/DefaultView');
-    const action = mockRegister.mock.calls[0][0];
-    await action.execute();
-    expect(mockSendUsageNow).toHaveBeenCalled();
-    const d = mockReport.mock.calls[0][0];
-    expect(d.severity).toBe('success');
-    expect(d.context.message).toBe('Usage sent (3 events)');
-  });
-
-  it('action reports an error when the send fails', async () => {
-    mockSendUsageNow.mockRejectedValue(new Error('network down'));
-    await (extension as any).viewActivated('usage-stats/DefaultView');
-    const action = mockRegister.mock.calls[0][0];
-    await action.execute();
-    const d = mockReport.mock.calls[0][0];
-    expect(d.severity).toBe('error');
-    expect(d.developerDetail).toContain('network down');
-  });
-
-  it('unregisters action and resets state on deactivate', async () => {
-    await (extension as any).viewActivated('usage-stats/DefaultView');
-    await (extension as any).deactivate();
-
-    expect(mockUnregister).toHaveBeenCalledWith('usage-stats:send-now');
   });
 
   it('loads stats on activate', async () => {

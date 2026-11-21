@@ -1,7 +1,7 @@
 //! Platform-specific bootstrap module.
 //!
 //! Handles OS-specific initialization (Linux D-Bus service, single-instance routing, deep links, diagnostics panic hooks,
-//! crash reporting, and autostart registration).
+//! and autostart registration).
 
 use std::sync::Arc;
 use tauri::Manager;
@@ -66,104 +66,6 @@ pub fn init_diagnostics(app: &mut tauri::App) -> Result<(), Box<dyn std::error::
 
     // Long-poll IPC bridge: queue Rust->JS events for `bridge_poll`.
     app.manage(Arc::new(crate::event_bridge::EventBridge::default()));
-
-    // Crash-report detection (next launch)
-    {
-        use tauri_plugin_store::StoreExt;
-        let handle = app.handle().clone();
-
-        if let Ok(data_dir) = app.path().app_data_dir() {
-            let _ = std::fs::create_dir_all(&data_dir);
-            let marker_exists = data_dir
-                .join(crate::feedback::crash_reporter::MARKER_FILE)
-                .exists();
-
-            if crate::feedback::crash_reporter::crashed_last_run(marker_exists) {
-                if let Some((panic_msg, backtrace)) =
-                    crate::feedback::crash_reporter::read_and_clear_crash(&data_dir)
-                {
-                    let log_path = app
-                        .path()
-                        .app_log_dir()
-                        .map(|d| d.join("asyar.log"))
-                        .unwrap_or_default();
-                    let log_tail =
-                        crate::feedback::crash_reporter::read_log_tail(&log_path, 64 * 1024);
-                    let payload = crate::feedback::CrashPayload {
-                        panic: panic_msg,
-                        backtrace,
-                        log_tail,
-                    };
-
-                    let mode = handle
-                        .store("settings.dat")
-                        .ok()
-                        .and_then(|s| s.get("settings"))
-                        .map(|v| crate::feedback::parse_crash_report_mode(&v.to_string()))
-                        .unwrap_or(crate::feedback::CrashReportMode::Off);
-                    let action = crate::feedback::decide_crash_action(mode, true);
-                    log::info!(
-                        "crash-report: previous run crashed; mode={mode:?} action={action:?}"
-                    );
-
-                    match action {
-                        crate::feedback::CrashAction::SendSilently => {
-                            let api = (*app.state::<crate::auth::api_client::ApiClient>()).clone();
-                            let token = app
-                                .state::<crate::auth::state::AuthState>()
-                                .token
-                                .lock()
-                                .ok()
-                                .and_then(|t| t.clone());
-                            let report = crate::feedback::build_report(
-                                crate::feedback::FeedbackInput {
-                                    kind: "crash".into(),
-                                    category: None,
-                                    message: None,
-                                    email: None,
-                                },
-                                Some(payload),
-                            );
-                            tauri::async_runtime::spawn(async move {
-                                match api.submit_feedback(&report, token.as_deref()).await {
-                                    Ok(()) => {
-                                        log::info!("crash-report: auto-sent crash report")
-                                    }
-                                    Err(e) => {
-                                        log::warn!("crash-report: auto-send failed: {e}")
-                                    }
-                                }
-                            });
-                        }
-                        crate::feedback::CrashAction::Prompt => {
-                            if let Ok(mut slot) =
-                                app.state::<crate::feedback::PendingCrash>().0.lock()
-                            {
-                                *slot = Some(payload);
-                                crate::event_bridge::bridge_emit(
-                                    &handle,
-                                    "crash-report-pending",
-                                    true,
-                                );
-                                log::info!("crash-report: stored pending crash + emitted prompt");
-                            }
-                        }
-                        crate::feedback::CrashAction::Ignore => {
-                            log::info!("crash-report: consent is Off — ignoring crash");
-                        }
-                    }
-                } else {
-                    log::info!(
-                        "crash-report: run marker present but no last_crash.json \
-                         (force-quit/kill rather than a panic) — nothing to report"
-                    );
-                }
-            }
-
-            crate::feedback::crash_reporter::write_marker(&data_dir);
-            crate::feedback::crash_reporter::install_panic_hook(data_dir);
-        }
-    }
 
     Ok(())
 }

@@ -162,8 +162,7 @@ fn baseline(conn: &Connection) -> Result<(), AppError> {
     timers::init_table(conn)?;
     command_arg_defaults::init_table(conn)?;
     searchbar_accessory::init_table(conn)?;
-    cloud_sync_state::init_table(conn)?;
-    cloud_sync_e2ee_local::init_table(conn)?;
+    legacy_cloud_sync_tables(conn).map_err(sqlite)?;
     runs_history::init_table(conn)?;
     script_directories::init_table(conn)?;
     file_search_selections::init_table(conn).map_err(sqlite)?;
@@ -344,6 +343,42 @@ fn migration_12_clipboard_custom_title(conn: &Connection) -> Result<(), AppError
         .map_err(|e| AppError::Database(format!("Failed to add custom_title column: {e}")))?;
     }
     Ok(())
+}
+
+/// Tables of the removed cloud-sync feature. Nothing reads them any more, but
+/// the baseline still creates them so every database keeps the schema its
+/// `user_version` promises (migration 10 rebuilds `cloud_sync_e2ee_local`).
+fn legacy_cloud_sync_tables(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS cloud_sync_items_journal (
+            item_id            TEXT PRIMARY KEY,
+            category_id        TEXT NOT NULL,
+            last_uploaded_hash BLOB,
+            server_version     INTEGER,
+            is_dirty           INTEGER NOT NULL DEFAULT 0,
+            is_tombstone       INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS cloud_sync_cursor (
+            scope                TEXT PRIMARY KEY CHECK(scope = 'global'),
+            cursor               INTEGER NOT NULL DEFAULT 0,
+            device_id            TEXT NOT NULL,
+            last_full_sync_at_ms INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS cloud_sync_e2ee_local (
+            scope                 TEXT PRIMARY KEY CHECK (scope = 'global'),
+            enrolled              INTEGER NOT NULL,
+            key_version           INTEGER NOT NULL,
+            wrapped_master_seed   TEXT,
+            kdf_salt              BLOB,
+            kdf_m_cost            INTEGER,
+            kdf_t_cost            INTEGER,
+            kdf_p_cost            INTEGER,
+            updated_at_ms         INTEGER NOT NULL,
+            mode                  TEXT NOT NULL DEFAULT 'passphrase',
+            kcv                   BLOB,
+            finalize_pending      INTEGER NOT NULL DEFAULT 0
+        );",
+    )
 }
 
 /// Extends `cloud_sync_e2ee_local` mirror with:
@@ -968,39 +1003,32 @@ mod tests {
         run(&conn).unwrap();
         assert_eq!(user_version(&conn), MIGRATIONS.last().unwrap().version);
 
-        // Verify the existing row survived untouched:
-        let state = crate::cloud_sync_e2ee_local::get(&conn).unwrap().unwrap();
-        assert!(state.enrolled);
-        assert_eq!(state.key_version, 3);
+        // Verify the existing row survived and gained the v2 defaults:
+        let row: (i64, String, String, Option<Vec<u8>>, i64) = conn
+            .query_row(
+                "SELECT key_version, wrapped_master_seed, mode, kcv, finalize_pending
+                 FROM cloud_sync_e2ee_local WHERE scope = 'global'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            )
+            .unwrap();
         assert_eq!(
-            state.wrapped_master_seed.as_deref(),
-            Some("enc:v1:testpass")
+            row,
+            (
+                3,
+                "enc:v1:testpass".to_string(),
+                "passphrase".to_string(),
+                None,
+                0
+            )
         );
-        assert_eq!(state.kdf_salt.as_deref(), Some(&[1, 2, 3, 4][..]));
-        assert_eq!(state.kdf_m_cost, Some(65536));
-        assert_eq!(state.kdf_t_cost, Some(3));
-        assert_eq!(state.kdf_p_cost, Some(1));
-        assert_eq!(state.updated_at_ms, 1700000000000);
-        assert_eq!(state.mode, "passphrase");
-        assert_eq!(state.kcv, None);
-        assert!(!state.finalize_pending);
 
-        // Test device-key row insertion with NULL wrapped-seed/KDF fields:
-        let device_key_state = crate::cloud_sync_e2ee_local::E2eeLocalState {
-            enrolled: true,
-            key_version: 4,
-            wrapped_master_seed: None,
-            kdf_salt: None,
-            kdf_m_cost: None,
-            kdf_t_cost: None,
-            kdf_p_cost: None,
-            updated_at_ms: 1700000001000,
-            mode: "device-key".into(),
-            kcv: Some(vec![0xAA; 32]),
-            finalize_pending: true,
-        };
-        crate::cloud_sync_e2ee_local::upsert(&conn, &device_key_state).unwrap();
-        let fetched = crate::cloud_sync_e2ee_local::get(&conn).unwrap().unwrap();
-        assert_eq!(fetched, device_key_state);
+        // Wrapped-seed/KDF fields are nullable after v2:
+        conn.execute(
+            "UPDATE cloud_sync_e2ee_local SET wrapped_master_seed = NULL, kdf_salt = NULL,
+             kdf_m_cost = NULL, kdf_t_cost = NULL, kdf_p_cost = NULL",
+            [],
+        )
+        .unwrap();
     }
 }

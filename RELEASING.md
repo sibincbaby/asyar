@@ -4,7 +4,7 @@ This monorepo contains two independently-released packages. Each has its own flo
 
 | Package                          | Trigger             | Destination                                                                   |
 | -------------------------------- | ------------------- | ----------------------------------------------------------------------------- |
-| **Launcher** (`asyar-launcher/`) | Push a `v*` tag     | GitHub Releases + asyar.org updater feed                                      |
+| **Launcher** (`asyar-launcher/`) | Push a `v*` tag     | GitHub Releases                                                               |
 | **SDK** (`asyar-sdk/`)           | Push a `sdk-v*` tag | npm: [`asyar-sdk`](https://www.npmjs.com/package/asyar-sdk) + GitHub Releases |
 
 ## Ordering: release the SDK first
@@ -87,7 +87,6 @@ pnpm run release <patch|minor|major|beta> [--dry-run] [--yes|-y]
 7. **Build matrix**: Linux amd64 + arm64 (AppImage and `.deb` per arch) — both required
 8. **GitHub Release**: published directly (not a draft) with auto-generated notes
 9. **Pre-release detection**: tags with a hyphen (e.g., `v0.1.0-1`) are automatically marked "Pre-release"
-10. **Updater notification**: asyar.org `/api/releases` is notified so the auto-update feed picks up the new version
 
 > The Rust `SUPPORTED_SDK_VERSION` is **not** set by the release script — `src-tauri/build.rs` injects it at compile time from the local `asyar-sdk/package.json`, so it can never drift.
 
@@ -95,7 +94,7 @@ Linux builds also publish the standalone summon helpers `asyar-summon_amd64`
 and `asyar-summon_aarch64`. `install.sh` installs the matching helper beside the
 AppImage, and re-running it refreshes both files. The versioned
 `org.asyar.Launcher1` interface and `--show-on-start` argument must remain
-backward compatible because the AppImage updater does not update the helper.
+backward compatible because an upgraded AppImage does not replace an already-installed helper.
 
 ### Manual step after CI
 
@@ -103,7 +102,7 @@ The tag triggers the build from the `release/vX.Y.Z` branch, so the installers a
 
 1. **Merge the release PR.** This lands the version bump on `main` so the _next_ release calculates from the right number.
 
-That's it — the GitHub Release and the asyar.org updater feed are published automatically.
+That's it — the GitHub Release is published automatically. Asyar has no self-updater; users upgrade by installing the new `.deb` or AppImage.
 
 ---
 
@@ -159,7 +158,9 @@ The SDK release workflow needs `NPM_TOKEN` configured at **Settings → Secrets 
 ## Distributing via a CLI install script
 
 Closes the original ask in [discussion #315](https://github.com/Xoshbin/asyar/discussions/315)
-("can I install Asyar from the CLI?"). Linux users can run:
+("can I install Asyar from the CLI?"). `install.sh` currently targets the upstream repository
+(`REPO="Xoshbin/asyar"`), so it installs upstream releases, not this fork's. Point `REPO` at the
+fork before advertising it. Linux users can run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Xoshbin/asyar/main/install.sh | sh
@@ -182,8 +183,8 @@ ASYAR_VERSION=0.1.1-38 curl -fsSL https://raw.githubusercontent.com/Xoshbin/asya
   picked it), needs no root, and already covers both `aarch64`/`amd64`. It's installed to
   `~/.local/bin/asyar` (override with `ASYAR_INSTALL_DIR`), with a PATH check that prints the
   `export PATH=...` line to add if `~/.local/bin` isn't already on it.
-- **No update-checking, always (re)installs.** Asyar already has its own auto-updater, so this
-  script's job is first-install, not staying current. If an install already exists
+- **No update-checking, always (re)installs.** Asyar has no self-updater, so re-running this
+  script is how you upgrade. If an install already exists
   (`~/.local/bin/asyar`) the script prints its detected version and replaces it
   rather than prompting; a `curl | sh` pipe has no interactive terminal to prompt against
   safely, and re-running to force a clean reinstall is itself a reasonable use case.
@@ -204,12 +205,11 @@ ASYAR_VERSION=0.1.1-38 curl -fsSL https://raw.githubusercontent.com/Xoshbin/asya
 ## When a release fails
 
 Every step is re-runnable without burning a version number. If a CI run fails
-(npm publish, a build target, the website notify), fix the cause and re-run the
+(npm publish, a build target), fix the cause and re-run the
 workflow with the **same tag**: GitHub → **Actions** → the workflow →
 **Run workflow** (workflow_dispatch) → enter the existing tag. A `concurrency`
 guard prevents two runs of the same tag from colliding, npm publish is
-idempotent, and the asyar.org notify upserts by version — so re-running is always
-safe.
+idempotent — so re-running is always safe.
 
 ### Symptom → recovery
 
@@ -217,7 +217,6 @@ safe.
 | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SDK `npm publish` fails (bad token / version exists / network)                     | Tag + bump on the release branch/PR; npm unchanged                                     | Fix the cause → re-run **release-sdk.yml** via _Run workflow_ with the same tag. Publish is idempotent: it skips if the version is already on npm.                                                                                                                                                      |
 | One launcher build target fails (flaky build / runner down)                        | Other artifacts built; nothing published yet                                           | Re-run **release-launcher.yml** via _Run workflow_ with the same tag — no new version. The concurrency guard prevents races.                                                                                                                                                                            |
-| Website notify fails (asyar.org down / bad token)                                  | GitHub Release already created; updater feed stale                                     | The job **fails loudly** (red). Re-run via _Run workflow_; the notify endpoint upserts by version, so it's safe to repeat.                                                                                                                                                                              |
 | `install.sh` fails for a user (asset match broken, network, GitHub API rate limit) | Not part of the release pipeline — nothing published is affected, no version to re-tag | Fix `install.sh` directly on `main`; no tag/version bump needed, since the raw URL always serves current `main`. If it's GitHub's unauthenticated API rate limit (60 req/hr per IP), the workaround is downloading the matching asset from the Releases page directly instead of re-running the script. |
 | Tag pushed by mistake / wrong version                                              | —                                                                                      | `git push --delete origin <tag>`, delete the GitHub release, then re-release. The duplicate-tag guard otherwise blocks a duplicate version.                                                                                                                                                             |
 | Launcher release while npm is down                                                 | N/A                                                                                    | Not a failure mode — the launcher reads the SDK version from local `asyar-sdk/package.json`.                                                                                                                                                                                                            |
@@ -225,10 +224,8 @@ safe.
 
 **Notes**
 
-- Launcher publish intentionally requires **both** targets (amd64 and arm64) — the auto-updater feed must never be half-published. The improvement is one-click recovery, not relaxing that invariant.
+- Launcher publish intentionally requires **both** targets (amd64 and arm64) — the release must never be half-published. The improvement is one-click recovery, not relaxing that invariant.
 - The build runs from the tag (the release branch's bump commit), so released binaries always carry the right version even before the PR merges. Merge the release PR so `main` carries the bump and the next release calculates correctly.
-
-> This table is also kept standalone at [`docs/how-to/release-recovery.md`](docs/how-to/release-recovery.md) for quick reference during an incident.
 
 ## Quick reference
 

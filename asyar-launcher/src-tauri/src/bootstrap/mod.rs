@@ -5,7 +5,7 @@
 //! 1. Pending factory reset
 //! 2. Early platform initialization & coordinator attachment
 //! 3. System tray setup
-//! 4. Diagnostics, crash reporting, IPC bridge, deep links & notification action registry
+//! 4. Diagnostics panic hook, IPC bridge, deep links & notification action registry
 //! 5. Deep links & notification actions
 //! 6. Early local usage recording (managed before windows/webviews mount)
 //! 7. Native windows creation, panel/vibrancy setup, placement & geometry
@@ -37,7 +37,7 @@ pub fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // 3. Tray setup
     windows::init_tray(app)?;
 
-    // 4. Diagnostics & crash reporting
+    // 4. Diagnostics panic hook & IPC bridge
     platform::init_diagnostics(app)?;
 
     // 5. Deep links & notification actions

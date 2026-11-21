@@ -1,7 +1,6 @@
 //! Periodic GC for finished shell entries.
 //!
-//! Mirrors [`crate::app_updater::scheduler`] and
-//! [`crate::notifications::scheduler`] — a tokio task spawned once from
+//! Mirrors [`crate::notifications::scheduler`] — a tokio task spawned once from
 //! `setup_app` that sleeps between iterations rather than holding a
 //! `tokio::time::interval`. Keeps the shape identical to the other
 //! periodic background jobs.

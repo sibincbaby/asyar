@@ -30,23 +30,11 @@ vi.mock('../../../lib/ipc/extensionPreferencesCommands', () => ({
     .mockResolvedValue({ itemsAdded: 0, itemsUpdated: 2, itemsSkipped: 0 }),
 }));
 
-// Tauri event listener — provider's subscribeToChanges hook listens for the
-// Rust-emitted `asyar:preferences-changed` event. The mock captures the
-// handler so the test can fire it directly.
-const eventHandlers = new Map<string, (event: { payload: unknown }) => void>();
-vi.mock('@tauri-apps/api/event', () => ({
-  listen: vi.fn(async (eventName: string, handler: (event: { payload: unknown }) => void) => {
-    eventHandlers.set(eventName, handler);
-    return () => eventHandlers.delete(eventName);
-  }),
-}));
-
 describe('ExtensionPreferencesSyncProvider', () => {
   let provider: ExtensionPreferencesSyncProvider;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    eventHandlers.clear();
     provider = new ExtensionPreferencesSyncProvider();
   });
 
@@ -129,58 +117,5 @@ describe('ExtensionPreferencesSyncProvider', () => {
     const summary = await provider.getLocalSummary();
     expect(summary.itemCount).toBe(2);
     expect(summary.label).toBe('2 preferences');
-  });
-
-  describe('exportItems_returns_one_item_for_singleton', () => {
-    it('returns a single SyncItem with id "extension-preferences"', async () => {
-      const items = await provider.exportItems();
-      expect(items.length).toBe(1);
-      expect(items[0].id).toBe('extension-preferences');
-      expect(items[0].categoryId).toBe('extension-preferences');
-      expect(items[0].content).toEqual(mockExport);
-    });
-  });
-
-  describe('applyItemUpsert_writes_full_state', () => {
-    it('hands the full preferences export to extensionPreferencesImportAll', async () => {
-      const { extensionPreferencesImportAll } =
-        await import('../../../lib/ipc/extensionPreferencesCommands');
-      await provider.applyItemUpsert({
-        id: 'extension-preferences',
-        categoryId: 'extension-preferences',
-        content: mockExport,
-      });
-      expect(extensionPreferencesImportAll).toHaveBeenCalledWith(mockExport, 'replace');
-    });
-  });
-
-  describe('applyItemDelete_resets_to_default_or_throws_unsupported', () => {
-    it('throws since extension-preferences is a singleton aggregate', async () => {
-      await expect(provider.applyItemDelete('extension-preferences')).rejects.toThrow(
-        /cannot delete singleton/i,
-      );
-    });
-  });
-
-  describe('subscribeToChanges_emits_when_settings_change', () => {
-    it('fires upsert when the asyar:preferences-changed event arrives', async () => {
-      const events: Array<{ type: string; itemId: string; categoryId: string }> = [];
-      const unsub = provider.subscribeToChanges((ev) => events.push(ev));
-
-      // Wait a tick for the async listen() registration to complete
-      await Promise.resolve();
-      const handler = eventHandlers.get('asyar:preferences-changed');
-      expect(handler).toBeDefined();
-      handler!({ payload: null });
-
-      expect(events.length).toBe(1);
-      expect(events[0]).toEqual({
-        type: 'upsert',
-        itemId: 'extension-preferences',
-        categoryId: 'extension-preferences',
-      });
-
-      unsub();
-    });
   });
 });

@@ -37,12 +37,6 @@ vi.mock('../search/searchBarAccessoryService.svelte', () => ({
     clearForExtension: vi.fn(),
   },
 }));
-vi.mock('../auth/gateService.svelte', () => ({
-  gate: { allows: vi.fn(), gate: vi.fn() },
-}));
-vi.mock('../auth/authService.svelte', () => ({
-  authService: { isLoggedIn: true, entitlements: [] },
-}));
 vi.mock('../storage/extensionStorageService', () => ({
   extensionStorageService: {},
 }));
@@ -178,6 +172,14 @@ describe('buildServiceRegistry search entry', () => {
 
     expect(invoke).toHaveBeenCalledWith('rank_items', { query: 'ban', items });
     expect(result).toEqual(['b']);
+  });
+});
+
+describe('buildServiceRegistry entitlements entry', () => {
+  it('keeps the extension contract but grants nothing', async () => {
+    const registry = makeRegistry();
+    expect(registry.entitlements.check('ai:chat')).toBe(false);
+    expect(registry.entitlements.getAll()).toEqual([]);
   });
 });
 

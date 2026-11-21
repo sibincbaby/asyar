@@ -82,7 +82,7 @@ To fix it, enter the key again in **Settings → AI** and click **Save**.
 
 Asyar keeps API keys only on the device where you entered them. They are missing, and you need to enter them again in **Settings → AI**, when:
 
-- you set up Asyar on a **new device**, because keys are never synced;
+- you set up Asyar on a **new device**, because keys never leave the device;
 - you **restored a backup**, because backups never include keys;
 - you went back to an **older version** of Asyar, because older versions can't read the encrypted keys.
 

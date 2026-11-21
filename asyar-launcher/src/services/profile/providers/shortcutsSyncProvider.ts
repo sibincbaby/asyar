@@ -2,9 +2,6 @@ import {
   shortcutStore,
   type ItemShortcut,
 } from '../../../built-in-features/shortcuts/shortcutStore.svelte';
-import { normalizeShortcut } from '../../../built-in-features/shortcuts/shortcutFormatter';
-import { outranks } from '../../../built-in-features/shortcuts/shortcutDedupe';
-import { syncMarkTombstone } from '../../../lib/ipc/syncCommands';
 import type {
   ISyncProvider,
   SyncProviderData,
@@ -12,9 +9,6 @@ import type {
   ImportResult,
   DataSummary,
   ConflictStrategy,
-  SyncItem,
-  SyncChangeEvent,
-  Unsubscribe,
 } from '../types';
 
 export class ShortcutsSyncProvider implements ISyncProvider {
@@ -110,52 +104,5 @@ export class ShortcutsSyncProvider implements ISyncProvider {
       itemCount: items.length,
       label: `${items.length} shortcut${items.length !== 1 ? 's' : ''}`,
     };
-  }
-
-  // ── Delta sync surface ──────────────────────────────────────────────────
-  // Collection: one SyncItem per shortcut keyed by objectId (the stable
-  // identifier — surrogate `id` is not used here).
-
-  async exportItems(): Promise<SyncItem[]> {
-    return shortcutStore.getAll().map((shortcut) => ({
-      id: shortcut.objectId,
-      categoryId: this.id,
-      content: shortcut,
-    }));
-  }
-
-  /**
-   * One chord per item. `object_id` is unique but the chord is not, and agent
-   * command ids are minted per device, so a pull can bring back rows that
-   * collide with a chord a local row already holds. The loser is dropped and
-   * tombstoned explicitly: change events are suppressed while a pull is being
-   * applied, so the store's own delete event would never reach the journal.
-   */
-  async applyItemUpsert(item: SyncItem): Promise<void> {
-    const incoming = item.content as ItemShortcut;
-    const chord = normalizeShortcut(incoming.shortcut);
-    const rivals = shortcutStore
-      .getAll()
-      .filter((s) => s.objectId !== incoming.objectId && normalizeShortcut(s.shortcut) === chord);
-
-    if (rivals.some((r) => outranks(r, incoming))) {
-      await syncMarkTombstone(incoming.objectId, this.id);
-      return;
-    }
-    for (const rival of rivals) {
-      shortcutStore.remove(rival.objectId);
-      await syncMarkTombstone(rival.objectId, this.id);
-    }
-    shortcutStore.add(incoming);
-  }
-
-  async applyItemDelete(itemId: string): Promise<void> {
-    shortcutStore.remove(itemId);
-  }
-
-  subscribeToChanges(callback: (event: SyncChangeEvent) => void): Unsubscribe {
-    return shortcutStore.subscribe((ev) => {
-      callback({ type: ev.type, itemId: ev.itemId, categoryId: this.id });
-    });
   }
 }

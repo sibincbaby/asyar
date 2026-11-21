@@ -13,7 +13,7 @@ The General tab covers core appearance, window placement, and system integration
 
 - **Startup** — Toggle "Launch Asyar at login" to have Asyar start automatically when you log in to your computer.
 - **Tray Icon** — Toggle "Show icon in menu bar" (the in-app label) to control whether Asyar appears in your system tray.
-- **Placement & Drag to Snap** — Toggle "Drag to Snap" to control whether alignment snap guide lines appear when you reposition the launcher window. Note: launcher window placement is stored locally per machine and is deliberately excluded from cloud sync so multi-monitor differences don't clash across machines.
+- **Placement & Drag to Snap** — Toggle "Drag to Snap" to control whether alignment snap guide lines appear when you reposition the launcher window. Note: launcher window placement is stored locally per machine so multi-monitor differences don't clash across machines.
 - **Hotkey** — Change the global show/hide shortcut. Click inside the recorder, press your new combination (including standalone `F1`–`F24` keys or Hyper key combinations), and click Save.
 - **Appearance** — Switch between Light, Dark, or System (follows your operating system) colour scheme.
 - **Window Mode** — Choose between Default (search bar + results list visible immediately) and Compact (search bar only; results expand when you type).
@@ -115,15 +115,7 @@ This section is split across two related tabs.
 - **Text Expansion** — Enable or disable snippet text expansion.
 - **Developer Mode** — Unlocks the extension inspector, verbose logging, and extension sideloading. Intended for extension developers.
 
-## Account, Backup & About
-
-**Account** tab:
-
-- **Sign in** — Sign in with GitHub or Google to get access to cloud sync, AI conversation history sync, and premium features. See [Sync & Backup](./sync-and-backup.md) for full details.
-- **Features** — Shows which subscription features are active on your account.
-- **Subscription** — Opens your subscription management page on asyar.org.
-- **Cloud Sync** — Shows the last sync time and lets you trigger a manual sync. Requires an active subscription.
-- **Encrypted Sync** — Toggle end-to-end encryption for synced data. See [Sync & Backup](./sync-and-backup.md) for details.
+## Backup & About
 
 **Backup** tab:
 
@@ -133,13 +125,12 @@ This section is split across two related tabs.
 
 **About** tab:
 
-- **Version** — Shows the current Asyar version.
-- **Update channel** — Switch between Stable and Beta update channels.
-- **Check for updates** — Manually trigger an update check. If an update is available, you can download and install it from here without leaving the app.
+- **Version** — Shows the current Asyar version. Asyar has no built-in app updater; to update, install a newer `.deb` or AppImage.
+- **Credits & links** — Project credits and links to the source repository.
 
 ## Related
 
-- [Sync & Backup](./sync-and-backup.md)
+- [Backup](./backup.md)
 - [Import from Raycast](./features/raycast-import.md)
 - [Getting Started](./getting-started.md)
 - [Keyboard Shortcuts](./keyboard-shortcuts.md)

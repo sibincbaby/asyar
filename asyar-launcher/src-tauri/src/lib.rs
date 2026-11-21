@@ -164,9 +164,7 @@ pub mod agents;
 pub mod ai;
 mod aliases;
 pub mod app_events;
-pub mod app_updater;
 pub mod application;
-pub mod auth;
 pub mod bootstrap;
 pub mod browser;
 
@@ -228,7 +226,6 @@ pub mod snap_guides;
 mod snippets;
 pub mod sticky_window;
 pub mod storage;
-pub mod sync;
 pub mod system_actions;
 pub mod system_events;
 pub mod templating;
@@ -548,7 +545,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_deep_link::init());
 
     uri_schemes::register(builder)
@@ -567,9 +563,6 @@ pub fn run() {
         .manage(permissions::ExtensionPermissionRegistry::new())
         .manage(network::client_pool::ScopedHttpClientPool::new())
         .manage(network::websocket::WebSocketManager::new())
-        .manage(auth::state::AuthState::default())
-        .manage(auth::api_client::ApiClient::new())
-        .manage(crate::sync::e2ee::pairing::PairingSessionStore::new())
         .manage(oauth::OAuthPendingFlowState::new())
         .manage(deeplink::PendingDeeplinks::default())
         .manage(hud_window::HudState::default())
@@ -581,7 +574,6 @@ pub fn run() {
             RuntimeConfig::default(),
         )))
         .manage(extensions::onboarding_intercept::StashRegistry::default())
-        .manage(app_updater::AppUpdaterState::new())
         .manage(scheduler::Scheduler::new())
         .manage(power::PowerRegistry::new(power::default_backend()))
         .manage(std::sync::Arc::new(
@@ -610,7 +602,6 @@ pub fn run() {
         ))
         .manage(runtimes::RuntimeManager::new())
         .manage(feedback::channel::FeedbackChannelState::default())
-        .manage(feedback::PendingCrash::default())
         .manage(locale::LocaleService::new())
         .manage(launcher_coordinator)
         .manage(crate::agents::cache::AgentResponseCache::default())
@@ -645,30 +636,23 @@ pub fn run() {
             extension_commands,
             system_commands,
             ai_commands,
-            browser_and_sync_commands,
+            browser_and_profile_commands,
         ))
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app_handle, event| match event {
+        .run(|_app_handle, event| {
             // Closing a window must NEVER quit Asyar — it lives in the tray and
             // is summoned by hotkey, so windows come and go (sticky notes,
             // settings, onboarding). Tauri's default is to exit once the last
             // window closes; every intentional quit path (tray menu, the Quit
             // command, factory reset) calls `app.exit(0)` instead, which
             // carries an exit code. Only those are allowed through.
-            tauri::RunEvent::ExitRequested {
+            if let tauri::RunEvent::ExitRequested {
                 code: None, api, ..
-            } => {
+            } = event
+            {
                 api.prevent_exit();
             }
-            // Clear the run marker on graceful exit so the next launch does not
-            // mistake a clean shutdown for a crash.
-            tauri::RunEvent::Exit => {
-                if let Ok(data_dir) = app_handle.path().app_data_dir() {
-                    feedback::crash_reporter::remove_marker(&data_dir);
-                }
-            }
-            _ => {}
         });
 }
 

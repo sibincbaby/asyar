@@ -80,7 +80,6 @@ Caches are stored in a dedicated `extension_cache` SQLite table. Isolation is en
 | --------------- | -------------------------------- | ---------------------------- |
 | **Persistence** | Permanent until expired          | Permanent until deleted      |
 | **TTL Support** | Yes                              | No                           |
-| **Cloud Sync**  | No (Isolated to device)          | Yes (Syncs across devices)   |
 | **Best For**    | API data, search index snapshots | User content, history, notes |
 
 ---

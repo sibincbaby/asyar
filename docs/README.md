@@ -7,7 +7,7 @@ Asyar has two kinds of readers. Pick your track:
 You installed Asyar and want to get the most out of it. Start here.
 
 **→ [User Guide](./guide/)** — Getting started, every built-in feature, keyboard
-shortcuts, settings, syncing, and troubleshooting.
+shortcuts, settings, backup, and troubleshooting.
 
 ## 🛠 Building Extensions
 

@@ -77,7 +77,7 @@ CI runs `pnpm install --frozen-lockfile`. If the root lockfile is stale relative
 
 The launcher and SDK release **independently** via separate tag prefixes. **Always use the release scripts — never tag manually.**
 
-### Launcher release (`v*` tag → GitHub Releases + asyar.org updater)
+### Launcher release (`v*` tag → GitHub Releases)
 
 ```bash
 # From the monorepo root:
@@ -93,7 +93,7 @@ call), bumps `asyar-launcher/package.json` (version + declared `asyar-sdk` dep),
 `src-tauri/Cargo.toml`, `Cargo.lock`, and the `scaffoldService.ts` offline
 fallback, syncs the root lockfile, then creates a `release/vX.Y.Z` branch, opens
 a PR, and pushes the `vX.Y.Z` tag. The tag triggers `release-launcher.yml`
-(build matrix → publish → asyar.org notify). The Rust `SUPPORTED_SDK_VERSION` is
+(build matrix → publish). The Rust `SUPPORTED_SDK_VERSION` is
 injected at compile time by `src-tauri/build.rs`, not by the release script.
 Add `--dry-run` to either release command to preview without pushing. If a
 release CI run fails, re-run the workflow via _Run workflow_ (workflow_dispatch)
