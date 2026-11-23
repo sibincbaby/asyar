@@ -10,6 +10,8 @@ pub struct AppEntry {
     pub name: String,
     /// Empty for synthetic benchmark rows, which cannot be launched.
     pub path: PathBuf,
+    /// Raw `Icon=` value; resolve to a file with [`resolve_icons`].
+    pub icon_name: Option<String>,
 }
 
 /// `$XDG_DATA_HOME/applications` first, then each `$XDG_DATA_DIRS` entry.
@@ -40,6 +42,64 @@ pub fn scan() -> Vec<AppEntry> {
     )
 }
 
+/// Resolves each `Icon=` value to a PNG/SVG file. Slow (hundreds of ms over a
+/// large theme like Papirus), so callers run it off the UI thread.
+pub fn resolve_icons(names: &[Option<String>]) -> Vec<Option<PathBuf>> {
+    let theme = icon_theme();
+    names
+        .iter()
+        .map(|name| name.as_deref().and_then(|name| resolve_icon(name, &theme)))
+        .collect()
+}
+
+/// The user's icon theme: GTK's settings.ini, else the desktop's gsettings
+/// key (Cinnamon and GNOME keep it only there), else the base `hicolor`.
+fn icon_theme() -> String {
+    if let Some(theme) = freedesktop_icons::default_theme_gtk() {
+        return theme;
+    }
+    let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
+    let schema = if desktop.contains("Cinnamon") {
+        "org.cinnamon.desktop.interface"
+    } else {
+        "org.gnome.desktop.interface"
+    };
+    Command::new("gsettings")
+        .args(["get", schema, "icon-theme"])
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .map(|out| {
+            String::from_utf8_lossy(&out.stdout)
+                .trim()
+                .trim_matches('\'')
+                .to_owned()
+        })
+        .filter(|theme| !theme.is_empty())
+        .unwrap_or_else(|| "hicolor".to_owned())
+}
+
+/// `Icon=` is either an absolute file or a theme icon name (sometimes with a
+/// stray extension, which the spec forbids but real entries use).
+fn resolve_icon(name: &str, theme: &str) -> Option<PathBuf> {
+    let path = Path::new(name);
+    if path.is_absolute() {
+        return path.is_file().then(|| path.to_path_buf());
+    }
+    let name = name
+        .strip_suffix(".png")
+        .or_else(|| name.strip_suffix(".svg"))
+        .or_else(|| name.strip_suffix(".xpm"))
+        .unwrap_or(name);
+    freedesktop_icons::lookup(name)
+        .with_size(48)
+        .with_theme(theme)
+        .with_cache()
+        .find()
+        // GPUI renders PNG and SVG, not XPM.
+        .filter(|found| found.extension().is_some_and(|ext| ext != "xpm"))
+}
+
 fn scan_roots(roots: &[PathBuf], desktops: &[String], locale: &str) -> Vec<AppEntry> {
     let desktops: Vec<&str> = desktops.iter().map(String::as_str).collect();
     let mut seen = HashSet::new();
@@ -57,6 +117,7 @@ fn scan_roots(roots: &[PathBuf], desktops: &[String], locale: &str) -> Vec<AppEn
                     apps.push(AppEntry {
                         name,
                         path: path.to_path_buf(),
+                        icon_name: entry.icon.clone(),
                     });
                 }
             }
@@ -135,5 +196,15 @@ mod scan_tests {
             .collect();
 
         assert_eq!(names, ["Term", "User Editor"]);
+    }
+
+    #[test]
+    fn absolute_icon_paths_resolve_only_when_the_file_exists() {
+        let tmp = tempfile::tempdir().unwrap();
+        let png = tmp.path().join("app.png");
+        std::fs::write(&png, b"png").unwrap();
+        assert_eq!(resolve_icon(png.to_str().unwrap(), "hicolor"), Some(png));
+        let missing = tmp.path().join("gone.png");
+        assert_eq!(resolve_icon(missing.to_str().unwrap(), "hicolor"), None);
     }
 }

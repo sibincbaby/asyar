@@ -9,6 +9,7 @@
 
 mod apps;
 mod launcher;
+mod settings;
 
 // shortcut: compiled in by path to avoid linking GTK3 through asyar-platform;
 // move these two files into a GTK-free crate if the spike is adopted.

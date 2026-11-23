@@ -18,6 +18,10 @@ asyar-search = { path = "../asyar-launcher/src-tauri/crates/asyar-search" }
 sys-locale = "0.3"
 futures = "0.3"
 anyhow = "1"
+freedesktop-icons = "0.4.0"
+asyar-calculator = { path = "../asyar-launcher/src-tauri/crates/asyar-calculator" }
+serde_json = "1.0.154"
+rusqlite = { version = "0.31", features = ["bundled"] }
 
 [dev-dependencies]
 tempfile = "3"
