@@ -148,8 +148,8 @@ pub fn launch(app: &AppEntry) {
     if app.path.as_os_str().is_empty() {
         return;
     }
-    // shortcut: delegates Exec= field codes and D-Bus activation to `gio launch`
-    // (glib CLI); replace with a native launcher before shipping.
+    // Same as the Tauri app (application/service.rs): the host's `gio launch`
+    // handles Exec= field codes, D-Bus activation and startup notification.
     match Command::new("gio")
         .arg("launch")
         .arg(&app.path)

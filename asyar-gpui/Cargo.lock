@@ -352,10 +352,14 @@ dependencies = [
  "gpui-ce",
  "gpui_ce_elements",
  "gpui_ce_platform",
+ "image",
+ "raw-window-handle",
  "rusqlite",
  "serde_json",
  "sys-locale",
  "tempfile",
+ "tokio",
+ "x11rb",
 ]
 
 [[package]]

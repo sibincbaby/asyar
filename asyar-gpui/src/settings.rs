@@ -7,7 +7,7 @@
 use std::path::{Path, PathBuf};
 
 use asyar_calculator::locale::{self, NumberFormat};
-use gpui::{Window, colors::Colors};
+use gpui::{Hsla, Window, WindowAppearance, hsla};
 use rusqlite::{Connection, OpenFlags};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,6 +22,8 @@ pub struct Settings {
     pub theme: Theme,
     pub number_format: NumberFormat,
     pub preferred_currency: String,
+    /// How old currency rates may get before a refresh, in hours.
+    pub rates_ttl_hours: f64,
 }
 
 impl Settings {
@@ -53,20 +55,60 @@ impl Settings {
                 .map(|v| v.trim().to_uppercase())
                 .filter(|v| !v.is_empty())
                 .unwrap_or_else(|| "USD".to_owned()),
+            rates_ttl_hours: pref("refreshInterval")
+                .and_then(|v| v.trim().parse::<f64>().ok())
+                .filter(|h| *h > 0.0)
+                .unwrap_or(asyar_calculator::currency::DEFAULT_TTL_HOURS),
         }
     }
 
-    pub fn colors(&self, window: &Window) -> Colors {
+    pub fn is_dark(&self, window: &Window) -> bool {
         match self.theme {
-            Theme::Light => Colors::light(),
-            Theme::Dark => Colors::dark(),
-            Theme::System => Colors::for_appearance(window),
+            Theme::Light => false,
+            Theme::Dark => true,
+            Theme::System => matches!(
+                window.appearance(),
+                WindowAppearance::Dark | WindowAppearance::VibrantDark
+            ),
+        }
+    }
+}
+
+/// Glass palette: translucent tint over a blurred backdrop, a bright rim and
+/// a soft, colourless selection, after macOS's Liquid Glass look.
+pub struct Glass {
+    pub tint: Hsla,
+    pub text: Hsla,
+    pub muted: Hsla,
+    pub selection: Hsla,
+    pub divider: Hsla,
+    pub rim: Hsla,
+    pub sheen: Hsla,
+}
+
+impl Glass {
+    /// `frosted`: something blurred sits behind the tint, so it can be thin.
+    pub fn new(dark: bool, frosted: bool) -> Self {
+        let (ink, paper) = if dark { (1.0, 0.09) } else { (0.08, 1.0) };
+        let tint_alpha = match (frosted, dark) {
+            (true, false) => 0.55,
+            (true, true) => 0.5,
+            (false, _) => 0.9,
+        };
+        Self {
+            tint: hsla(0., 0., paper, tint_alpha),
+            text: hsla(0., 0., ink, 0.92),
+            muted: hsla(0., 0., ink, 0.55),
+            selection: hsla(0., 0., ink, if dark { 0.14 } else { 0.08 }),
+            divider: hsla(0., 0., ink, if dark { 0.10 } else { 0.07 }),
+            rim: hsla(0., 0., 1., if dark { 0.18 } else { 0.65 }),
+            sheen: hsla(0., 0., 1., if dark { 0.06 } else { 0.28 }),
         }
     }
 }
 
 /// `$XDG_DATA_HOME/org.asyar` (Tauri's app data dir for identifier `org.asyar`).
-fn data_dir() -> Option<PathBuf> {
+pub fn data_dir() -> Option<PathBuf> {
     std::env::var_os("XDG_DATA_HOME")
         .filter(|v| !v.is_empty())
         .map(PathBuf::from)
@@ -104,7 +146,8 @@ mod tests {
                  value TEXT, is_encrypted INTEGER);
              INSERT INTO extension_preferences VALUES
                  ('calculator', '', 'numberFormat', 'comma', 0),
-                 ('calculator', '', 'preferredCurrency', 'eur', 0);",
+                 ('calculator', '', 'preferredCurrency', 'eur', 0),
+                 ('calculator', '', 'refreshInterval', '12', 0);",
         )
         .unwrap();
 
@@ -112,6 +155,7 @@ mod tests {
         assert_eq!(s.theme, Theme::Dark);
         assert_eq!(s.number_format, NumberFormat::Comma);
         assert_eq!(s.preferred_currency, "EUR");
+        assert_eq!(s.rates_ttl_hours, 12.0);
     }
 
     #[test]
@@ -121,5 +165,6 @@ mod tests {
         assert_eq!(s.theme, Theme::System);
         assert_eq!(s.number_format, locale::detect());
         assert_eq!(s.preferred_currency, "USD");
+        assert_eq!(s.rates_ttl_hours, 6.0);
     }
 }

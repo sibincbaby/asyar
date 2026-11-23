@@ -13,9 +13,10 @@ use asyar_search::{RankInput, rank_ids};
 use futures::{StreamExt, channel::mpsc};
 use gpui::{
     App, AppContext, Bounds, ClipboardItem, Context, Entity, Focusable, FontWeight, KeyBinding,
-    QuitMode, ScrollStrategy, Subscription, Task, UniformListScrollHandle, Window, WindowBounds,
-    WindowDecorations, WindowHandle, WindowKind, WindowOptions, actions, div, img, point,
-    prelude::*, px, size, uniform_list,
+    LinuxWindowBackground, ObjectFit, QuitMode, RenderImage, ScrollStrategy, Subscription, Task,
+    UniformListScrollHandle, Window, WindowBounds, WindowDecorations, WindowHandle, WindowKind,
+    WindowOptions, actions, div, img, linear_color_stop, linear_gradient, point, prelude::*, px,
+    size, transparent_black, uniform_list,
 };
 use gpui_ce_elements::editable_text::{
     EditableTextState, StringStorage, TextChanged,
@@ -24,12 +25,16 @@ use gpui_ce_elements::editable_text::{
 };
 
 use crate::apps::{self, AppEntry};
-use crate::settings::Settings;
+use crate::rates::{Rates, Snapshot};
+use crate::settings::{Glass, Settings};
 
 const CONTEXT: &str = "Launcher";
 const WIDTH: f32 = 680.;
 const HEIGHT: f32 = 440.;
 const ROW_HEIGHT: f32 = 44.;
+/// Transparent border around the glass panel that holds its drop shadow.
+const SHADOW_MARGIN: f32 = 24.;
+const PANEL_RADIUS: f32 = 20.;
 
 actions!(launcher, [SelectPrev, SelectNext, Confirm, Dismiss]);
 
@@ -167,12 +172,26 @@ fn open(
     requested_at: Instant,
     cx: &mut App,
 ) -> anyhow::Result<WindowHandle<Launcher>> {
+    // Transparency (rounded corners, shadow, glass) only shows under a
+    // compositor; without one the margin would render as a black frame.
+    let composited = crate::x11_place::compositing();
+    let margin = if composited { SHADOW_MARGIN } else { 0. };
+    let window_size = size(px(WIDTH + 2. * margin), px(HEIGHT + 2. * margin));
     let build = |catalog: Rc<Catalog>| {
         move |window: &mut Window, cx: &mut App| {
-            cx.new(|cx| Launcher::new(catalog, requested_at, window, cx))
+            cx.new(|cx| Launcher::new(catalog, margin, requested_at, window, cx))
         }
     };
     let base = || WindowOptions {
+        // Shown by `Launcher::show` once placed and the backdrop is captured.
+        show: false,
+        linux_window_background: if !composited {
+            LinuxWindowBackground::Opaque
+        } else if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+            LinuxWindowBackground::Blurred
+        } else {
+            LinuxWindowBackground::Transparent
+        },
         titlebar: None,
         is_movable: false,
         is_resizable: false,
@@ -194,7 +213,7 @@ fn open(
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds {
                 origin: point(px(0.), px(0.)),
-                size: size(px(WIDTH), px(HEIGHT)),
+                size: window_size,
             })),
             kind: WindowKind::LayerShell(shell),
             ..base()
@@ -208,7 +227,7 @@ fn open(
         }
     }
 
-    let bounds = Bounds::centered(None, size(px(WIDTH), px(HEIGHT)), cx);
+    let bounds = Bounds::centered(None, window_size, cx);
     let options = WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(bounds)),
         kind: WindowKind::Normal,
@@ -224,15 +243,19 @@ enum Row {
 }
 
 /// Calculator answers for `query`, or none when it can't be a calculation.
-/// shortcut: currency rates aren't fetched, so currency queries return nothing;
-/// reuse the Tauri app's rates cache (`asyar_calculator::RatesCache`) to fix.
-fn calculate(query: &str, settings: &Settings) -> Vec<CalcResult> {
+/// `rates` is only read for queries that can be calculations.
+fn calculate(
+    query: &str,
+    settings: &Settings,
+    rates: impl FnOnce() -> Snapshot,
+) -> Vec<CalcResult> {
     if !should_attempt(query) {
         return Vec::new();
     }
+    let (rates, rates_age) = rates();
     let ctx = EvalContext::current(
-        None,
-        None,
+        rates,
+        rates_age,
         settings.preferred_currency.clone(),
         settings.number_format,
     );
@@ -242,6 +265,11 @@ fn calculate(query: &str, settings: &Settings) -> Vec<CalcResult> {
 pub struct Launcher {
     catalog: Rc<Catalog>,
     settings: Settings,
+    rates: Arc<Rates>,
+    /// Logical px of transparent shadow border around the panel.
+    margin: f32,
+    /// Blurred snapshot of what sits behind the panel (X11 only).
+    backdrop: Option<Arc<RenderImage>>,
     query: Entity<EditableTextState>,
     results: Rc<Vec<Row>>,
     selected: usize,
@@ -256,13 +284,13 @@ pub struct Launcher {
 impl Launcher {
     fn new(
         catalog: Rc<Catalog>,
+        margin: f32,
         requested_at: Instant,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let settings = Settings::load();
         let query = cx.new(|cx| EditableTextState::new(StringStorage::default(), cx));
-        window.focus(&query.focus_handle(cx), cx);
-        log_first_frame(window, requested_at);
 
         let subscriptions = vec![
             cx.subscribe_in(&query, window, |this, _, _: &TextChanged, window, cx| {
@@ -285,34 +313,57 @@ impl Launcher {
             }),
         ];
 
-        Self {
+        let mut this = Self {
             results: Rc::new((0..catalog.apps.len()).map(Row::App).collect()),
             catalog,
-            settings: Settings::load(),
+            rates: {
+                let rates = Arc::new(Rates::default());
+                rates.ensure_fresh(settings.rates_ttl_hours);
+                rates
+            },
+            settings,
+            margin,
+            backdrop: None,
             query,
             selected: 0,
             scroll: UniformListScrollHandle::new(),
             last_rank: Duration::ZERO,
             was_active: false,
-            visible: true,
+            visible: false,
             rank_task: Task::ready(()),
             _subscriptions: subscriptions,
-        }
+        };
+        this.show(requested_at, window, cx);
+        this
     }
 
     fn toggle(&mut self, requested_at: Instant, window: &mut Window, cx: &mut Context<Self>) {
         if self.visible {
             self.hide(window, cx);
         } else {
-            self.visible = true;
-            // Picks up changes made in the Tauri app's Settings window.
-            self.settings = Settings::load();
-            window.set_visible(true);
-            window.activate();
-            window.focus(&self.query.focus_handle(cx), cx);
-            log_first_frame(window, requested_at);
-            cx.notify();
+            self.show(requested_at, window, cx);
         }
+    }
+
+    fn show(&mut self, requested_at: Instant, window: &mut Window, cx: &mut Context<Self>) {
+        self.visible = true;
+        // Picks up changes made in the Tauri app's Settings window.
+        self.settings = Settings::load();
+        self.rates.ensure_fresh(self.settings.rates_ttl_hours);
+        // Placed and captured while unmapped: the WM applies the position on
+        // map, and the capture can't contain the launcher itself.
+        let placed = crate::x11_place::center_on_pointer_monitor(window);
+        let t = Instant::now();
+        let inset = (self.margin * window.scale_factor()).round() as i32;
+        self.backdrop = placed.and_then(|rect| crate::backdrop::capture(rect.inset(inset)));
+        if self.backdrop.is_some() {
+            eprintln!("[asyar-gpui] backdrop captured in {:?}", t.elapsed());
+        }
+        window.set_visible(true);
+        window.activate();
+        window.focus(&self.query.focus_handle(cx), cx);
+        log_first_frame(window, requested_at);
+        cx.notify();
     }
 
     fn hide(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -329,9 +380,10 @@ impl Launcher {
         let query = self.query.read(cx).as_str().to_owned();
         let items = self.catalog.rank.clone();
         let settings = self.settings.clone();
+        let rates = self.rates.clone();
         let ranking = cx.background_executor().spawn(async move {
             let t = Instant::now();
-            let mut rows: Vec<Row> = calculate(&query, &settings)
+            let mut rows: Vec<Row> = calculate(&query, &settings, || rates.snapshot())
                 .into_iter()
                 .map(Row::Calc)
                 .collect();
@@ -372,7 +424,10 @@ impl Launcher {
 
 impl Render for Launcher {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let colors = self.settings.colors(window);
+        let colors = Glass::new(
+            self.settings.is_dark(window),
+            self.backdrop.is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some(),
+        );
         let selected = self.selected;
         let results = self.results.clone();
         let catalog = self.catalog.clone();
@@ -390,7 +445,7 @@ impl Render for Launcher {
                         .flex()
                         .items_center()
                         .gap_3()
-                        .rounded_md();
+                        .rounded_lg();
                     let row = match &results[ix] {
                         Row::App(app) => {
                             let icon = match icons.get(*app) {
@@ -412,17 +467,12 @@ impl Render for Launcher {
                             .child(
                                 div()
                                     .text_sm()
-                                    // Muted grey is unreadable on the selection colour.
-                                    .text_color(if ix == selected {
-                                        colors.selected_text
-                                    } else {
-                                        colors.disabled
-                                    })
+                                    .text_color(colors.muted)
                                     .child(calc.detail.clone()),
                             ),
                     };
                     if ix == selected {
-                        row.bg(colors.selected).text_color(colors.selected_text)
+                        row.bg(colors.selection)
                     } else {
                         row
                     }
@@ -434,16 +484,72 @@ impl Render for Launcher {
         .min_h_0()
         .px_2();
 
-        div()
+        let radius = px(PANEL_RADIUS);
+        let layer = || div().absolute().inset_0().rounded(radius);
+        let content = div()
+            .relative()
             .size_full()
             .flex()
             .flex_col()
-            .bg(colors.background)
             .text_color(colors.text)
-            .rounded_xl()
+            .child(
+                div().p_3().border_b_1().border_color(colors.divider).child(
+                    text_input("query")
+                        .state(self.query.downgrade())
+                        .placeholder("Search apps…")
+                        .placeholder_color(colors.muted)
+                        .caret_color(colors.text)
+                        .w_full()
+                        .whitespace_nowrap()
+                        .px_2()
+                        .py_1()
+                        .text_lg(),
+                ),
+            )
+            .child(rows)
+            .child(
+                div()
+                    .px_4()
+                    .py_2()
+                    .border_t_1()
+                    .border_color(colors.divider)
+                    .text_sm()
+                    .text_color(colors.muted)
+                    .font_weight(FontWeight::MEDIUM)
+                    .child(format!(
+                        "{count} results · ranked in {:.2} ms",
+                        self.last_rank.as_secs_f64() * 1000.
+                    )),
+            );
+
+        // Glass, bottom to top: blurred backdrop, tint, a sheen fading down from
+        // the top edge, then content; a bright rim and a soft drop shadow outside.
+        let panel = div()
+            .relative()
+            .size_full()
+            .rounded(radius)
             .border_1()
-            .border_color(colors.border)
-            .overflow_hidden()
+            .border_color(colors.rim)
+            .when(self.margin > 0., |panel| panel.shadow_xl())
+            .children(self.backdrop.clone().map(|image| {
+                img(image)
+                    .absolute()
+                    .inset_0()
+                    .size_full()
+                    .rounded(radius)
+                    .object_fit(ObjectFit::Fill)
+            }))
+            .child(layer().bg(colors.tint))
+            .child(layer().bg(linear_gradient(
+                180.,
+                linear_color_stop(colors.sheen, 0.),
+                linear_color_stop(transparent_black(), 0.4),
+            )))
+            .child(content);
+
+        div()
+            .size_full()
+            .p(px(self.margin))
             .key_context(CONTEXT)
             .on_action(cx.listener(|this, _: &SelectPrev, _, cx| {
                 this.select(this.selected.saturating_sub(1), cx);
@@ -463,35 +569,7 @@ impl Render for Launcher {
                 this.hide(window, cx);
             }))
             .on_action(cx.listener(|this, _: &Dismiss, window, cx| this.hide(window, cx)))
-            .child(
-                div().p_3().border_b_1().border_color(colors.border).child(
-                    text_input("query")
-                        .state(self.query.downgrade())
-                        .placeholder("Search apps…")
-                        .placeholder_color(colors.disabled)
-                        .caret_color(gpui::rgb_to_hsla(colors.text))
-                        .w_full()
-                        .whitespace_nowrap()
-                        .px_2()
-                        .py_1()
-                        .text_lg(),
-                ),
-            )
-            .child(rows)
-            .child(
-                div()
-                    .px_4()
-                    .py_2()
-                    .border_t_1()
-                    .border_color(colors.border)
-                    .text_sm()
-                    .text_color(colors.disabled)
-                    .font_weight(FontWeight::MEDIUM)
-                    .child(format!(
-                        "{count} results · ranked in {:.2} ms",
-                        self.last_rank.as_secs_f64() * 1000.
-                    )),
-            )
+            .child(panel)
     }
 }
 
@@ -515,17 +593,34 @@ mod tests {
             theme: Theme::System,
             number_format: NumberFormat::Point,
             preferred_currency: "USD".into(),
+            rates_ttl_hours: 6.0,
         }
     }
 
     #[test]
     fn arithmetic_queries_get_an_answer_and_app_names_do_not() {
         assert_eq!(
-            calculate("3+3", &settings())
+            calculate("3+3", &settings(), || (None, None))
                 .first()
                 .map(|r| r.value.as_str()),
             Some("6")
         );
-        assert!(calculate("firefox", &settings()).is_empty());
+        assert!(calculate("firefox", &settings(), || (None, None)).is_empty());
+    }
+
+    #[test]
+    fn currency_queries_use_the_supplied_rates() {
+        let rates = [("USD".to_owned(), 1.0), ("EUR".to_owned(), 0.5)];
+        let snapshot = || {
+            (
+                Some(std::sync::Arc::new(rates.into_iter().collect())),
+                Some("1 h".to_owned()),
+            )
+        };
+        let answer = calculate("10 usd in eur", &settings(), snapshot);
+        assert!(
+            answer.first().is_some_and(|r| r.value.contains('5')),
+            "{answer:?}"
+        );
     }
 }

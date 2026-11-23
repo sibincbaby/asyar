@@ -68,6 +68,19 @@ machine.
   number format and preferred currency from `asyar_data.db`. Both live in
   `$XDG_DATA_HOME/org.asyar`.
 
+- Currency conversion with the Tauri app's rates cache
+  (`calculator/rates.json`), refreshed in the background when older than the
+  calculator's refresh interval; queries never wait on the network.
+- Centers the launcher on the monitor under the pointer on X11 (gpui-ce sets
+  no position hint, so the window manager would otherwise place it).
+- Glass look after macOS Liquid Glass: a translucent tint over a blurred
+  backdrop, a bright rim, a top sheen and a soft shadow, in light and dark.
+  KDE Plasma on Wayland blurs through the compositor. On X11, where window
+  managers like Cinnamon offer no blur, the launcher captures what sits behind
+  it just before showing, blurs a downscaled copy (about 22 ms per summon at
+  1360×880) and draws that; it is a still snapshot. Without a compositor the
+  panel is drawn opaque with no shadow.
+
 ## Not covered
 
 Tray, a native `Exec=` launcher (uses `gio launch`), extensions,
