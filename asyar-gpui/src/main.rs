@@ -10,6 +10,7 @@
 mod apps;
 mod backdrop;
 mod launcher;
+mod plugins;
 mod rates;
 mod settings;
 mod x11_place;

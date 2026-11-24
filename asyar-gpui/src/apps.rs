@@ -150,9 +150,18 @@ pub fn launch(app: &AppEntry) {
     }
     // Same as the Tauri app (application/service.rs): the host's `gio launch`
     // handles Exec= field codes, D-Bus activation and startup notification.
+    gio("launch", app.path.as_os_str());
+}
+
+/// Opens a web link in the default browser. Callers pass `http(s)` URLs only.
+pub fn open_url(url: &str) {
+    gio("open", url.as_ref());
+}
+
+fn gio(verb: &str, target: &std::ffi::OsStr) {
     match Command::new("gio")
-        .arg("launch")
-        .arg(&app.path)
+        .arg(verb)
+        .arg(target)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -160,10 +169,7 @@ pub fn launch(app: &AppEntry) {
     {
         // Reap in the background so the long-lived daemon collects no zombies.
         Ok(mut child) => drop(std::thread::spawn(move || child.wait())),
-        Err(error) => eprintln!(
-            "asyar-gpui: launching {} failed: {error}",
-            app.path.display()
-        ),
+        Err(error) => eprintln!("asyar-gpui: gio {verb} {target:?} failed: {error}"),
     }
 }
 

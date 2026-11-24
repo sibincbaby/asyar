@@ -1,6 +1,7 @@
 //! The launcher window: search field, virtualized result list, summon toggle.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::io::Read;
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
@@ -10,7 +11,10 @@ use std::time::{Duration, Instant};
 
 use asyar_calculator::{CalcResult, EvalContext, evaluate_query, should_attempt};
 use asyar_search::{RankInput, rank_ids};
-use futures::{StreamExt, channel::mpsc};
+use futures::{
+    StreamExt,
+    channel::{mpsc, oneshot},
+};
 use gpui::{
     App, AppContext, Bounds, ClipboardItem, Context, Entity, Focusable, FontWeight, KeyBinding,
     LinuxWindowBackground, ObjectFit, QuitMode, RenderImage, ScrollStrategy, Subscription, Task,
@@ -25,6 +29,7 @@ use gpui_ce_elements::editable_text::{
 };
 
 use crate::apps::{self, AppEntry};
+use crate::plugins::{self, Item, PluginCommand};
 use crate::rates::{Rates, Snapshot};
 use crate::settings::{Glass, Settings};
 
@@ -40,7 +45,11 @@ actions!(launcher, [SelectPrev, SelectNext, Confirm, Dismiss]);
 
 struct Catalog {
     apps: Vec<AppEntry>,
-    rank: Arc<Vec<RankInput>>,
+    app_rank: Vec<RankInput>,
+    /// Apps, then plugin commands with ids `p<index>`.
+    rank: RefCell<Arc<Vec<RankInput>>>,
+    plugins: RefCell<Arc<Vec<Arc<PluginCommand>>>>,
+    plugins_seen: RefCell<Option<plugins::Fingerprint>>,
     /// Filled in by a background lookup after the first frame; empty until then.
     icons: RefCell<Rc<Vec<Option<PathBuf>>>>,
 }
@@ -58,7 +67,7 @@ impl Catalog {
             path: Default::default(),
             icon_name: None,
         }));
-        let rank = apps
+        let app_rank: Vec<RankInput> = apps
             .iter()
             .enumerate()
             .map(|(i, app)| RankInput {
@@ -70,10 +79,56 @@ impl Catalog {
             .collect();
         Self {
             apps,
-            rank: Arc::new(rank),
+            rank: RefCell::new(Arc::new(app_rank.clone())),
+            app_rank,
+            plugins: Default::default(),
+            plugins_seen: Default::default(),
             icons: Default::default(),
         }
     }
+
+    fn set_plugins(&self, commands: Vec<PluginCommand>) {
+        let commands: Vec<Arc<PluginCommand>> = commands.into_iter().map(Arc::new).collect();
+        let mut rank = self.app_rank.clone();
+        rank.extend(commands.iter().enumerate().map(|(i, c)| RankInput {
+            id: format!("p{i}"),
+            title: c.title(),
+            subtitle: Some(c.summary.clone()),
+            keywords: vec![c.plugin.clone()],
+        }));
+        *self.rank.borrow_mut() = Arc::new(rank);
+        *self.plugins.borrow_mut() = Arc::new(commands);
+    }
+}
+
+/// Re-reads plugin catalogs off the UI thread, only when a manifest or a
+/// plugin program changed since the last summon.
+fn refresh_plugins(catalog: &Rc<Catalog>, cx: &mut App) {
+    let Some(dir) = plugins::dir() else {
+        return;
+    };
+    let print = plugins::fingerprint(&dir);
+    if catalog.plugins_seen.borrow().as_ref() == Some(&print) {
+        return;
+    }
+    *catalog.plugins_seen.borrow_mut() = Some(print);
+    let (tx, rx) = oneshot::channel();
+    std::thread::spawn(move || {
+        let t = Instant::now();
+        let _ = tx.send((plugins::discover(&dir), t.elapsed()));
+    });
+    let catalog = catalog.clone();
+    cx.spawn(async move |cx| {
+        if let Ok((commands, took)) = rx.await {
+            eprintln!(
+                "[asyar-gpui] loaded {} plugin commands in {took:?}",
+                commands.len()
+            );
+            catalog.set_plugins(commands);
+            cx.update(|cx| cx.refresh_windows());
+        }
+    })
+    .detach();
 }
 
 pub fn run(listener: UnixListener) {
@@ -236,10 +291,26 @@ fn open(
     cx.open_window(options, build(catalog.clone()))
 }
 
-/// One result row: calculator answers come first, then ranked apps.
+/// One result row: calculator answers come first, then ranked apps and
+/// plugin commands; inside a plugin view, that command's items.
 enum Row {
     Calc(CalcResult),
     App(usize),
+    Plugin(Arc<PluginCommand>),
+    Item(usize),
+}
+
+/// A plugin command's result list, replacing the search results.
+struct View {
+    command: Arc<PluginCommand>,
+    items: Rc<Vec<Item>>,
+    state: ViewState,
+}
+
+enum ViewState {
+    Loading,
+    Ready,
+    Failed(String),
 }
 
 /// Calculator answers for `query`, or none when it can't be a calculation.
@@ -280,6 +351,10 @@ pub struct Launcher {
     /// When focus loss last hid the window (see `toggle`).
     blurred_at: Option<Instant>,
     rank_task: Task<()>,
+    view: Option<View>,
+    /// Last result per command, shown at once while a fresh run loads.
+    cache: HashMap<String, Rc<Vec<Item>>>,
+    run_task: Task<()>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -335,6 +410,9 @@ impl Launcher {
             visible: false,
             blurred_at: None,
             rank_task: Task::ready(()),
+            view: None,
+            cache: HashMap::new(),
+            run_task: Task::ready(()),
             _subscriptions: subscriptions,
         };
         this.show(requested_at, window, cx);
@@ -354,6 +432,7 @@ impl Launcher {
         // Picks up changes made in the Tauri app's Settings window.
         self.settings = Settings::load();
         self.rates.ensure_fresh(self.settings.rates_ttl_hours);
+        refresh_plugins(&self.catalog, cx);
         // Placed and captured while unmapped: the WM applies the position on
         // map, and the capture can't contain the launcher itself.
         let placed = crate::x11_place::center_on_pointer_monitor(window);
@@ -374,6 +453,8 @@ impl Launcher {
         self.visible = false;
         self.was_active = false;
         window.set_visible(false);
+        self.view = None;
+        self.run_task = Task::ready(());
         // Next summon starts from an empty query, like every launcher.
         self.query.update(cx, |query, cx| query.emplace("", cx));
     }
@@ -382,7 +463,20 @@ impl Launcher {
     /// echoes the keystroke immediately and results land a frame later.
     fn rerank(&mut self, typed_at: Option<Instant>, window: &mut Window, cx: &mut Context<Self>) {
         let query = self.query.read(cx).as_str().to_owned();
-        let items = self.catalog.rank.clone();
+        // Plugin items are already in memory: filter them here, no ranking task.
+        if let Some(view) = &self.view {
+            self.rank_task = Task::ready(());
+            self.results = Rc::new(
+                plugins::filter(&query, &view.items)
+                    .into_iter()
+                    .map(Row::Item)
+                    .collect(),
+            );
+            self.select(0, cx);
+            return;
+        }
+        let items = self.catalog.rank.borrow().clone();
+        let commands = self.catalog.plugins.borrow().clone();
         let settings = self.settings.clone();
         let rates = self.rates.clone();
         let ranking = cx.background_executor().spawn(async move {
@@ -391,12 +485,15 @@ impl Launcher {
                 .into_iter()
                 .map(Row::Calc)
                 .collect();
-            rows.extend(
-                rank_ids(&query, &items)
-                    .iter()
-                    .filter_map(|id| id.parse().ok())
-                    .map(Row::App),
-            );
+            rows.extend(rank_ids(&query, &items).iter().filter_map(|id| {
+                match id.strip_prefix('p') {
+                    Some(ix) => commands
+                        .get(ix.parse::<usize>().ok()?)
+                        .cloned()
+                        .map(Row::Plugin),
+                    None => id.parse().ok().map(Row::App),
+                }
+            }));
             (rows, t.elapsed())
         });
         // Replacing the task drops the pending result of a stale query.
@@ -419,6 +516,62 @@ impl Launcher {
         });
     }
 
+    /// Runs `command` in its own thread (it may take seconds on the network)
+    /// and lists its items; cached items show meanwhile.
+    fn open_view(
+        &mut self,
+        command: Arc<PluginCommand>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let title = command.title();
+        self.view = Some(View {
+            command: command.clone(),
+            items: self.cache.get(&title).cloned().unwrap_or_default(),
+            state: ViewState::Loading,
+        });
+        self.query.update(cx, |query, cx| query.emplace("", cx));
+        self.rerank(None, window, cx);
+
+        let (tx, rx) = oneshot::channel();
+        let job = command.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(job.run());
+        });
+        self.run_task = cx.spawn_in(window, async move |this, cx| {
+            let Ok(result) = rx.await else {
+                return;
+            };
+            let _ = this.update_in(cx, |this, window, cx| {
+                // Ignore a run that finished after its view was left.
+                let Some(view) = this
+                    .view
+                    .as_mut()
+                    .filter(|view| Arc::ptr_eq(&view.command, &command))
+                else {
+                    return;
+                };
+                match result {
+                    Ok(items) => {
+                        let items = Rc::new(items);
+                        this.cache.insert(title, items.clone());
+                        view.items = items;
+                        view.state = ViewState::Ready;
+                    }
+                    Err(error) => view.state = ViewState::Failed(error),
+                }
+                this.rerank(None, window, cx);
+            });
+        });
+    }
+
+    fn close_view(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.view = None;
+        self.run_task = Task::ready(());
+        self.query.update(cx, |query, cx| query.emplace("", cx));
+        self.rerank(None, window, cx);
+    }
+
     fn select(&mut self, ix: usize, cx: &mut Context<Self>) {
         self.selected = ix;
         self.scroll.scroll_to_item(ix, ScrollStrategy::Nearest);
@@ -437,6 +590,12 @@ impl Render for Launcher {
         let catalog = self.catalog.clone();
         let icons = self.catalog.icons.borrow().clone();
         let count = results.len();
+        let view_items = self
+            .view
+            .as_ref()
+            .map(|view| view.items.clone())
+            .unwrap_or_default();
+        let muted = colors.muted;
 
         let rows = uniform_list("results", count, move |range, _window, _cx| {
             range
@@ -460,6 +619,41 @@ impl Render for Launcher {
                             };
                             row.child(icon).child(catalog.apps[*app].name.clone())
                         }
+                        Row::Plugin(command) => row
+                            .child(div().size(px(24.)).flex().justify_center().child("›"))
+                            .child(div().flex_1().min_w_0().truncate().child(command.title()))
+                            .child(
+                                div()
+                                    .max_w(px(300.))
+                                    .truncate()
+                                    .text_sm()
+                                    .text_color(muted)
+                                    .child(command.summary.clone()),
+                            ),
+                        Row::Item(item) => match view_items.get(*item) {
+                            Some(item) => row
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w_0()
+                                        .flex()
+                                        .flex_col()
+                                        .child(div().truncate().child(item.title.clone()))
+                                        .when(!item.subtitle.is_empty(), |text| {
+                                            text.child(
+                                                div()
+                                                    .truncate()
+                                                    .text_xs()
+                                                    .text_color(muted)
+                                                    .child(item.subtitle.clone()),
+                                            )
+                                        }),
+                                )
+                                .when(item.url.is_some(), |row| {
+                                    row.child(div().text_sm().text_color(muted).child("↗"))
+                                }),
+                            None => row,
+                        },
                         Row::Calc(calc) => row
                             .child(div().size(px(24.)).flex().justify_center().child("="))
                             .child(
@@ -468,12 +662,7 @@ impl Render for Launcher {
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .child(calc.value.clone()),
                             )
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(colors.muted)
-                                    .child(calc.detail.clone()),
-                            ),
+                            .child(div().text_sm().text_color(muted).child(calc.detail.clone())),
                     };
                     if ix == selected {
                         row.bg(colors.selection)
@@ -488,6 +677,27 @@ impl Render for Launcher {
         .min_h_0()
         .px_2();
 
+        let (placeholder, footer) = match &self.view {
+            None => (
+                "Search apps and commands…".to_owned(),
+                format!(
+                    "{count} results · ranked in {:.2} ms",
+                    self.last_rank.as_secs_f64() * 1000.
+                ),
+            ),
+            Some(view) => {
+                let title = view.command.title();
+                let total = view.items.len();
+                let status = match &view.state {
+                    ViewState::Loading if total == 0 => format!("Running {title}…"),
+                    ViewState::Loading => format!("{count} of {total} · {title} · refreshing…"),
+                    ViewState::Ready => format!("{count} of {total} · {title} · Esc to go back"),
+                    ViewState::Failed(error) => format!("{title} failed: {error}"),
+                };
+                (format!("Filter {title}…"), status)
+            }
+        };
+
         let radius = px(PANEL_RADIUS);
         let layer = || div().absolute().inset_0().rounded(radius);
         let content = div()
@@ -500,7 +710,7 @@ impl Render for Launcher {
                 div().p_3().border_b_1().border_color(colors.divider).child(
                     text_input("query")
                         .state(self.query.downgrade())
-                        .placeholder("Search apps…")
+                        .placeholder(placeholder)
                         .placeholder_color(colors.muted)
                         .caret_color(colors.text)
                         .w_full()
@@ -520,10 +730,8 @@ impl Render for Launcher {
                     .text_sm()
                     .text_color(colors.muted)
                     .font_weight(FontWeight::MEDIUM)
-                    .child(format!(
-                        "{count} results · ranked in {:.2} ms",
-                        self.last_rank.as_secs_f64() * 1000.
-                    )),
+                    .truncate()
+                    .child(footer),
             );
 
         // Glass, bottom to top: blurred backdrop, tint, a sheen fading down from
@@ -563,16 +771,37 @@ impl Render for Launcher {
                 this.select((this.selected + 1).min(last), cx);
             }))
             .on_action(cx.listener(|this, _: &Confirm, window, cx| {
-                match this.results.get(this.selected) {
+                let results = this.results.clone();
+                match results.get(this.selected) {
                     Some(Row::App(app)) => apps::launch(&this.catalog.apps[*app]),
                     Some(Row::Calc(calc)) => {
                         cx.write_to_clipboard(ClipboardItem::new_string(calc.value.clone()))
+                    }
+                    Some(Row::Plugin(command)) => {
+                        return this.open_view(command.clone(), window, cx);
+                    }
+                    Some(Row::Item(ix)) => {
+                        let Some(item) = this.view.as_ref().and_then(|v| v.items.get(*ix)) else {
+                            return;
+                        };
+                        match &item.url {
+                            Some(url) => apps::open_url(url),
+                            None => {
+                                cx.write_to_clipboard(ClipboardItem::new_string(item.title.clone()))
+                            }
+                        }
                     }
                     None => return,
                 }
                 this.hide(window, cx);
             }))
-            .on_action(cx.listener(|this, _: &Dismiss, window, cx| this.hide(window, cx)))
+            .on_action(cx.listener(|this, _: &Dismiss, window, cx| {
+                if this.view.is_some() {
+                    this.close_view(window, cx);
+                } else {
+                    this.hide(window, cx);
+                }
+            }))
             .child(panel)
     }
 }
