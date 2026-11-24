@@ -277,6 +277,8 @@ pub struct Launcher {
     last_rank: Duration,
     was_active: bool,
     visible: bool,
+    /// When focus loss last hid the window (see `toggle`).
+    blurred_at: Option<Instant>,
     rank_task: Task<()>,
     _subscriptions: Vec<Subscription>,
 }
@@ -309,6 +311,7 @@ impl Launcher {
                     this.was_active = true;
                 } else if this.was_active {
                     this.hide(window, cx);
+                    this.blurred_at = Some(Instant::now());
                 }
             }),
         ];
@@ -330,6 +333,7 @@ impl Launcher {
             last_rank: Duration::ZERO,
             was_active: false,
             visible: false,
+            blurred_at: None,
             rank_task: Task::ready(()),
             _subscriptions: subscriptions,
         };
@@ -340,7 +344,7 @@ impl Launcher {
     fn toggle(&mut self, requested_at: Instant, window: &mut Window, cx: &mut Context<Self>) {
         if self.visible {
             self.hide(window, cx);
-        } else {
+        } else if !hidden_by_same_press(self.blurred_at, requested_at) {
             self.show(requested_at, window, cx);
         }
     }
@@ -573,6 +577,17 @@ impl Render for Launcher {
     }
 }
 
+/// A Super-based shortcut makes the window manager grab the keyboard, which
+/// hides the open launcher by focus loss just before the toggle arrives;
+/// that toggle meant "hide", so it must not re-show the window.
+fn hidden_by_same_press(blurred_at: Option<Instant>, requested_at: Instant) -> bool {
+    const SAME_PRESS: Duration = Duration::from_millis(400);
+    blurred_at.is_some_and(|blurred| {
+        requested_at.saturating_duration_since(blurred) < SAME_PRESS
+            && blurred.saturating_duration_since(requested_at) < SAME_PRESS
+    })
+}
+
 fn log_first_frame(window: &Window, requested_at: Instant) {
     window.on_next_frame(move |_, _| {
         eprintln!(
@@ -584,9 +599,10 @@ fn log_first_frame(window: &Window, requested_at: Instant) {
 
 #[cfg(test)]
 mod tests {
-    use super::calculate;
+    use super::{calculate, hidden_by_same_press};
     use crate::settings::{Settings, Theme};
     use asyar_calculator::locale::NumberFormat;
+    use std::time::{Duration, Instant};
 
     fn settings() -> Settings {
         Settings {
@@ -622,5 +638,23 @@ mod tests {
             answer.first().is_some_and(|r| r.value.contains('5')),
             "{answer:?}"
         );
+    }
+
+    #[test]
+    fn a_toggle_right_after_a_focus_loss_hide_stays_hidden() {
+        let now = Instant::now();
+        assert!(hidden_by_same_press(
+            Some(now),
+            now + Duration::from_millis(50)
+        ));
+        assert!(hidden_by_same_press(
+            Some(now + Duration::from_millis(50)),
+            now
+        ));
+        assert!(!hidden_by_same_press(
+            Some(now),
+            now + Duration::from_secs(2)
+        ));
+        assert!(!hidden_by_same_press(None, now));
     }
 }
