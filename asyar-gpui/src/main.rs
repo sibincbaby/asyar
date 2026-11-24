@@ -7,8 +7,12 @@
 //! Run `asyar-gpui` once to start the daemon; run it again (e.g. from a
 //! compositor keybinding) to toggle the window.
 
+// gpui-kit re-exports GPUI; keep the familiar `gpui::` paths.
+extern crate gpui_kit as gpui;
+
 mod apps;
 mod backdrop;
+mod hotkey;
 mod launcher;
 mod plugins;
 mod rates;
@@ -37,9 +41,9 @@ fn socket_path() -> PathBuf {
 
 fn main() {
     let path = socket_path();
-    // A running daemon owns the socket: forward a toggle and exit. Binding this
-    // binary to a compositor shortcut is the global hotkey on X11 and every
-    // Wayland compositor, with no input grabbing.
+    // A running daemon owns the socket: forward a toggle and exit. The daemon
+    // grabs its own hotkey on X11; on Wayland, bind this binary to a
+    // compositor shortcut.
     if let Ok(mut stream) = UnixStream::connect(&path) {
         let _ = stream.write_all(b"toggle");
         return;

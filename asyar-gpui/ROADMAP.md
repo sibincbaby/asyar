@@ -5,8 +5,9 @@ without breaking the extensions already published in the Store.
 
 ## Decisions
 
-- **UI toolkit:** [`gpui-ce`](https://github.com/gpui-ce/gpui-ce), pinned to an
-  exact version (`=0.3.0`). It is pre-1.0, so upgrades are deliberate.
+- **UI toolkit:** [`gpui-kit`](https://github.com/longbridge/gpui-kit) 0.11 on
+  `gpui-pre` (a Zed GPUI snapshot), for its ready native components. It
+  replaced `gpui-ce`; upgrades are deliberate because GPUI is pre-1.0.
 - **Extensions: hybrid, webview on demand.** GPUI draws the launcher, every
   built-in, and the host-rendered parts of extensions (search results,
   actions, preferences, arguments). Extension workers and `role: 'view'`
@@ -58,7 +59,9 @@ asyar-gpui  (GPUI shell, always running)
 
 ## Known risks
 
-- `gpui-ce` X11 sets no window position hint, so the window manager places
-  the launcher (upstream fix needed).
+- GPUI's X11 backend sets no window position hint, so the window manager
+  places the launcher (worked around in `x11_place.rs`; upstream fix needed).
+- GPUI has no window show/hide: X11 unmaps the window directly; Wayland
+  re-creates it per summon (~100 ms) until GPUI gains one.
 - Accessibility (AccessKit) and IME input need checking per milestone.
 - Machines without Vulkan are not supported by GPUI's Linux renderer.

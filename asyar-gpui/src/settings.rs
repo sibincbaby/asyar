@@ -107,6 +107,29 @@ impl Glass {
     }
 }
 
+/// `$XDG_CONFIG_HOME/asyar-gpui`: settings this launcher owns.
+pub fn config_dir() -> Option<PathBuf> {
+    std::env::var_os("XDG_CONFIG_HOME")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
+        .map(|dir| dir.join("asyar-gpui"))
+}
+
+/// The global hotkey, e.g. `Alt+Space`, from `settings.json` in [`config_dir`].
+/// Not shared with the Tauri app, which needs a different key while both run.
+pub fn hotkey() -> String {
+    hotkey_from(config_dir().as_deref())
+}
+
+fn hotkey_from(dir: Option<&Path>) -> String {
+    dir.and_then(|dir| std::fs::read(dir.join("settings.json")).ok())
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+        .and_then(|v| Some(v.get("hotkey")?.as_str()?.trim().to_owned()))
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| "Alt+Space".to_owned())
+}
+
 /// `$XDG_DATA_HOME/org.asyar` (Tauri's app data dir for identifier `org.asyar`).
 pub fn data_dir() -> Option<PathBuf> {
     std::env::var_os("XDG_DATA_HOME")
@@ -156,6 +179,18 @@ mod tests {
         assert_eq!(s.number_format, NumberFormat::Comma);
         assert_eq!(s.preferred_currency, "EUR");
         assert_eq!(s.rates_ttl_hours, 12.0);
+    }
+
+    #[test]
+    fn hotkey_defaults_to_alt_space_and_parses() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(hotkey_from(Some(dir.path())), "Alt+Space");
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r#"{"hotkey": "Ctrl+Shift+K"}"#,
+        )
+        .unwrap();
+        assert_eq!(hotkey_from(Some(dir.path())), "Ctrl+Shift+K");
     }
 
     #[test]

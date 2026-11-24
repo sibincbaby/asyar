@@ -5,25 +5,42 @@ Rust UI can replace the Tauri + WebKitGTK frontend. It reuses Asyar's
 `.desktop` parser (`asyar-platform`) and ranker (`asyar-search`), so only the UI
 is new.
 
-UI stack: [`gpui-ce`](https://github.com/gpui-ce/gpui-ce) 0.3.0, a community
-fork of Zed's GPUI. Upstream `gpui` 0.2.2 on crates.io has no Wayland
-layer-shell yet.
+UI stack: [`gpui-kit`](https://github.com/longbridge/gpui-kit) 0.11
+(Apache-2.0), a component library (input, lists, Markdown, menus, themes) on
+`gpui-pre` 0.3.14, a crates.io snapshot of Zed's GPUI with Wayland layer-shell.
+It replaced the `gpui-ce` fork on 2026-11-24 so the launcher can reuse ready
+native components (see [docs/ui-protocol.md](docs/ui-protocol.md)).
+[`gpui-fast`](https://github.com/longbridge/gpui-fast) (`gpui-kit` feature
+`gpui-fast`) measured no faster here: list scrolling cost the same CPU per
+frame, and its own notes say its layers are off for lists.
 
 ## Run
 
 ```bash
 cargo run --release              # starts the daemon and shows the window
-./target/release/asyar-gpui      # again: toggles the window (bind to a hotkey)
+./target/release/asyar-gpui      # again: toggles the window
 ASYAR_GPUI_SYNTHETIC=10000 cargo run --release   # pad with 10k rows to stress typing
 ```
 
-Keys: type to search, Up/Down to select, Enter to launch, Escape or focus loss
-to hide. Stop the daemon with `pkill -x asyar-gpui`.
+Keys: Alt+Space to show or hide, type to search, Up/Down to select, Enter to
+launch, Escape or focus loss to hide. Stop the daemon with
+`pkill -x asyar-gpui`.
+
+On X11 the daemon grabs its hotkey itself, like the Tauri app. Change it in
+`~/.config/asyar-gpui/settings.json`, e.g. `{"hotkey": "Ctrl+Alt+Space"}`
+(modifiers Ctrl, Alt, Shift, Super; a letter, digit, Space, Enter, Tab or
+F1–F24). After the hotkey fires, the keyboard stays grabbed until its
+modifiers are released (at most 3 s): otherwise a quick Alt release reaches the
+app behind, which opens its menu on a lone Alt tap (Electron, Chrome, Firefox),
+and Cinnamon opens its start menu on a lone Super. Wayland apps can't grab
+keys, so there bind the `asyar-gpui` binary to a compositor shortcut.
 
 ## Install alongside the Tauri app (Cinnamon)
 
 This is how the preview was set up on the development machine (Linux Mint
-Cinnamon, X11), next to the installed Tauri app, which keeps Alt+Space.
+Cinnamon, X11), next to the installed Tauri app. The GPUI launcher is on
+Alt+Space; the Tauri app was moved to Super+Space in its Settings (Super was
+freed from Cinnamon's "switch input source" first, see below).
 
 ```bash
 cargo build --release
@@ -35,35 +52,29 @@ A menu entry at `~/.local/share/applications/asyar-gpui.desktop` runs
 `~/.local/bin/asyar-gpui`. It does not start at login; launch it once from the
 menu after a reboot.
 
-Super+Space is bound as a Cinnamon custom shortcut (`custom3`). Cinnamon
-ships Super+Space as "switch input source", so that action was reduced to the
-keyboard's layout key first:
+Cinnamon's "activate window menu" holds Alt+Space, so it was cleared for the
+launcher's own grab. Super+Space, held by "switch input source", was reduced
+to the keyboard's layout key for the Tauri app:
 
 ```bash
 gsettings set org.cinnamon.desktop.keybindings.wm switch-input-source "['XF86Keyboard']"
 gsettings set org.cinnamon.desktop.keybindings.wm switch-input-source-backward "['<Shift>XF86Keyboard']"
-K=org.cinnamon.desktop.keybindings.custom-keybinding:/org/cinnamon/desktop/keybindings/custom-keybindings/custom3/
-gsettings set $K name 'Asyar (GPUI)'
-gsettings set $K command "$HOME/.local/bin/asyar-gpui"
-gsettings set $K binding "['<Super>space']"
-gsettings set org.cinnamon.desktop.keybindings custom-list "['custom0', 'custom1', 'custom2', 'custom3']"
+gsettings set org.cinnamon.desktop.keybindings.wm activate-window-menu "[]"
 ```
+
+A Cinnamon custom shortcut is not used: the window manager holds a keyboard
+grab while its shortcut keys are down, and releasing it takes focus from the
+launcher.
 
 ### Undo
 
-Restore Super+Space to input-source switching:
+Restore Alt+Space to the window menu and Super+Space to input-source switching
+(set the Tauri app's hotkey back to Alt+Space in its Settings first):
 
 ```bash
+gsettings set org.cinnamon.desktop.keybindings.wm activate-window-menu "['<Alt>space']"
 gsettings set org.cinnamon.desktop.keybindings.wm switch-input-source "['<Super>space', 'XF86Keyboard']"
 gsettings set org.cinnamon.desktop.keybindings.wm switch-input-source-backward "['<Shift><Super>space', '<Shift>XF86Keyboard']"
-```
-
-Remove the shortcut (on that machine `custom0`–`custom2` are other shortcuts,
-so keep them in the list):
-
-```bash
-gsettings set org.cinnamon.desktop.keybindings custom-list "['custom0', 'custom1', 'custom2']"
-gsettings reset-recursively org.cinnamon.desktop.keybindings.custom-keybinding:/org/cinnamon/desktop/keybindings/custom-keybindings/custom3/
 ```
 
 Remove the launcher itself:
@@ -98,11 +109,19 @@ machine.
 
 ## Findings
 
-- Re-creating the window per summon costs ~110 ms (new GPU surface); parking it
-  with `Window::set_visible` gives ~19 ms.
+- Re-creating the window per summon costs ~110 ms (new GPU surface). GPUI has
+  no show/hide, so on X11 the launcher unmaps and re-maps the window itself:
+  summon to first frame is 21–26 ms including a 10–15 ms backdrop capture
+  (gpui-kit build, 2026-11-24). On Wayland the window is closed and re-created
+  per summon instead.
+- GPUI maps every new window at once (`show: false` is ignored on Linux), so
+  the launcher unmaps it before placing it and capturing the backdrop.
+- gpui-kit's `Root` wraps client-decorated windows in its own frame (20 px
+  shadow padding, 1 px border, shadow); the launcher uses that frame instead
+  of drawing its own.
 - The shared `asyar-search` ranker takes 25–50 ms for multi-word queries over
   10k rows. It runs on a background thread here so typing never waits on it.
-- `gpui-ce`'s X11 backend sets no position hint, so the window manager picks the
+- GPUI's X11 backend sets no position hint, so the window manager picks the
   placement and `Bounds::centered` is ignored.
 - Wayland layer-shell is wired up (`WindowKind::LayerShell`, falling back to a
   normal window on GNOME) but not yet tested on a Wayland session.
@@ -122,7 +141,7 @@ machine.
 - Currency conversion with the Tauri app's rates cache
   (`calculator/rates.json`), refreshed in the background when older than the
   calculator's refresh interval; queries never wait on the network.
-- Centers the launcher on the monitor under the pointer on X11 (gpui-ce sets
+- Centers the launcher on the monitor under the pointer on X11 (GPUI sets
   no position hint, so the window manager would otherwise place it).
 - Glass look after macOS Liquid Glass: a translucent tint over a blurred
   backdrop, a bright rim, a top sheen and a soft shadow, in light and dark.

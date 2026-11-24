@@ -68,11 +68,7 @@ pub fn filter(query: &str, items: &[Item]) -> Vec<usize> {
 }
 
 pub fn dir() -> Option<PathBuf> {
-    std::env::var_os("XDG_CONFIG_HOME")
-        .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
-        .map(|dir| dir.join("asyar-gpui/plugins"))
+    crate::settings::config_dir().map(|dir| dir.join("plugins"))
 }
 
 /// Changes whenever a manifest or a plugin program changes, so the launcher

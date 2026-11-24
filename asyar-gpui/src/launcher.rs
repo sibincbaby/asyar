@@ -15,17 +15,14 @@ use futures::{
     StreamExt,
     channel::{mpsc, oneshot},
 };
+use gpui::component::input::{Input, InputEvent, InputState};
+use gpui::component::{Root, Theme, ThemeMode};
 use gpui::{
     App, AppContext, Bounds, ClipboardItem, Context, Entity, Focusable, FontWeight, KeyBinding,
-    LinuxWindowBackground, ObjectFit, QuitMode, RenderImage, ScrollStrategy, Subscription, Task,
-    UniformListScrollHandle, Window, WindowBounds, WindowDecorations, WindowHandle, WindowKind,
+    ObjectFit, QuitMode, RenderImage, ScrollStrategy, Subscription, Task, UniformListScrollHandle,
+    Window, WindowBackgroundAppearance, WindowBounds, WindowDecorations, WindowHandle, WindowKind,
     WindowOptions, actions, div, img, linear_color_stop, linear_gradient, point, prelude::*, px,
     size, transparent_black, uniform_list,
-};
-use gpui_ce_elements::editable_text::{
-    EditableTextState, StringStorage, TextChanged,
-    actions::{DEFAULT_INPUT_CONTEXT, default_bindings},
-    text_input,
 };
 
 use crate::apps::{self, AppEntry};
@@ -34,12 +31,16 @@ use crate::rates::{Rates, Snapshot};
 use crate::settings::{Glass, Settings};
 
 const CONTEXT: &str = "Launcher";
+const PLACEHOLDER: &str = "Search apps and commands…";
 const WIDTH: f32 = 680.;
 const HEIGHT: f32 = 440.;
 const ROW_HEIGHT: f32 = 44.;
-/// Transparent border around the glass panel that holds its drop shadow.
-const SHADOW_MARGIN: f32 = 24.;
+/// gpui-kit's client-side window frame around the panel: 20 px of
+/// transparent shadow padding plus a 1 px border.
+const FRAME: f32 = 21.;
 const PANEL_RADIUS: f32 = 20.;
+/// How long focus must stay lost before the launcher hides.
+const BLUR_SETTLE: Duration = Duration::from_millis(150);
 
 actions!(launcher, [SelectPrev, SelectNext, Confirm, Dismiss]);
 
@@ -133,9 +134,10 @@ fn refresh_plugins(catalog: &Rc<Catalog>, cx: &mut App) {
 
 pub fn run(listener: UnixListener) {
     let process_start = Instant::now();
-    gpui_platform::application()
+    gpui::application()
         .with_quit_mode(QuitMode::Explicit)
         .run(move |cx: &mut App| {
+            gpui::init(cx);
             let t = Instant::now();
             let catalog = Rc::new(Catalog::load());
             eprintln!(
@@ -144,10 +146,9 @@ pub fn run(listener: UnixListener) {
                 t.elapsed()
             );
 
-            cx.bind_keys(default_bindings().as_keybindings(Some(DEFAULT_INPUT_CONTEXT)));
-            // Scoped to the field inside the launcher and registered later, so these
-            // win over the field's own Up/Down/Escape handling.
-            let in_field = format!("{CONTEXT} > {DEFAULT_INPUT_CONTEXT}");
+            // Scoped to the field inside the launcher and registered after
+            // `gpui::init`, so these win over the field's own Up/Down/Enter/Escape.
+            let in_field = format!("{CONTEXT} > Input");
             cx.bind_keys([
                 KeyBinding::new("up", SelectPrev, Some(&in_field)),
                 KeyBinding::new("down", SelectNext, Some(&in_field)),
@@ -156,7 +157,7 @@ pub fn run(listener: UnixListener) {
                 KeyBinding::new("escape", Dismiss, Some(CONTEXT)),
             ]);
 
-            let current: Rc<RefCell<Option<WindowHandle<Launcher>>>> = Default::default();
+            let current: Rc<RefCell<Option<Shown>>> = Default::default();
             toggle(&current, &catalog, process_start, cx);
 
             let names: Vec<Option<String>> = catalog
@@ -178,6 +179,7 @@ pub fn run(listener: UnixListener) {
             .detach();
 
             let (tx, mut rx) = mpsc::unbounded::<Instant>();
+            grab_hotkey(tx.clone());
             std::thread::spawn(move || {
                 for mut stream in listener.incoming().flatten() {
                     let at = Instant::now();
@@ -196,20 +198,37 @@ pub fn run(listener: UnixListener) {
         });
 }
 
+/// On Wayland, bind the `asyar-gpui` binary to a compositor shortcut instead.
+fn grab_hotkey(tx: mpsc::UnboundedSender<Instant>) {
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        return;
+    }
+    let spec = crate::settings::hotkey();
+    match crate::hotkey::start(&spec, move || {
+        let _ = tx.unbounded_send(Instant::now());
+    }) {
+        Ok(()) => eprintln!("[asyar-gpui] hotkey {spec}"),
+        Err(error) => eprintln!("[asyar-gpui] cannot grab hotkey {spec:?}: {error}"),
+    }
+}
+
+/// The launcher window: gpui-kit's `Root` wraps the `Launcher` view.
+type Shown = (WindowHandle<Root>, Entity<Launcher>);
+
 /// Shows or hides the parked window; opens one only on first use or if the
 /// window manager destroyed it. Re-creating the GPU surface per summon costs
 /// ~100 ms, so the window is kept alive and just unmapped.
 fn toggle(
-    current: &Rc<RefCell<Option<WindowHandle<Launcher>>>>,
+    current: &Rc<RefCell<Option<Shown>>>,
     catalog: &Rc<Catalog>,
     requested_at: Instant,
     cx: &mut App,
 ) {
-    let existing = *current.borrow();
-    if let Some(handle) = existing
+    let existing = current.borrow().clone();
+    if let Some((handle, launcher)) = existing
         && handle
-            .update(cx, |launcher, window, cx| {
-                launcher.toggle(requested_at, window, cx)
+            .update(cx, |_, window, cx| {
+                launcher.update(cx, |launcher, cx| launcher.toggle(requested_at, window, cx))
             })
             .is_ok()
     {
@@ -222,30 +241,34 @@ fn toggle(
     cx.activate(true);
 }
 
-fn open(
-    catalog: &Rc<Catalog>,
-    requested_at: Instant,
-    cx: &mut App,
-) -> anyhow::Result<WindowHandle<Launcher>> {
+fn open(catalog: &Rc<Catalog>, requested_at: Instant, cx: &mut App) -> anyhow::Result<Shown> {
     // Transparency (rounded corners, shadow, glass) only shows under a
-    // compositor; without one the margin would render as a black frame.
+    // compositor.
+    // shortcut: without one, gpui-kit's frame padding renders as a black
+    // border; fine on every composited desktop, revisit for bare X11.
     let composited = crate::x11_place::compositing();
-    let margin = if composited { SHADOW_MARGIN } else { 0. };
-    let window_size = size(px(WIDTH + 2. * margin), px(HEIGHT + 2. * margin));
+    let window_size = size(px(WIDTH + 2. * FRAME), px(HEIGHT + 2. * FRAME));
+    let launcher: Rc<RefCell<Option<Entity<Launcher>>>> = Default::default();
     let build = |catalog: Rc<Catalog>| {
+        let launcher = launcher.clone();
         move |window: &mut Window, cx: &mut App| {
-            cx.new(|cx| Launcher::new(catalog, margin, requested_at, window, cx))
+            let view = cx.new(|cx| Launcher::new(catalog, requested_at, window, cx));
+            *launcher.borrow_mut() = Some(view.clone());
+            // Root paints the theme background by default; the panel draws its own.
+            cx.new(|cx| Root::new(view, window, cx).bg(transparent_black()))
         }
     };
+    let shown = |handle: WindowHandle<Root>| {
+        let view = launcher.borrow_mut().take().expect("built with the window");
+        (handle, view)
+    };
     let base = || WindowOptions {
-        // Shown by `Launcher::show` once placed and the backdrop is captured.
-        show: false,
-        linux_window_background: if !composited {
-            LinuxWindowBackground::Opaque
+        window_background: if !composited {
+            WindowBackgroundAppearance::Opaque
         } else if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-            LinuxWindowBackground::Blurred
+            WindowBackgroundAppearance::Blurred
         } else {
-            LinuxWindowBackground::Transparent
+            WindowBackgroundAppearance::Transparent
         },
         titlebar: None,
         is_movable: false,
@@ -259,12 +282,14 @@ fn open(
     #[cfg(target_os = "linux")]
     if std::env::var_os("WAYLAND_DISPLAY").is_some() {
         use gpui::layer_shell::{Anchor, KeyboardInteractivity, Layer, LayerShellOptions};
-        let shell = LayerShellOptions::default()
-            .namespace("asyar")
-            .layer(Layer::Overlay)
-            .anchor(Anchor::TOP)
-            .margin(Some((px(160.), px(0.), px(0.), px(0.))))
-            .keyboard_interactivity(KeyboardInteractivity::Exclusive);
+        let shell = LayerShellOptions {
+            namespace: "asyar".into(),
+            layer: Layer::Overlay,
+            anchor: Anchor::TOP,
+            margin: Some((px(160.), px(0.), px(0.), px(0.))),
+            keyboard_interactivity: KeyboardInteractivity::Exclusive,
+            ..Default::default()
+        };
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds {
                 origin: point(px(0.), px(0.)),
@@ -274,7 +299,7 @@ fn open(
             ..base()
         };
         match cx.open_window(options, build(catalog.clone())) {
-            Ok(handle) => return Ok(handle),
+            Ok(handle) => return Ok(shown(handle)),
             // GNOME has no wlr-layer-shell: fall through to a normal window.
             Err(error) => {
                 eprintln!("[asyar-gpui] layer-shell unavailable ({error}); using a window")
@@ -288,7 +313,7 @@ fn open(
         kind: WindowKind::Normal,
         ..base()
     };
-    cx.open_window(options, build(catalog.clone()))
+    Ok(shown(cx.open_window(options, build(catalog.clone()))?))
 }
 
 /// One result row: calculator answers come first, then ranked apps and
@@ -337,11 +362,9 @@ pub struct Launcher {
     catalog: Rc<Catalog>,
     settings: Settings,
     rates: Arc<Rates>,
-    /// Logical px of transparent shadow border around the panel.
-    margin: f32,
     /// Blurred snapshot of what sits behind the panel (X11 only).
     backdrop: Option<Arc<RenderImage>>,
-    query: Entity<EditableTextState>,
+    query: Entity<InputState>,
     results: Rc<Vec<Row>>,
     selected: usize,
     scroll: UniformListScrollHandle,
@@ -350,6 +373,8 @@ pub struct Launcher {
     visible: bool,
     /// When focus loss last hid the window (see `toggle`).
     blurred_at: Option<Instant>,
+    /// Pending hide after a focus loss; dropped if focus comes back.
+    blur_check: Task<()>,
     rank_task: Task<()>,
     view: Option<View>,
     /// Last result per command, shown at once while a fresh run loads.
@@ -361,16 +386,18 @@ pub struct Launcher {
 impl Launcher {
     fn new(
         catalog: Rc<Catalog>,
-        margin: f32,
         requested_at: Instant,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         let settings = Settings::load();
-        let query = cx.new(|cx| EditableTextState::new(StringStorage::default(), cx));
+        let query = cx.new(|cx| InputState::new(window, cx).placeholder(PLACEHOLDER));
 
         let subscriptions = vec![
-            cx.subscribe_in(&query, window, |this, _, _: &TextChanged, window, cx| {
+            cx.subscribe_in(&query, window, |this, _, event: &InputEvent, window, cx| {
+                if !matches!(event, InputEvent::Change) {
+                    return;
+                }
                 // Not visible means the reset on hide, not a keystroke.
                 let typed_at = this.visible.then(Instant::now);
                 this.rerank(typed_at, window, cx);
@@ -384,9 +411,20 @@ impl Launcher {
             cx.observe_window_activation(window, |this, window, cx| {
                 if window.is_window_active() {
                     this.was_active = true;
+                    this.blur_check = Task::ready(());
                 } else if this.was_active {
-                    this.hide(window, cx);
-                    this.blurred_at = Some(Instant::now());
+                    // GPUI's X11 backend reports every FocusOut, including the
+                    // brief ones a keyboard grab causes when the hotkey is
+                    // released; only a focus loss that lasts is a dismissal.
+                    this.blur_check = cx.spawn_in(window, async move |this, cx| {
+                        cx.background_executor().timer(BLUR_SETTLE).await;
+                        let _ = this.update_in(cx, |this, window, cx| {
+                            if this.visible && !window.is_window_active() {
+                                this.hide(window, cx);
+                                this.blurred_at = Some(Instant::now());
+                            }
+                        });
+                    });
                 }
             }),
         ];
@@ -400,7 +438,6 @@ impl Launcher {
                 rates
             },
             settings,
-            margin,
             backdrop: None,
             query,
             selected: 0,
@@ -409,12 +446,16 @@ impl Launcher {
             was_active: false,
             visible: false,
             blurred_at: None,
+            blur_check: Task::ready(()),
             rank_task: Task::ready(()),
             view: None,
             cache: HashMap::new(),
             run_task: Task::ready(()),
             _subscriptions: subscriptions,
         };
+        // GPUI maps every new window; unmap it so `show` can place it and
+        // capture the backdrop first.
+        crate::x11_place::set_mapped(window, false);
         this.show(requested_at, window, cx);
         this
     }
@@ -433,17 +474,32 @@ impl Launcher {
         self.settings = Settings::load();
         self.rates.ensure_fresh(self.settings.rates_ttl_hours);
         refresh_plugins(&self.catalog, cx);
+        // gpui-kit components (the search field) and its window frame follow
+        // the launcher's light or dark glass.
+        let dark = self.settings.is_dark(window);
+        Theme::change(
+            if dark {
+                ThemeMode::Dark
+            } else {
+                ThemeMode::Light
+            },
+            None,
+            cx,
+        );
+        let theme = Theme::global_mut(cx);
+        theme.window_border = Glass::new(dark, true).rim;
+        theme.window_radius = px(PANEL_RADIUS);
         // Placed and captured while unmapped: the WM applies the position on
         // map, and the capture can't contain the launcher itself.
         let placed = crate::x11_place::center_on_pointer_monitor(window);
         let t = Instant::now();
-        let inset = (self.margin * window.scale_factor()).round() as i32;
+        let inset = (FRAME * window.scale_factor()).round() as i32;
         self.backdrop = placed.and_then(|rect| crate::backdrop::capture(rect.inset(inset)));
         if self.backdrop.is_some() {
             eprintln!("[asyar-gpui] backdrop captured in {:?}", t.elapsed());
         }
-        window.set_visible(true);
-        window.activate();
+        crate::x11_place::set_mapped(window, true);
+        window.activate_window();
         window.focus(&self.query.focus_handle(cx), cx);
         log_first_frame(window, requested_at);
         cx.notify();
@@ -452,17 +508,35 @@ impl Launcher {
     fn hide(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.visible = false;
         self.was_active = false;
-        window.set_visible(false);
         self.view = None;
         self.run_task = Task::ready(());
         // Next summon starts from an empty query, like every launcher.
-        self.query.update(cx, |query, cx| query.emplace("", cx));
+        self.set_query("", PLACEHOLDER, window, cx);
+        // shortcut: Wayland can't unmap, so the window closes and the next
+        // summon re-creates it (~100 ms); keep it if GPUI gains show/hide.
+        if !crate::x11_place::set_mapped(window, false) {
+            window.remove_window();
+        }
+    }
+
+    fn set_query(
+        &mut self,
+        text: &str,
+        placeholder: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let placeholder = placeholder.to_owned();
+        self.query.update(cx, |query, cx| {
+            query.set_placeholder(placeholder, window, cx);
+            query.set_value(text.to_owned(), window, cx);
+        });
     }
 
     /// Ranks off the UI thread so typing never waits on the ranker; the field
     /// echoes the keystroke immediately and results land a frame later.
     fn rerank(&mut self, typed_at: Option<Instant>, window: &mut Window, cx: &mut Context<Self>) {
-        let query = self.query.read(cx).as_str().to_owned();
+        let query = self.query.read(cx).value().to_string();
         // Plugin items are already in memory: filter them here, no ranking task.
         if let Some(view) = &self.view {
             self.rank_task = Task::ready(());
@@ -530,7 +604,7 @@ impl Launcher {
             items: self.cache.get(&title).cloned().unwrap_or_default(),
             state: ViewState::Loading,
         });
-        self.query.update(cx, |query, cx| query.emplace("", cx));
+        self.set_query("", &format!("Filter {title}…"), window, cx);
         self.rerank(None, window, cx);
 
         let (tx, rx) = oneshot::channel();
@@ -568,7 +642,7 @@ impl Launcher {
     fn close_view(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.view = None;
         self.run_task = Task::ready(());
-        self.query.update(cx, |query, cx| query.emplace("", cx));
+        self.set_query("", PLACEHOLDER, window, cx);
         self.rerank(None, window, cx);
     }
 
@@ -677,24 +751,20 @@ impl Render for Launcher {
         .min_h_0()
         .px_2();
 
-        let (placeholder, footer) = match &self.view {
-            None => (
-                "Search apps and commands…".to_owned(),
-                format!(
-                    "{count} results · ranked in {:.2} ms",
-                    self.last_rank.as_secs_f64() * 1000.
-                ),
+        let footer = match &self.view {
+            None => format!(
+                "{count} results · ranked in {:.2} ms",
+                self.last_rank.as_secs_f64() * 1000.
             ),
             Some(view) => {
                 let title = view.command.title();
                 let total = view.items.len();
-                let status = match &view.state {
+                match &view.state {
                     ViewState::Loading if total == 0 => format!("Running {title}…"),
                     ViewState::Loading => format!("{count} of {total} · {title} · refreshing…"),
                     ViewState::Ready => format!("{count} of {total} · {title} · Esc to go back"),
                     ViewState::Failed(error) => format!("{title} failed: {error}"),
-                };
-                (format!("Filter {title}…"), status)
+                }
             }
         };
 
@@ -707,18 +777,12 @@ impl Render for Launcher {
             .flex_col()
             .text_color(colors.text)
             .child(
-                div().p_3().border_b_1().border_color(colors.divider).child(
-                    text_input("query")
-                        .state(self.query.downgrade())
-                        .placeholder(placeholder)
-                        .placeholder_color(colors.muted)
-                        .caret_color(colors.text)
-                        .w_full()
-                        .whitespace_nowrap()
-                        .px_2()
-                        .py_1()
-                        .text_lg(),
-                ),
+                div()
+                    .p_3()
+                    .border_b_1()
+                    .border_color(colors.divider)
+                    .text_lg()
+                    .child(Input::new(&self.query).appearance(false)),
             )
             .child(rows)
             .child(
@@ -735,14 +799,12 @@ impl Render for Launcher {
             );
 
         // Glass, bottom to top: blurred backdrop, tint, a sheen fading down from
-        // the top edge, then content; a bright rim and a soft drop shadow outside.
+        // the top edge, then content. gpui-kit's window frame draws the rim and
+        // the drop shadow around it.
         let panel = div()
             .relative()
             .size_full()
             .rounded(radius)
-            .border_1()
-            .border_color(colors.rim)
-            .when(self.margin > 0., |panel| panel.shadow_xl())
             .children(self.backdrop.clone().map(|image| {
                 img(image)
                     .absolute()
@@ -761,7 +823,6 @@ impl Render for Launcher {
 
         div()
             .size_full()
-            .p(px(self.margin))
             .key_context(CONTEXT)
             .on_action(cx.listener(|this, _: &SelectPrev, _, cx| {
                 this.select(this.selected.saturating_sub(1), cx);

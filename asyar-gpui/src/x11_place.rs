@@ -1,8 +1,8 @@
 //! Centers the launcher on the monitor under the pointer on X11.
 //!
-//! shortcut: gpui-ce's X11 backend sets no position flag in WM_NORMAL_HINTS,
+//! shortcut: GPUI's X11 backend sets no position flag in WM_NORMAL_HINTS,
 //! so the window manager places the window itself and ignores the requested
-//! origin. Remove this module once gpui-ce sets PPosition upstream.
+//! origin. Remove this module once GPUI sets PPosition upstream.
 
 use std::sync::OnceLock;
 
@@ -80,12 +80,34 @@ pub fn connection() -> Option<&'static (RustConnection, usize)> {
     CONN.get_or_init(|| x11rb::connect(None).ok()).as_ref()
 }
 
+/// The window's X11 id; `None` on Wayland.
+fn xid(window: &Window) -> Option<u32> {
+    match HasWindowHandle::window_handle(window).ok()?.as_raw() {
+        RawWindowHandle::Xcb(handle) => Some(handle.window.get()),
+        RawWindowHandle::Xlib(handle) => Some(handle.window as u32),
+        _ => None,
+    }
+}
+
+/// Maps or unmaps the window: GPUI has no show/hide, and re-creating the
+/// window costs ~100 ms per summon. Returns false off X11.
+pub fn set_mapped(window: &Window, mapped: bool) -> bool {
+    let (Some(xid), Some((conn, _))) = (xid(window), connection()) else {
+        return false;
+    };
+    let _ = if mapped {
+        conn.map_window(xid)
+    } else {
+        conn.unmap_window(xid)
+    };
+    let _ = conn.flush();
+    true
+}
+
 fn try_center(window: &Window) -> anyhow::Result<Option<Rect>> {
-    let xid = match HasWindowHandle::window_handle(window)?.as_raw() {
-        RawWindowHandle::Xcb(handle) => handle.window.get(),
-        RawWindowHandle::Xlib(handle) => handle.window as u32,
-        // Wayland: layer-shell anchors the window instead.
-        _ => return Ok(None),
+    // Wayland: layer-shell anchors the window instead.
+    let Some(xid) = xid(window) else {
+        return Ok(None);
     };
     let Some((conn, screen)) = connection() else {
         anyhow::bail!("no X11 connection");
