@@ -177,6 +177,8 @@ route; default 0, meaning "show the cached copy, refresh in the background").
   `params[param] = item.id`, cancels a superseded run, and caches each result.
   Until it arrives, the pane shows the item's own `title`, `accessories` and
   `fields`, so it is never empty.
+- An item's own `detail` (`{"route", "params"}`) overrides the list's, e.g. a
+  notification row whose pane shows the issue it points to.
 - `accessories`: right-aligned `text`, `tag` (with `tone`) or `date` (ISO 8601,
   formatted by the launcher).
 - `tone`: `neutral`, `info`, `success`, `warning`, `danger`.
@@ -216,11 +218,25 @@ route; default 0, meaning "show the cached copy, refresh in the background").
 - `sections`: `timeline` (events, newest last) or `items` (rows that open
   `route` with their `id`).
 
+### Tabs
+
+Any view may carry `tabs`: sibling screens of one tool, shown as a strip under
+the search field (Ctrl+Tab / Ctrl+Shift+Tab switch). A tab with `badge_route`
+shows that route's `result.badge`.
+
+```json
+"tabs": [
+  { "route": "tasks", "title": "My tasks" },
+  { "route": "inbox", "title": "Inbox", "badge_route": "inbox-count" }
+]
+```
+
 ## Actions
 
-Actions appear in the footer (first two) and the Ctrl+K action panel (all).
-Shortcuts are hints; the launcher drops ones that clash with its own keys or
-with text editing.
+Actions appear in the footer (first three) and the Ctrl+K action panel (all).
+`shortcut` is a letter or `enter`; the launcher binds letters with Alt
+(`"s"` → Alt+S) because plain letters type into the search field, and drops
+ones that clash with its own keys or with text editing.
 
 ```json
 {
@@ -242,7 +258,7 @@ with text editing.
 | `push`  | Opens another screen: `route` with `params`. Esc goes back.                                     |
 | `run`   | Runs `run.route` with `run.params`.                                                             |
 | `pick`  | Shows a picker filled from `pick.options` or `pick.options_route`, then `run`s with the choice. |
-| `input` | Shows a one-line (or `multiline`) text field with `placeholder`, then `run`s with the text.     |
+| `input` | Shows a text field (`input: {"placeholder", "multiline"}`), then `run`s with the typed text.    |
 
 - `safety`: `read`, `write`, `destructive` (the same classes as lwcyl). The
   launcher runs `read` and `write` at once; `destructive` asks for confirmation

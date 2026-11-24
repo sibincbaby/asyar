@@ -10,6 +10,7 @@
 // gpui-kit re-exports GPUI; keep the familiar `gpui::` paths.
 extern crate gpui_kit as gpui;
 
+mod app;
 mod apps;
 mod backdrop;
 mod hotkey;
@@ -17,6 +18,7 @@ mod launcher;
 mod plugins;
 mod rates;
 mod settings;
+mod ui;
 mod x11_place;
 
 // shortcut: compiled in by path to avoid linking GTK3 through asyar-platform;

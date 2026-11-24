@@ -7,7 +7,7 @@
 //! Plugins run as separate processes, so a hung request never blocks the UI,
 //! and their sign-in stays inside the plugin.
 
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread::JoinHandle;
@@ -16,7 +16,7 @@ use std::time::{Duration, Instant, SystemTime};
 use serde_json::Value;
 
 const CATALOG_TIMEOUT: Duration = Duration::from_secs(10);
-const RUN_TIMEOUT: Duration = Duration::from_secs(30);
+pub(crate) const RUN_TIMEOUT: Duration = Duration::from_secs(30);
 const STDOUT_CAP: u64 = 16 << 20;
 const STDERR_CAP: u64 = 64 << 10;
 
@@ -39,7 +39,7 @@ impl PluginCommand {
     /// off the UI thread.
     pub fn run(&self) -> Result<Vec<Item>, String> {
         let args = self.words.iter().map(String::as_str).chain(["--json"]);
-        let output = exec(&self.program, args, RUN_TIMEOUT)?;
+        let output = exec(&self.program, args, RUN_TIMEOUT, None)?;
         parse_output(&output)
     }
 }
@@ -123,24 +123,60 @@ pub fn fingerprint(dir: &Path) -> Fingerprint {
     print
 }
 
-/// Reads every plugin's catalog. Blocks for up to 10 s per plugin.
-pub fn discover(dir: &Path) -> Vec<PluginCommand> {
-    manifests(dir)
-        .into_iter()
-        .flat_map(|(_, manifest)| {
-            let catalog = exec(&manifest.program, ["commands", "--json"], CATALOG_TIMEOUT)
-                .and_then(|out| {
-                    serde_json::from_slice::<Value>(&out.stdout).map_err(|e| e.to_string())
-                });
-            match catalog {
-                Ok(catalog) => parse_catalog(&manifest.name, &manifest.program, &catalog),
-                Err(error) => {
-                    eprintln!("[asyar-gpui] plugin {}: {error}", manifest.name);
-                    Vec::new()
-                }
-            }
-        })
-        .collect()
+/// A tool that speaks `asyar-ui/1`: its entries open native app screens.
+#[derive(Debug, Clone)]
+pub struct App {
+    pub program: PathBuf,
+    pub manifest: crate::ui::Manifest,
+}
+
+#[derive(Debug, Default)]
+pub struct Discovered {
+    pub commands: Vec<PluginCommand>,
+    pub apps: Vec<App>,
+}
+
+/// Asks each plugin for its `ui manifest`, falling back to its `commands
+/// --json` catalog. Blocks for up to 10 s per plugin.
+pub fn discover(dir: &Path) -> Discovered {
+    let mut found = Discovered::default();
+    for (_, manifest) in manifests(dir) {
+        let ui = exec(
+            &manifest.program,
+            ["ui", "manifest"],
+            CATALOG_TIMEOUT,
+            Some(b"{}"),
+        )
+        .and_then(|out| envelope_data(&out))
+        .ok()
+        .and_then(|data| serde_json::from_value::<crate::ui::Data>(data).ok())
+        .and_then(|data| data.manifest);
+        match ui {
+            Some(ui) => found.apps.push(App {
+                program: manifest.program,
+                manifest: ui,
+            }),
+            None => found.commands.extend(catalog(&manifest)),
+        }
+    }
+    found
+}
+
+fn catalog(manifest: &Manifest) -> Vec<PluginCommand> {
+    let catalog = exec(
+        &manifest.program,
+        ["commands", "--json"],
+        CATALOG_TIMEOUT,
+        None,
+    )
+    .and_then(|out| serde_json::from_slice::<Value>(&out.stdout).map_err(|e| e.to_string()));
+    match catalog {
+        Ok(catalog) => parse_catalog(&manifest.name, &manifest.program, &catalog),
+        Err(error) => {
+            eprintln!("[asyar-gpui] plugin {}: {error}", manifest.name);
+            Vec::new()
+        }
+    }
 }
 
 /// Read-only commands that need no arguments. Anything that writes needs a
@@ -174,24 +210,35 @@ fn parse_catalog(plugin: &str, program: &Path, catalog: &Value) -> Vec<PluginCom
         .collect()
 }
 
-struct Output {
+pub(crate) struct Output {
     stdout: Vec<u8>,
     stderr: Vec<u8>,
 }
 
-/// No shell: arguments go to the program as-is.
-fn exec<'a>(
+/// No shell: arguments go to the program as-is; `input` goes to its stdin.
+pub(crate) fn exec<'a>(
     program: &Path,
     args: impl IntoIterator<Item = &'a str>,
     timeout: Duration,
+    input: Option<&[u8]>,
 ) -> Result<Output, String> {
     let mut child = Command::new(program)
         .args(args)
-        .stdin(Stdio::null())
+        .stdin(if input.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("cannot run {}: {e}", program.display()))?;
+    if let (Some(input), Some(mut stdin)) = (input, child.stdin.take()) {
+        // Written on its own thread so a child that never reads can't block us;
+        // dropping the handle closes stdin.
+        let input = input.to_vec();
+        std::thread::spawn(move || stdin.write_all(&input));
+    }
     // Drained on their own threads so a full pipe can't stall the child.
     let stdout = drain(child.stdout.take(), STDOUT_CAP);
     let stderr = drain(child.stderr.take(), STDERR_CAP);
@@ -224,10 +271,14 @@ fn drain(pipe: Option<impl Read + Send + 'static>, cap: u64) -> JoinHandle<Vec<u
     })
 }
 
-/// Errors arrive as an `{ok: false, error}` envelope on stdout whatever the
-/// exit code; a crash leaves only stderr.
 fn parse_output(output: &Output) -> Result<Vec<Item>, String> {
-    let Ok(envelope) = serde_json::from_slice::<Value>(&output.stdout) else {
+    Ok(items(&envelope_data(output)?))
+}
+
+/// The `data` of a `{ok, data, error}` envelope. Errors arrive on stdout
+/// whatever the exit code; a crash leaves only stderr.
+pub(crate) fn envelope_data(output: &Output) -> Result<Value, String> {
+    let Ok(mut envelope) = serde_json::from_slice::<Value>(&output.stdout) else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let last = stderr.lines().rev().find(|l| !l.trim().is_empty());
         return Err(last.unwrap_or("no JSON output").trim().to_owned());
@@ -241,7 +292,10 @@ fn parse_output(output: &Output) -> Result<Vec<Item>, String> {
             _ => "the command failed".to_owned(),
         });
     }
-    Ok(items(envelope.get("data").unwrap_or(&Value::Null)))
+    Ok(envelope
+        .get_mut("data")
+        .map(Value::take)
+        .unwrap_or_default())
 }
 
 const TITLE_KEYS: [&str; 4] = ["title", "subject", "name", "summary"];
@@ -480,7 +534,9 @@ mod tests {
         .unwrap();
         std::fs::write(plugins.join("relative.json"), r#"{"program": "mytool"}"#).unwrap();
 
-        let commands = discover(&plugins);
+        let found = discover(&plugins);
+        assert!(found.apps.is_empty(), "the demo script has no `ui`");
+        let commands = found.commands;
         assert_eq!(commands.len(), 1);
         assert_eq!(commands[0].title(), "demo-cli ping");
         let rows = commands[0].run().unwrap();
@@ -489,5 +545,45 @@ mod tests {
             ("pong", "1")
         );
         assert_eq!(fingerprint(&plugins).len(), 3);
+    }
+
+    #[test]
+    fn ui_tools_become_apps_and_receive_requests_on_stdin() {
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("demo-ui");
+        std::fs::write(
+            &script,
+            r#"#!/bin/sh
+[ "$1" = ui ] || exit 1
+req=$(cat)
+case "$2" in
+  manifest) echo '{"ok":true,"data":{"manifest":{"id":"demo","title":"Demo","entries":[{"route":"tasks","title":"Demo"}]}}}' ;;
+  tasks) case "$req" in *'"query":"abc"'*) t=got-query ;; *) t=no-query ;; esac
+         echo "{\"ok\":true,\"data\":{\"view\":{\"type\":\"list\",\"title\":\"$t\"}}}" ;;
+  *) echo '{"ok":false,"error":{"code":"NOPE","message":"unknown route"}}' ;;
+esac
+"#,
+        )
+        .unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let plugins = dir.path().join("plugins");
+        std::fs::create_dir(&plugins).unwrap();
+        std::fs::write(
+            plugins.join("demo.json"),
+            json!({"program": script}).to_string(),
+        )
+        .unwrap();
+
+        let found = discover(&plugins);
+        assert!(found.commands.is_empty());
+        assert_eq!(found.apps[0].manifest.entries[0].route, "tasks");
+        let view = crate::ui::run(&script, "tasks", &Default::default(), "abc")
+            .unwrap()
+            .view
+            .unwrap();
+        assert_eq!(view.title, "got-query");
+        let error = crate::ui::run(&script, "nope", &Default::default(), "").unwrap_err();
+        assert_eq!(error, "unknown route (NOPE)");
     }
 }

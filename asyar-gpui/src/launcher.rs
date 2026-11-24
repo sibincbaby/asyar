@@ -25,15 +25,16 @@ use gpui::{
     size, transparent_black, uniform_list,
 };
 
+use crate::app::{self, AppEvent, ToolApp};
 use crate::apps::{self, AppEntry};
-use crate::plugins::{self, Item, PluginCommand};
+use crate::plugins::{self, Discovered, Item, PluginCommand};
 use crate::rates::{Rates, Snapshot};
 use crate::settings::{Glass, Settings};
 
 const CONTEXT: &str = "Launcher";
 const PLACEHOLDER: &str = "Search apps and commands…";
-const WIDTH: f32 = 680.;
-const HEIGHT: f32 = 440.;
+const WIDTH: f32 = 860.;
+const HEIGHT: f32 = 540.;
 const ROW_HEIGHT: f32 = 44.;
 /// gpui-kit's client-side window frame around the panel: 20 px of
 /// transparent shadow padding plus a 1 px border.
@@ -47,9 +48,10 @@ actions!(launcher, [SelectPrev, SelectNext, Confirm, Dismiss]);
 struct Catalog {
     apps: Vec<AppEntry>,
     app_rank: Vec<RankInput>,
-    /// Apps, then plugin commands with ids `p<index>`.
+    /// Apps, then plugin commands (`p<index>`) and tool app entries (`t<index>`).
     rank: RefCell<Arc<Vec<RankInput>>>,
     plugins: RefCell<Arc<Vec<Arc<PluginCommand>>>>,
+    tools: RefCell<Arc<Vec<Arc<ToolEntry>>>>,
     plugins_seen: RefCell<Option<plugins::Fingerprint>>,
     /// Filled in by a background lookup after the first frame; empty until then.
     icons: RefCell<Rc<Vec<Option<PathBuf>>>>,
@@ -83,13 +85,28 @@ impl Catalog {
             rank: RefCell::new(Arc::new(app_rank.clone())),
             app_rank,
             plugins: Default::default(),
+            tools: Default::default(),
             plugins_seen: Default::default(),
             icons: Default::default(),
         }
     }
 
-    fn set_plugins(&self, commands: Vec<PluginCommand>) {
-        let commands: Vec<Arc<PluginCommand>> = commands.into_iter().map(Arc::new).collect();
+    fn set_plugins(&self, found: Discovered) {
+        let commands: Vec<Arc<PluginCommand>> = found.commands.into_iter().map(Arc::new).collect();
+        let tools: Vec<Arc<ToolEntry>> = found
+            .apps
+            .into_iter()
+            .flat_map(|app| {
+                let title = app.manifest.title.clone();
+                app.manifest.entries.into_iter().map(move |entry| {
+                    Arc::new(ToolEntry {
+                        program: app.program.clone(),
+                        title: title.clone(),
+                        entry,
+                    })
+                })
+            })
+            .collect();
         let mut rank = self.app_rank.clone();
         rank.extend(commands.iter().enumerate().map(|(i, c)| RankInput {
             id: format!("p{i}"),
@@ -97,9 +114,24 @@ impl Catalog {
             subtitle: Some(c.summary.clone()),
             keywords: vec![c.plugin.clone()],
         }));
+        rank.extend(tools.iter().enumerate().map(|(i, t)| RankInput {
+            id: format!("t{i}"),
+            title: t.entry.title.clone(),
+            subtitle: Some(t.entry.subtitle.clone()),
+            keywords: t.entry.keywords.clone(),
+        }));
         *self.rank.borrow_mut() = Arc::new(rank);
         *self.plugins.borrow_mut() = Arc::new(commands);
+        *self.tools.borrow_mut() = Arc::new(tools);
     }
+}
+
+/// A root-search entry that opens a tool's native app (`asyar-ui`).
+struct ToolEntry {
+    program: PathBuf,
+    /// The tool's own name, shown in the app header ("CYL").
+    title: String,
+    entry: crate::ui::Entry,
 }
 
 /// Re-reads plugin catalogs off the UI thread, only when a manifest or a
@@ -122,8 +154,13 @@ fn refresh_plugins(catalog: &Rc<Catalog>, cx: &mut App) {
     cx.spawn(async move |cx| {
         if let Ok((commands, took)) = rx.await {
             eprintln!(
-                "[asyar-gpui] loaded {} plugin commands in {took:?}",
-                commands.len()
+                "[asyar-gpui] loaded {} plugin commands and {} app entries in {took:?}",
+                commands.commands.len(),
+                commands
+                    .apps
+                    .iter()
+                    .map(|a| a.manifest.entries.len())
+                    .sum::<usize>()
             );
             catalog.set_plugins(commands);
             cx.update(|cx| cx.refresh_windows());
@@ -155,6 +192,17 @@ pub fn run(listener: UnixListener) {
                 KeyBinding::new("enter", Confirm, Some(&in_field)),
                 KeyBinding::new("escape", Dismiss, Some(&in_field)),
                 KeyBinding::new("escape", Dismiss, Some(CONTEXT)),
+            ]);
+            // A tool app's field: registered last so these win inside apps.
+            let in_app = format!("{} > Input", app::CONTEXT);
+            cx.bind_keys([
+                KeyBinding::new("up", app::Up, Some(&in_app)),
+                KeyBinding::new("down", app::Down, Some(&in_app)),
+                KeyBinding::new("enter", app::Confirm, Some(&in_app)),
+                KeyBinding::new("escape", app::Back, Some(&in_app)),
+                KeyBinding::new("ctrl-k", app::ShowActions, Some(&in_app)),
+                KeyBinding::new("ctrl-tab", app::NextTab, Some(&in_app)),
+                KeyBinding::new("ctrl-shift-tab", app::PrevTab, Some(&in_app)),
             ]);
 
             let current: Rc<RefCell<Option<Shown>>> = Default::default();
@@ -323,6 +371,7 @@ enum Row {
     App(usize),
     Plugin(Arc<PluginCommand>),
     Item(usize),
+    Tool(Arc<ToolEntry>),
 }
 
 /// A plugin command's result list, replacing the search results.
@@ -380,6 +429,8 @@ pub struct Launcher {
     /// Last result per command, shown at once while a fresh run loads.
     cache: HashMap<String, Rc<Vec<Item>>>,
     run_task: Task<()>,
+    /// An open tool app replaces the search content until Esc.
+    app: Option<(Entity<ToolApp>, Subscription)>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -451,6 +502,7 @@ impl Launcher {
             view: None,
             cache: HashMap::new(),
             run_task: Task::ready(()),
+            app: None,
             _subscriptions: subscriptions,
         };
         // GPUI maps every new window; unmap it so `show` can place it and
@@ -509,6 +561,7 @@ impl Launcher {
         self.visible = false;
         self.was_active = false;
         self.view = None;
+        self.app = None;
         self.run_task = Task::ready(());
         // Next summon starts from an empty query, like every launcher.
         self.set_query("", PLACEHOLDER, window, cx);
@@ -551,6 +604,7 @@ impl Launcher {
         }
         let items = self.catalog.rank.borrow().clone();
         let commands = self.catalog.plugins.borrow().clone();
+        let tools = self.catalog.tools.borrow().clone();
         let settings = self.settings.clone();
         let rates = self.rates.clone();
         let ranking = cx.background_executor().spawn(async move {
@@ -560,12 +614,15 @@ impl Launcher {
                 .map(Row::Calc)
                 .collect();
             rows.extend(rank_ids(&query, &items).iter().filter_map(|id| {
-                match id.strip_prefix('p') {
-                    Some(ix) => commands
+                if let Some(ix) = id.strip_prefix('p') {
+                    commands
                         .get(ix.parse::<usize>().ok()?)
                         .cloned()
-                        .map(Row::Plugin),
-                    None => id.parse().ok().map(Row::App),
+                        .map(Row::Plugin)
+                } else if let Some(ix) = id.strip_prefix('t') {
+                    tools.get(ix.parse::<usize>().ok()?).cloned().map(Row::Tool)
+                } else {
+                    id.parse().ok().map(Row::App)
                 }
             }));
             (rows, t.elapsed())
@@ -639,6 +696,34 @@ impl Launcher {
         });
     }
 
+    fn open_app(&mut self, tool: Arc<ToolEntry>, window: &mut Window, cx: &mut Context<Self>) {
+        let looks = (
+            self.settings.is_dark(window),
+            self.backdrop.is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some(),
+        );
+        let app = cx.new(|cx| {
+            ToolApp::new(
+                tool.program.clone(),
+                tool.title.clone(),
+                tool.entry.route.clone(),
+                looks,
+                window,
+                cx,
+            )
+        });
+        let subscription =
+            cx.subscribe_in(&app, window, |this, _, event, window, cx| match event {
+                AppEvent::Close => {
+                    this.app = None;
+                    window.focus(&this.query.focus_handle(cx), cx);
+                    cx.notify();
+                }
+                AppEvent::Dismiss => this.hide(window, cx),
+            });
+        self.app = Some((app, subscription));
+        cx.notify();
+    }
+
     fn close_view(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.view = None;
         self.run_task = Task::ready(());
@@ -693,6 +778,23 @@ impl Render for Launcher {
                             };
                             row.child(icon).child(catalog.apps[*app].name.clone())
                         }
+                        Row::Tool(tool) => row
+                            .child(div().size(px(24.)).flex().justify_center().child("▦"))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .truncate()
+                                    .child(tool.entry.title.clone()),
+                            )
+                            .child(
+                                div()
+                                    .max_w(px(300.))
+                                    .truncate()
+                                    .text_sm()
+                                    .text_color(muted)
+                                    .child(tool.entry.subtitle.clone()),
+                            ),
                         Row::Plugin(command) => row
                             .child(div().size(px(24.)).flex().justify_center().child("›"))
                             .child(div().flex_1().min_w_0().truncate().child(command.title()))
@@ -819,7 +921,14 @@ impl Render for Launcher {
                 linear_color_stop(colors.sheen, 0.),
                 linear_color_stop(transparent_black(), 0.4),
             )))
-            .child(content);
+            .child(match &self.app {
+                Some((app, _)) => div()
+                    .relative()
+                    .size_full()
+                    .child(app.clone())
+                    .into_any_element(),
+                None => content.into_any_element(),
+            });
 
         div()
             .size_full()
@@ -840,6 +949,9 @@ impl Render for Launcher {
                     }
                     Some(Row::Plugin(command)) => {
                         return this.open_view(command.clone(), window, cx);
+                    }
+                    Some(Row::Tool(tool)) => {
+                        return this.open_app(tool.clone(), window, cx);
                     }
                     Some(Row::Item(ix)) => {
                         let Some(item) = this.view.as_ref().and_then(|v| v.items.get(*ix)) else {

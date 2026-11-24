@@ -308,6 +308,7 @@ dependencies = [
  "image",
  "raw-window-handle",
  "rusqlite",
+ "serde",
  "serde_json",
  "sys-locale",
  "tempfile",
